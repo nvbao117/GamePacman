@@ -1,8 +1,8 @@
 import pygame
-from core import Vector2
-from utils.constants import * 
 import numpy as np
 from config import *
+from core.vector import Vector2
+
 class Node(object) : 
     def __init__(self,x,y):
         self.position = Vector2(x,y)

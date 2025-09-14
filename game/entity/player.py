@@ -1,9 +1,9 @@
 import pygame
 from pygame.locals import * 
-from core import Vector2
-from utils.constants import *
-from entity import Entity
-from ui import PacmanScriptes
+from config import *
+from core.vector import Vector2
+from game.entity.entity import Entity
+from ui.sprites import PacmanScriptes
 
 class Pacman(Entity):
     def __init__(self,node):

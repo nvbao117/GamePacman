@@ -1,5 +1,4 @@
-from utils.constants import * 
-
+from config import *
 class MainMode(object):
     def __init__(self):
         self.timer = 0 

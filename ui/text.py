@@ -1,9 +1,6 @@
 import pygame 
-from core import Vector2
-from utils.constants import * 
 from config import *
-
-
+from core.vector import Vector2
 
 class Text(object) : 
     def __init__(self,text,color,x,y,size,time=None,id = None ,visible = True):

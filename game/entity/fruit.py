@@ -1,12 +1,11 @@
 import pygame 
 
-from config import *
 from pygame.locals import * 
-from core import Vector2
-from utils.constants import * 
-from entity import Entity
-from game import ModeController
-from ui import FruitSprites
+from config import *
+from core.vector import Vector2
+from game.entity.entity import Entity
+from game.modes import ModeController
+from ui.sprites import FruitSprites
 
 class Fruit(Entity):
     def __init__(self,node,level= 0 ):

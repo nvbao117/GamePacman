@@ -1,9 +1,7 @@
 import pygame 
-
 from pygame.locals import * 
-from core import Vector2
 from random import randint
-from utils.constants import * 
+from core.vector import Vector2
 from config import *
 
 class Entity(object):

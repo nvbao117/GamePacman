@@ -1,10 +1,10 @@
-import pygame
-from ui import UIComponent
-from utils.constants import *
-from ui import Text
-from ui import Button
-from config import *
 import sys
+
+import pygame
+from config import *
+from ui.uicomponent import UIComponent
+from ui.text import Text
+from ui.button import Button
 
 class MenuText(UIComponent):
     def __init__(self, app, text, color, x, y, size):

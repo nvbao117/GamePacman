@@ -1,5 +1,6 @@
-from utils.constants import * 
-from core import NodeGroup
+from config import *
+from core.nodes import NodeGroup
+
 class Mazebase(object):
     def __init__(self):
         self.portalPairs = {}

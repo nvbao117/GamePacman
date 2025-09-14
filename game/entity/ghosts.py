@@ -1,11 +1,10 @@
 import pygame 
 from config import *
 from pygame.locals import * 
-from core import Vector2
-from utils.constants import * 
-from entity import Entity
-from game import ModeController
-from ui import GhostSprites
+from core.vector import Vector2
+from game.entity.entity import Entity
+from game.modes import ModeController
+from ui.sprites import GhostSprites
 
 class Ghost(Entity):
     def __init__(self,node,pacman = None , blinky = None) : 

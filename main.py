@@ -3,7 +3,6 @@ import pygame
 from config import *
 
 from ui import Button
-from utils.constants import * 
 from ui import Menu
 
 

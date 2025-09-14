@@ -1,4 +1,4 @@
-from utils.constants import * 
+from config import *
 
 class Animator(object):
     def __init__(self,frames=[],speed = 20 , loop=True):

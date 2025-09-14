@@ -1,12 +1,15 @@
 import pygame
-
 from pygame.locals import * 
-from utils.constants import *
-from core import NodeGroup
-from entity import Pacman,Fruit,GhostGroup,PelletGroup
-from ui import TextGroup,LifeSprites,MazeSprites
-from game import Pause,MazeData
 from config import *
+from core.nodes import NodeGroup
+from game.pauser import Pause
+from game.maze import MazeData
+from ui.sprites import LifeSprites ,MazeSprites
+from game.entity.player import Pacman
+from game.entity.fruit import Fruit
+from game.entity.ghosts import GhostGroup
+from game.entity.pellets import PelletGroup
+from ui.text import TextGroup
 
 class Game(object):
     def __init__(self):
@@ -68,15 +71,15 @@ class Game(object):
 
     def startGame_old(self) : 
         self.mazedata.loadMaze(self.level)
-        self.mazesprites = MazeSprites("maze1,txt","maze1_rotation.txt")
+        self.mazesprites = MazeSprites("assets/maze/maze1.txt","assets/maze/maze1_rotation.txt")
         self.setBackground()
-        self.nodes = NodeGroup("maze1.txt")
+        self.nodes = NodeGroup("assets/maze/maze1.txt")
         self.nodes.setPortalPair((0,17),(27,17))
         homekey = self.nodes.createHomeNodes(11.5,14)
         self.nodes.connectHomeNodes(homekey,(12,14),LEFT)
         self.nodes.connectHomeNodes(homekey,(15,14),RIGHT)
         self.pacman = Pacman(self.nodes.getNodeFromTiles(15,26))
-        self.pellets = PelletGroup("maze1.txt")
+        self.pellets = PelletGroup("assets/maze/maze1.txt")
         self.ghosts = GhostGroup(self.nodes.getStartTempNode(),self.pacman)
         self.ghosts.blinky.setStartNode(self.nodes.getNodeFromTiles(2+11.5, 0+14))
         self.ghosts.pinky.setStartNode(self.nodes.getNodeFromTiles(2+11.5, 3+14))

@@ -1,16 +1,14 @@
-from ui import Animator
-from utils.constants import *
 import pygame
 import numpy as np 
 from config import *
-
+from ui.animation import Animator
 BASETILEWIDTH = 16
 BASETILEHEIGHT = 16
 DEATH = 5
 
 class Spritesheet(object):
     def __init__(self):
-        self.sheet = pygame.image.load("assets/pic/spritesheet_mspacman.png").convert()        
+        self.sheet = pygame.image.load("assets/images/spritesheet_mspacman.png").convert()        
         transcolor = self.sheet.get_at((0,0))
         self.sheet.set_colorkey(transcolor)
         width = int(self.sheet.get_width()/BASETILEWIDTH * TILEWIDTH) 

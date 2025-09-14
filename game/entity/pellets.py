@@ -1,6 +1,5 @@
 import pygame
-from core import Vector2
-from utils.constants import *
+from core.vector import Vector2
 import numpy as np
 from config import *
 
