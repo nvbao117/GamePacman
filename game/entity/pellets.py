@@ -3,6 +3,8 @@ from core.vector import Vector2
 import numpy as np
 from config import *
 
+
+#pellet thường 
 class Pellet(object):
     def __init__(self, row, column):
         self.name = PELLET
@@ -18,6 +20,7 @@ class Pellet(object):
             adjust = Vector2(TILEWIDTH, TILEHEIGHT) / 2
             p = self.position + adjust
             pygame.draw.circle(screen, self.color, p.asInt(), self.radius)
+
 
 class PowerPellet(Pellet):
     def __init__(self, row, column):

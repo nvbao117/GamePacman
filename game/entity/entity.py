@@ -29,6 +29,7 @@ class Entity(object):
     def setPosition(self) : 
         self.position = self.node.position.copy() 
         
+    #cập nhật vị trí entity 
     def update(self,dt) : 
         self.position += self.directions[self.direction]*self.speed*dt
         
@@ -46,7 +47,8 @@ class Entity(object):
                 self.target = self.getNewTarget(self.direction)
                 
             self.setPosition()
-        
+    
+    #kiểm tra hướng di chuyển hợp lệ     
     def validDirection(self,direction) : 
         if direction is not STOP:
             if self.name in self.node.access[direction]:
@@ -54,11 +56,13 @@ class Entity(object):
                     return True
         return False
     
+    #Lấy nút mục tiêu mới theo direction 
     def getNewTarget(self,direction):
         if self.validDirection(direction) : 
             return self.node.neighbors[direction] 
         return self.node 
     
+    #Kiểm tra xem có vượt quá target không 
     def overshotTarget(self):
         if self.target is not None :
             vec1 = self.target.position - self.node.position 
@@ -68,18 +72,21 @@ class Entity(object):
             return node2Self >= node2Target
         return False
     
+    #Đảo ngược hướng di chuyển , đổi target
     def reverseDirection(self):
         self.direction *= -1 
         temp = self.node 
         self.node = self.target
         self.target = temp 
     
+    # Kiểm tra xem một hướng có ngược hướng với hiện tại không
     def oppositeDirection(self,direction):
         if direction is not STOP : 
             if direction == self.direction * - 1  : 
                 return True 
         return False 
     
+    # Lấy danh sách các hướng hợp lệ 
     def validDirections(self):
         directions = [] 
         for key in [UP,DOWN,LEFT,RIGHT]  :
@@ -90,9 +97,11 @@ class Entity(object):
             directions.append(self.direction * -1) 
         return directions
     
+    # random hướng 
     def randomDirection(self, directions):
         return directions[randint(0,len(directions) - 1 )]
     
+    # Chọn hướng gần nhất với mục tiêu 
     def goalDirection(self,directions) : 
         distances = [] 
         for direction in directions  : 
@@ -101,26 +110,31 @@ class Entity(object):
         index = distances.index(min(distances)) 
         return directions[index] 
     
+    # Đặt nút khởi đầu 
     def setStartNode(self,node) : 
         self.node = node 
         self.startNode = node 
         self.target = node 
         self.setPosition()
     
+    # Đặt vị trí giữa 2 nút dựa trên hướng
     def setBetweenNodes(self,direction) : 
         if self.node.neighbors[direction] is not None :
             self.target = self.node.neighbors[direction]
             self.position = (self.node.position + self.target.position) / 2.0 
     
+    # khôi phục trạng thái ban đầu 
     def reset(self):
         self.setStartNode(self.startNode)
         self.direction = STOP
         self.speed = 100 
         self.visible = True 
     
+    # đặt tốc độ di chuyển 
     def setSpeed(self,speed):
         self.speed = speed * TILEWIDTH/16
      
+    # vẽ lên màn hình 
     def render(self,screen) : 
         if self.visible : 
             if self.image is not None : 

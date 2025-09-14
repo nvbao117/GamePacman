@@ -15,6 +15,7 @@ class Pacman(Entity):
         self.alive = True
         self.sprites = PacmanScriptes(self)
             
+    # Khôi phục pacman về trạng thái ban đầu 
     def reset(self):
         Entity.reset(self) 
         self.direction = LEFT
@@ -23,10 +24,12 @@ class Pacman(Entity):
         self.image = self.sprites.getStartImage()
         self.sprites.reset()
     
+    # pacman bị tiêu diệt
     def die(self):
         self.alive = False
         self.direction = STOP 
         
+    # cập nhật trạng thái pacman 
     def update(self,dt):
         self.sprites.update(dt) 
         self.position += self.directions[self.direction]*self.speed*dt
@@ -47,7 +50,8 @@ class Pacman(Entity):
         else:
             if self.oppositeDirection(direction):
                 self.reverseDirection() 
-            
+          
+    #xác định hướng di chuyển   
     def getValidKey(self):
         key_pressed = pygame.key.get_pressed()
         if key_pressed[K_UP] : 
@@ -60,15 +64,18 @@ class Pacman(Entity):
             return RIGHT
         return STOP
     
+    # kiểm tra ăn pellet 
     def eatPellets(self,pelletList):
         for pellet in pelletList : 
             if self.collideCheck(pellet) : 
                 return pellet
         return None 
     
+    #Kiểm tra va chạm với ghost
     def collideGhost(self,ghost):
         return self.collideCheck(ghost) 
 
+    # kiểm tra va chạm 
     def collideCheck(self,other):
         d = self.position - other.position 
         dSquared = d.magnitudeSquared()
