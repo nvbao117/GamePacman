@@ -20,7 +20,12 @@ class Node(object) :
             LEFT:[PACMAN,BLINKY,PINKY,INKY,CLYDE,FRUIT],
             RIGHT:[PACMAN,BLINKY,PINKY,INKY,CLYDE,FRUIT]
         }
-        
+    def __eq__(self, other):
+        return isinstance(other, Node) and self.position == other.position
+
+    def __hash__(self):
+        return hash((self.position.x, self.position.y))
+    
     def denyAccess(self,direction,entity) : 
         if entity.name in self.access[direction] :
             self.access[direction].remove(entity.name)
@@ -28,7 +33,8 @@ class Node(object) :
     def allowAccess(self, direction,entity) : 
         if entity.name not in self.access[direction]:
             self.access[direction].append(entity.name)
-    
+    def positions(self):
+        print(f"{self.position.x,self.position.y}")
     def render(self,screen):
         for n in self.neighbors.keys():
             if self.neighbors[n] is not None:
@@ -41,7 +47,7 @@ class NodeGroup(object):
     def __init__(self,level) : 
         self.level = level
         self.nodesLUT = {}
-        self.nodeSymbols =['+','P','n'] 
+        self.nodeSymbols = ['+','P','n','.','p','-','|'] 
         self.pathSymbols = ['.','-','|','p']
         data = self.readMazeFile(level)
         self.createNodeTable(data)
@@ -133,6 +139,12 @@ class NodeGroup(object):
         if (x, y) in self.nodesLUT.keys():
             return self.nodesLUT[(x, y)]
         return None
+    
+    def getNodeForPellet(self, col, row):
+        x, y = self.constructKey(col, row)
+        if (x, y) not in self.nodesLUT:
+            self.nodesLUT[(x, y)] = Node(x, y)   # tạo node mới cho pellet
+        return self.nodesLUT[(x, y)]
     
     def denyAccess(self,col,row,direction,entity):
         node = self.getNodeFromTiles(col, row)

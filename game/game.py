@@ -54,7 +54,7 @@ class Game(object):
         self.mazedata.obj.setPortalPairs(self.nodes)
         self.mazedata.obj.connectHomeNodes(self.nodes)
         self.pacman = Pacman(self.nodes.getNodeFromTiles(*self.mazedata.obj.pacmanStart))
-        self.pellets = PelletGroup("assets/maze/"+self.mazedata.obj.name+".txt")
+        self.pellets = PelletGroup("assets/maze/"+self.mazedata.obj.name+".txt",self.nodes)
         self.ghosts = GhostGroup(self.nodes.getStartTempNode(), self.pacman)
 
         self.ghosts.pinky.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(2, 3)))
@@ -67,6 +67,8 @@ class Game(object):
         self.nodes.denyHomeAccessList(self.ghosts)
         self.ghosts.inky.startNode.denyAccess(RIGHT, self.ghosts.inky)
         self.ghosts.clyde.startNode.denyAccess(LEFT, self.ghosts.clyde)
+        self.ghosts.blinky.startNode.denyAccess(LEFT, self.ghosts.clyde)
+        self.ghosts.pinky.startNode.denyAccess(LEFT, self.ghosts.clyde)
         self.mazedata.obj.denyGhostsAccess(self.ghosts, self.nodes)
 
     def startGame_old(self) : 
@@ -86,7 +88,7 @@ class Game(object):
         self.ghosts.inky.setStartNode(self.nodes.getNodeFromTiles(0+11.5, 3+14))
         self.ghosts.clyde.setStartNode(self.nodes.getNodeFromTiles(4+11.5, 3+14))
         self.ghosts.setSpawnNode(self.nodes.getNodeFromTiles(2+11.5, 3+14))
-
+    
         self.nodes.denyHomeAccess(self.pacman)
         self.nodes.denyHomeAccessList(self.ghosts)
         self.nodes.denyAccessList(2+11.5, 3+14, LEFT, self.ghosts)
@@ -103,7 +105,7 @@ class Game(object):
         self.textgroup.update(dt)
         self.pellets.update(dt)
         if not self.pause.paused:
-            self.ghosts.update(dt)
+            # self.ghosts.update(dt)
             if self.fruit is not None:
                 self.fruit.update(dt)
             self.checkPelletEvents()
@@ -111,7 +113,7 @@ class Game(object):
             self.checkFruitEvents()
         if self.pacman.alive:
             if not self.pause.paused:
-                self.pacman.update(dt)
+                self.pacman.update(dt,self.pellets,True)
         else:
             self.pacman.update(dt)
         
@@ -249,7 +251,7 @@ class Game(object):
         if self.fruit is not None:
             self.fruit.render(self.screen)       
         self.pacman.render(self.screen)
-        self.ghosts.render(self.screen)
+        # self.ghosts.render(self.screen)
         self.textgroup.render(self.screen)
         
         for i in range(len(self.lifesprites.images)):
