@@ -1,7 +1,7 @@
 import sys 
 import pygame 
 from config import *
-
+from game.game import Game
 from ui.button import Button
 from ui.menu import Menu
 
@@ -39,5 +39,7 @@ class App :
             pygame.display.flip()
 
 if __name__ =='__main__':
-    app = App()
-    app.run()
+    game = Game()
+    game.startGame()
+    while True:
+        game.update()

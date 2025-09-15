@@ -19,6 +19,7 @@ class Pacman(Entity):
         self.alive = True
         self.sprites = PacmanScriptes(self)
         self.path = []
+        self.locked_target_node = None
         
         
     # Khôi phục pacman về trạng thái ban đầu 
@@ -31,6 +32,7 @@ class Pacman(Entity):
         self.sprites.reset()
         self.target_pellet = None
         self.path = []
+        self.locked_target_node = None
     
     def set_path(self,path):
         self.path = path[1:] 
@@ -51,6 +53,10 @@ class Pacman(Entity):
             return STOP
         next_node = self.path[0]        
         direction = self.get_direction(self.node, next_node)
+        if direction == STOP:
+            # Path invalid (neighbor mapping missing); drop and force replanning
+            self.path = []
+            return STOP
         if self.overshotTarget() and self.node == next_node:
             self.path.pop(0)
         return direction
@@ -60,27 +66,38 @@ class Pacman(Entity):
         self.sprites.update(dt) 
         self.position += self.directions[self.direction] * self.speed * dt
         
-        if auto and pelletGroup is not None and pelletGroup.pelletList:
-            endNode = Node(80,64)
-            path = None
-            if any(pellet.node == endNode for pellet in pelletGroup.pelletList):
-                path = bfs(self.node, endNode, pelletGroup)
-            else :
-                print("NGu")
-            if path:
-                self.set_path(path)
-            else:
-                print("BFS returned None")
-            
-            direction = self.move_along_path()
-        else:
-            direction = self.getValidKey()              
+        # Default: keep current direction until we reach the next node
+        direction = self.direction if auto else self.getValidKey()
 
         if self.overshotTarget():
             self.node = self.target
             
             if self.node.neighbors[PORTAL] is not None: 
                 self.node = self.node.neighbors[PORTAL] 
+            # At node: decide next direction
+            if auto and pelletGroup is not None and pelletGroup.pelletList:
+                # Maintain a locked pellet target until it's eaten or missing
+                if self.locked_target_node is None or not any(p.node == self.locked_target_node for p in pelletGroup.pelletList):
+                    self.locked_target_node = None
+                    path = bfs(self.node, self.node, pelletGroup)
+                    if path and len(path) > 0:
+                        self.locked_target_node = path[-1]
+                if not self.path:
+                    path = bfs(self.node, self.locked_target_node, pelletGroup)
+                    if path:
+                        self.set_path(path)
+                # Choose next step from the path
+                direction = self.move_along_path()
+                if direction == STOP or self.getNewTarget(direction) is self.node:
+                    # Replan if needed
+                    self.path = []
+                    path = bfs(self.node, self.locked_target_node, pelletGroup)
+                    if path:
+                        self.set_path(path)
+                        direction = self.move_along_path()
+            else:
+                direction = self.getValidKey()
+
             self.target = self.getNewTarget(direction) 
             if self.target is not self.node: 
                 self.direction = direction
@@ -90,7 +107,8 @@ class Pacman(Entity):
                 self.direction = STOP             
             self.setPosition()
         else:
-            if self.oppositeDirection(direction):
+            # Avoid oscillation in auto mode by not reversing mid-edge
+            if not auto and self.oppositeDirection(direction):
                 self.reverseDirection()
                           
     #xác định hướng di chuyển   

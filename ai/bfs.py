@@ -16,13 +16,16 @@ def bfs( startNode, endNode, pellet_group):
 
     while queue:
         current_node = queue.popleft()
-
-        if current_node == endNode:
+        # Prefer explicit endNode if it's a pellet and reachable
+        if endNode is not None and current_node == endNode and endNode in pellet_nodes:
+            return trace_path(parent, current_node)
+        # Otherwise stop at nearest pellet node
+        if current_node in pellet_nodes:
             return trace_path(parent, current_node)
 
         for direction in [UP, DOWN, LEFT, RIGHT, PORTAL]:
             neighbor = current_node.neighbors.get(direction)
-
+                
             if (neighbor and neighbor not in visited
                 and (direction == PORTAL or PACMAN in current_node.access[direction])):
                 visited.add(neighbor)
