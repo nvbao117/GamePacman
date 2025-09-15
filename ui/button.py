@@ -1,6 +1,6 @@
-from ui import UIComponent
 import pygame 
 from ui.text import Text
+from ui.uicomponent import UIComponent
 class Button(UIComponent):
     def __init__(self, app,pos:tuple[int,int],text:str,size:tuple[int,int]=(350,100),
                 font_size:int = 90 , onclick =None,topleft = False ):

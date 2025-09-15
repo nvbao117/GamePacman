@@ -2,8 +2,8 @@ import sys
 import pygame 
 from config import *
 
-from ui import Button
-from ui import Menu
+from ui.button import Button
+from ui.menu import Menu
 
 
 class App : 
