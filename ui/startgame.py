@@ -8,7 +8,7 @@ from pathlib import Path
 screen = pygame.display.set_mode((800, 600))
 pygame.display.set_caption("Pac-Man UI")
 
-IMG_PATH = Path("../assets/images/pacman.jpg")  # <- chỉnh lại đường dẫn ảnh
+IMG_PATH = Path("assets/images/pacman.jpg") 
 
 pygame.init()
 clock = pygame.time.Clock()
