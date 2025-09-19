@@ -125,7 +125,6 @@ class Game(object):
         self.nodes.denyAccessList(12, 26, UP, self.ghosts)
         self.nodes.denyAccessList(15, 26, UP, self.ghosts)
     
-    
     def update(self) : 
         
         dt = self.clock.tick(30) / 1000.0

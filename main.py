@@ -33,7 +33,7 @@ class App:
             
         # Initialize menu
         self.menu = Menu(self)
-        self.game = None
+        self.game = Game()
         
         # Bind menu callbacks
         self.bind_menu_callbacks()

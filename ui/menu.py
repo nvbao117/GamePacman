@@ -7,7 +7,7 @@ from ui.uicomponent import UIComponent
 from ui.text import Text
 from ui.button import Button
 from pathlib import Path
-
+from game.game import Game
 # Khởi tạo pygame
 pygame.init()
 # Lấy thông tin màn hình
@@ -285,7 +285,6 @@ class Menu(UIComponent):
         return descriptions.get(self.selected_algorithm, "")
 
     def start_game(self):
-        from game.game import Game
         game = Game(self.selected_algorithm)
         game.startGame()
         while game.running:
