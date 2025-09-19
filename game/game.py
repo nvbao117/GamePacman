@@ -10,7 +10,7 @@ from game.entity.fruit import Fruit
 from game.entity.ghosts import GhostGroup
 from game.entity.pellets import PelletGroup
 from ui.text import TextGroup
-
+import time
 class Game(object):
     def __init__(self):
         pygame.init()
@@ -32,6 +32,8 @@ class Game(object):
         self.fruitCaptured = []
         self.fruitNode = None
         self.mazedata = MazeData() 
+        self.starttime = time.time()
+        self.endtime = time.time()
     
     def setBackground(self):
         self.background_norm = pygame.surface.Surface(SCREENSIZE).convert()
@@ -99,8 +101,10 @@ class Game(object):
         self.nodes.denyAccessList(15, 14, UP, self.ghosts)
         self.nodes.denyAccessList(12, 26, UP, self.ghosts)
         self.nodes.denyAccessList(15, 26, UP, self.ghosts)
-        
+    
+    
     def update(self) : 
+        
         dt = self.clock.tick(30) / 1000.0
         self.textgroup.update(dt)
         self.pellets.update(dt)
@@ -113,7 +117,7 @@ class Game(object):
             self.checkFruitEvents()
         if self.pacman.alive:
             if not self.pause.paused:
-                self.pacman.update(dt,self.pellets,True)
+                self.pacman.update_ai(dt,self.pellets,True)
         else:
             self.pacman.update(dt)
         
@@ -161,6 +165,8 @@ class Game(object):
             if self.pellets.isEmpty():
                 self.flashBG = True
                 self.hideEntities()
+                self.endtime = time.time()
+                print(self.endtime - self.starttime)
                 self.pause.setPause(pauseTime=3,func=self.nextLevel)
     
     def checkGhostEvents(self) :

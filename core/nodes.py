@@ -26,6 +26,9 @@ class Node(object) :
     def __hash__(self):
         return hash((self.position.x, self.position.y))
     
+    def __lt__(self, other):
+        return self.position.x ,self.position.y < other.position.x, self.position.y
+    
     def denyAccess(self,direction,entity) : 
         if entity.name in self.access[direction] :
             self.access[direction].remove(entity.name)

@@ -1,7 +1,8 @@
 from queue import PriorityQueue
 from config import *
+from core.nodes import Node
 
-def ucs(startNode, endNode, pellet_group):
+def a_star(startNode, endNode, pellet_group):
     if not pellet_group or not pellet_group.pelletList:
         return None
 
@@ -12,22 +13,22 @@ def ucs(startNode, endNode, pellet_group):
         return None
 
     if endNode is not None and endNode in pellet_nodes:
-        return ucs_to_target(startNode, endNode)
+        return a_star_to_target(startNode, endNode)
     
-    return ucs_to_nearest_pellet(startNode, pellet_nodes)
+    return a_star_to_nearest_pellet(startNode, pellet_nodes)
 
-def ucs_to_target(startNode, targetNode):
+def a_star_to_target(startNode, targetNode):
     if startNode == targetNode:
         return [startNode]
     
     queue = PriorityQueue()
     queue.put((0, startNode))
     parent = {startNode: None}
-    visited = {startNode}
-    costs = {startNode: 0}
+    g_cost = {startNode: 0}
+    f_cost = {startNode: heuristic(startNode, targetNode)}
     
     while not queue.empty():
-        cost, current_node = queue.get()
+        current_f, current_node = queue.get()
         
         if current_node == targetNode:
             return trace_path(parent, current_node)
@@ -35,29 +36,31 @@ def ucs_to_target(startNode, targetNode):
         for direction in [UP, DOWN, LEFT, RIGHT, PORTAL]:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in visited and 
+            if (neighbor and neighbor not in g_cost and 
                 can_move_to(current_node, direction)):
-                new_cost = cost + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in costs or new_cost < costs[neighbor]:
-                    costs[neighbor] = new_cost
-                    queue.put((new_cost, neighbor))
+                tentative_g = g_cost[current_node] + get_cost(current_node, neighbor, direction)
+                
+                if neighbor not in g_cost or tentative_g < g_cost[neighbor]:
+                    g_cost[neighbor] = tentative_g
+                    f_cost[neighbor] = tentative_g + heuristic(neighbor, targetNode)
+                    queue.put((f_cost[neighbor], neighbor))
                     parent[neighbor] = current_node
-                    visited.add(neighbor)
     
     return None
 
-def ucs_to_nearest_pellet(startNode, pellet_nodes):
+def a_star_to_nearest_pellet(startNode, pellet_nodes):
     if startNode in pellet_nodes:
         return [startNode]
     
     queue = PriorityQueue()
     queue.put((0, startNode))
     parent = {startNode: None}
-    visited = {startNode}
-    costs = {startNode: 0}
+    g_cost = {startNode: 0}
+    f_cost = {startNode: 0}
+    
     while not queue.empty():
-        cost, current_node = queue.get()
+        current_f, current_node = queue.get()
         
         if current_node in pellet_nodes:
             return trace_path(parent, current_node)
@@ -65,18 +68,22 @@ def ucs_to_nearest_pellet(startNode, pellet_nodes):
         for direction in [UP, DOWN, LEFT, RIGHT, PORTAL]:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in visited and 
+            if (neighbor and neighbor not in g_cost and 
                 can_move_to(current_node, direction)):
-                new_cost = cost + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in costs or new_cost < costs[neighbor]:
-                    costs[neighbor] = new_cost
-                    queue.put((new_cost, neighbor))
+                tentative_g = g_cost[current_node] + get_cost(current_node, neighbor, direction)
+                
+                if neighbor not in g_cost or tentative_g < g_cost[neighbor]:
+                    g_cost[neighbor] = tentative_g
+                    # Tìm pellet gần nhất từ neighbor
+                    min_heuristic = min(heuristic(neighbor, pellet) for pellet in pellet_nodes)
+                    f_cost[neighbor] = tentative_g + min_heuristic
+                    queue.put((f_cost[neighbor], neighbor))
                     parent[neighbor] = current_node
-                    visited.add(neighbor)
+    
     return None
 
-def ucs_with_priority(startNode, endNode, pellet_group, priority_direction=None):
+def a_star_with_priority(startNode, endNode, pellet_group, priority_direction=None):
     if not pellet_group or not pellet_group.pelletList:
         return None
 
@@ -87,22 +94,22 @@ def ucs_with_priority(startNode, endNode, pellet_group, priority_direction=None)
         return None
 
     if endNode is not None and endNode in pellet_nodes:
-        return ucs_to_target_with_priority(startNode, endNode, priority_direction)
+        return a_star_to_target_with_priority(startNode, endNode, priority_direction)
     
-    return ucs_to_nearest_pellet_with_priority(startNode, pellet_nodes, priority_direction)
+    return a_star_to_nearest_pellet_with_priority(startNode, pellet_nodes, priority_direction)
 
-def ucs_to_target_with_priority(startNode, targetNode, priority_direction=None):
+def a_star_to_target_with_priority(startNode, targetNode, priority_direction=None):
     if startNode == targetNode:
         return [startNode]
     
     queue = PriorityQueue()
     queue.put((0, startNode))
     parent = {startNode: None}
-    visited = {startNode}
-    costs = {startNode: 0}
+    g_cost = {startNode: 0}
+    f_cost = {startNode: heuristic(startNode, targetNode)}
     
     while not queue.empty():
-        cost, current_node = queue.get()
+        current_f, current_node = queue.get()
         
         if current_node == targetNode:
             return trace_path(parent, current_node)
@@ -112,30 +119,31 @@ def ucs_to_target_with_priority(startNode, targetNode, priority_direction=None):
         for direction in directions:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in visited and 
+            if (neighbor and neighbor not in g_cost and 
                 can_move_to(current_node, direction)):
-                new_cost = cost + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in costs or new_cost < costs[neighbor]:
-                    costs[neighbor] = new_cost
-                    queue.put((new_cost, neighbor))
+                tentative_g = g_cost[current_node] + get_cost(current_node, neighbor, direction)
+                
+                if neighbor not in g_cost or tentative_g < g_cost[neighbor]:
+                    g_cost[neighbor] = tentative_g
+                    f_cost[neighbor] = tentative_g + heuristic(neighbor, targetNode)
+                    queue.put((f_cost[neighbor], neighbor))
                     parent[neighbor] = current_node
-                    visited.add(neighbor)
     
     return None
 
-def ucs_to_nearest_pellet_with_priority(startNode, pellet_nodes, priority_direction=None):
+def a_star_to_nearest_pellet_with_priority(startNode, pellet_nodes, priority_direction=None):
     if startNode in pellet_nodes:
         return [startNode]
     
     queue = PriorityQueue()
     queue.put((0, startNode))
     parent = {startNode: None}
-    visited = {startNode}
-    costs = {startNode: 0}
+    g_cost = {startNode: 0}
+    f_cost = {startNode: 0}
     
     while not queue.empty():
-        cost, current_node = queue.get()
+        current_f, current_node = queue.get()
         
         if current_node in pellet_nodes:
             return trace_path(parent, current_node)
@@ -145,17 +153,27 @@ def ucs_to_nearest_pellet_with_priority(startNode, pellet_nodes, priority_direct
         for direction in directions:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in visited and 
+            if (neighbor and neighbor not in g_cost and 
                 can_move_to(current_node, direction)):
-                new_cost = cost + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in costs or new_cost < costs[neighbor]:
-                    costs[neighbor] = new_cost
-                    queue.put((new_cost, neighbor))
+                tentative_g = g_cost[current_node] + get_cost(current_node, neighbor, direction)
+                
+                if neighbor not in g_cost or tentative_g < g_cost[neighbor]:
+                    g_cost[neighbor] = tentative_g
+                    min_heuristic = min(heuristic(neighbor, pellet) for pellet in pellet_nodes)
+                    f_cost[neighbor] = tentative_g + min_heuristic
+                    queue.put((f_cost[neighbor], neighbor))
                     parent[neighbor] = current_node
-                    visited.add(neighbor)
     
     return None
+
+def heuristic(node1, node2):
+    if node1 is None or node2 is None:
+        return float('inf')
+    
+    dx = abs(node1.position.x - node2.position.x)
+    dy = abs(node1.position.y - node2.position.y)
+    return dx + dy
 
 def get_cost(current_node, neighbor, direction):
     base_cost = 1
@@ -163,22 +181,7 @@ def get_cost(current_node, neighbor, direction):
     if direction == PORTAL:
         return base_cost + 2
     
-    # if hasattr(current_node, 'last_direction'):
-    #     if current_node.last_direction == direction:
-    #         return base_cost - 0.1 
-    #     elif is_opposite_direction(current_node.last_direction, direction):
-    #         return base_cost + 0.5
-    
     return base_cost
-
-def is_opposite_direction(dir1, dir2):
-    opposites = {
-        UP: DOWN,
-        DOWN: UP,
-        LEFT: RIGHT,
-        RIGHT: LEFT
-    }
-    return opposites.get(dir1) == dir2
 
 def can_move_to(current_node, direction):
     if direction == PORTAL:

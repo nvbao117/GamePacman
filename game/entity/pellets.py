@@ -67,7 +67,8 @@ class PelletGroup(object):
                     self.pelletList.append(pp)
                     self.powerpellets.append(pp)
         for pellet in self.pelletList:
-            print(pellet.position)
+            print(f"({pellet.position.x//16},{pellet.position.y//16})") 
+        print(len(self.pelletList))
     def readPelletfile(self, textfile):
         return np.loadtxt(textfile, dtype='<U1')
 
