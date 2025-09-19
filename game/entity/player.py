@@ -20,7 +20,8 @@ class Pacman(Entity):
         self.sprites = PacmanScriptes(self)
         self.path = []
         self.locked_target_node = None
-        
+        self.previous_node = None
+
         
     # Khôi phục pacman về trạng thái ban đầu 
     def reset(self):
@@ -33,6 +34,7 @@ class Pacman(Entity):
         self.target_pellet = None
         self.path = []
         self.locked_target_node = None
+        self.previous_node = None
     
     def set_path(self,path):
         self.path = path[1:] 
@@ -50,11 +52,24 @@ class Pacman(Entity):
     def move_along_path(self):
         if not self.path:
             return STOP
-        next_node = self.path[0]        
+        # Avoid immediate backtracking ping-pong: if first step is previous_node
+        if self.previous_node is not None and len(self.path) >= 1 and self.path[0] == self.previous_node:
+            if len(self.path) > 1:
+                # Prefer skipping the back step if there are other planned steps
+                self.path.pop(0)
+            else:
+                # Dead-end: allow a single reverse step to get out instead of STOP
+                direction_back = self.get_direction(self.node, self.previous_node)
+                return direction_back if direction_back != STOP else STOP
+        next_node = self.path[0]
         direction = self.get_direction(self.node, next_node)
         if direction == STOP:
             self.path = []
             return STOP
+        # Do not allow reversing direction mid-edge when auto
+        opposite = self.oppositeDirection(direction)
+        if opposite and self.direction == opposite:
+            return self.direction
         if self.overshotTarget() and self.node == next_node:
             self.path.pop(0)
         return direction
@@ -65,6 +80,8 @@ class Pacman(Entity):
         direction = self.direction if auto else self.getValidKey()
 
         if self.overshotTarget():
+            # arrived at target node
+            self.previous_node = self.node
             self.node = self.target
             
             if self.node.neighbors[PORTAL] is not None: 
@@ -86,6 +103,16 @@ class Pacman(Entity):
                 
                 # Choose next step from the path
                 direction = self.move_along_path()
+                # If next step blocked or invalid, try to consume more of the path before replanning
+                attempts = 0
+                while (direction == STOP or self.getNewTarget(direction) is self.node) and attempts < 2:
+                    if self.path:
+                        # drop this step and try next
+                        self.path.pop(0)
+                        direction = self.move_along_path()
+                    else:
+                        break
+                    attempts += 1
                 if direction == STOP or self.getNewTarget(direction) is self.node:
                     # Replan if needed
                     self.path = []
