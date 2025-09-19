@@ -20,7 +20,7 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREE
 pygame.display.set_caption("Pac-Man Arcade")
 
 # Load ảnh nền
-IMG_PATH = Path("assets/images/themepack.jpg")
+IMG_PATH = Path("assets/images/pm.jpg")
 if not IMG_PATH.exists():
     raise FileNotFoundError(f"Background image not found at {IMG_PATH}")
 
@@ -285,20 +285,13 @@ class Menu(UIComponent):
         return descriptions.get(self.selected_algorithm, "")
 
     def start_game(self):
-        """Khởi động game với algorithm đã chọn"""
-        try:
-            from game.game import Game
-            game = Game(self.selected_algorithm)
-            game.startGame()
-            while game.running:
-                game.update()
-        except ImportError:
-            print("Cannot import Game class")
-        except Exception as e:
-            print(f"Error starting game: {e}")
-        
-        # Trở lại menu HOME khi game thoát
-        self.scene = Menu.HOME
+        from game.game import Game
+        game = Game(self.selected_algorithm)
+        game.startGame()
+        while game.running:
+            game.update()
+
+            self.scene = Menu.HOME
 
     def cycle_algorithm(self):
         """Đổi thuật toán theo vòng tròn"""
