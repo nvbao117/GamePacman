@@ -12,9 +12,13 @@ from game.entity.pellets import PelletGroup
 from ui.text import TextGroup
 
 class Game(object):
-    def __init__(self):
+    def __init__(self, algorithm: str = 'BFS'):
         pygame.init()
-        self.screen = pygame.display.set_mode(SCREENSIZE,0,32) 
+        # Reuse existing display if already set (fullscreen from menu)
+        try:
+            self.screen = pygame.display.get_surface() or pygame.display.set_mode(SCREENSIZE,0,32)
+        except Exception:
+            self.screen = pygame.display.set_mode(SCREENSIZE,0,32)
         self.background = None
         self.background_norm = None
         self.background_flash = None 
@@ -32,6 +36,8 @@ class Game(object):
         self.fruitCaptured = []
         self.fruitNode = None
         self.mazedata = MazeData() 
+        self.algorithm = algorithm.upper()
+        self.running = True
     
     def setBackground(self):
         self.background_norm = pygame.surface.Surface(SCREENSIZE).convert()
@@ -54,6 +60,25 @@ class Game(object):
         self.mazedata.obj.setPortalPairs(self.nodes)
         self.mazedata.obj.connectHomeNodes(self.nodes)
         self.pacman = Pacman(self.nodes.getNodeFromTiles(*self.mazedata.obj.pacmanStart))
+        # Set algorithm
+        algo = self.algorithm
+        if algo == 'DFS':
+            from ai.dfs import dfs
+            self.pacman.pathfinder_name = 'DFS'
+            self.pacman.pathfinder = dfs
+        elif algo == 'IDS':
+            from ai.ids import ids
+            # Wrap ids to ignore extra parameter for default
+            self.pacman.pathfinder_name = 'IDS'
+            self.pacman.pathfinder = lambda s, e, p: ids(s, e, p)
+        elif algo == 'UCS':
+            from ai.ucs import ucs
+            self.pacman.pathfinder_name = 'UCS'
+            self.pacman.pathfinder = ucs
+        else:
+            from ai.bfs import bfs
+            self.pacman.pathfinder_name = 'BFS'
+            self.pacman.pathfinder = bfs
         self.pellets = PelletGroup("assets/maze/"+self.mazedata.obj.name+".txt",self.nodes)
         self.ghosts = GhostGroup(self.nodes.getStartTempNode(), self.pacman)
 
@@ -135,8 +160,13 @@ class Game(object):
     def checkEvents(self) : 
         for event in pygame.event.get():
             if event.type == QUIT : 
-                exit()
+                self.running = False
+                return
             elif event.type == KEYDOWN:
+                if event.key == K_ESCAPE:
+                    # Exit back to menu
+                    self.running = False
+                    return
                 if event.key == K_SPACE:
                     if self.pacman.alive:
                         self.pause.setPause(playerPaused=True)
