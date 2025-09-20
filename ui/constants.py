@@ -1,0 +1,17 @@
+# UI Constants and Colors
+# Pac-Man inspired colors
+PAC_YELLOW = (255, 255, 0)
+GHOST_BLUE = (0, 150, 255)
+GHOST_PINK = (255, 184, 255)
+GHOST_RED = (255, 0, 0)
+GHOST_ORANGE = (255, 184, 82)
+DOT_WHITE = (255, 255, 255)
+
+FONT_PATH = "assets/fonts/PressStart2P-Regular.ttf"
+
+BUTTON_SIZE = (300, 70)
+BUTTON_FONT_SIZE = 20
+
+ANIMATION_SPEED = 0.08
+FLOAT_AMPLITUDE = 3
+PULSE_AMPLITUDE = 20
