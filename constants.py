@@ -1,52 +1,77 @@
-G_MENU = "assets/images/bg_menu.jpg"
-THEME_IMG = "assets/images/theme.png"
-BUTTON_IMG = "assets/images/button.png"
+# =============================================================================
+# CONSTANTS.PY - CÁC HẰNG SỐ CỦA GAME PAC-MAN
+# =============================================================================
+# File này chứa tất cả các hằng số được sử dụng trong toàn bộ game
+# bao gồm kích thước màn hình, màu sắc, hướng di chuyển, và các ID entity
 
+# =============================================================================
+# ĐƯỜNG DẪN TÀI NGUYÊN
+# =============================================================================
+G_MENU = "assets/images/bg_menu.jpg"      # Background menu chính
+THEME_IMG = "assets/images/theme.png"     # Hình ảnh theme
+BUTTON_IMG = "assets/images/button.png"   # Hình ảnh button
 
-NROWS = 36
-NCOLS = 28
-TILEWIDTH = 16
-TILEHEIGHT = 16
-SCREENWIDTH = NCOLS*TILEWIDTH
-SCREENHEIGHT = NROWS*TILEHEIGHT
-SCREENSIZE = (SCREENWIDTH, SCREENHEIGHT)
-PANEL_WIDTH = 200 
+# =============================================================================
+# KÍCH THƯỚC MÀN HÌNH VÀ TILE
+# =============================================================================
+NROWS = 36          # Số hàng trong maze (36 tiles)
+NCOLS = 28          # Số cột trong maze (28 tiles)
+TILEWIDTH = 16      # Chiều rộng mỗi tile (pixel)
+TILEHEIGHT = 16     # Chiều cao mỗi tile (pixel)
+SCREENWIDTH = NCOLS*TILEWIDTH    # Chiều rộng màn hình game (448px)
+SCREENHEIGHT = NROWS*TILEHEIGHT  # Chiều cao màn hình game (576px)
+SCREENSIZE = (SCREENWIDTH, SCREENHEIGHT)  # Kích thước màn hình game
+PANEL_WIDTH = 200   # Chiều rộng panel điều khiển
 
+# =============================================================================
+# MÀU SẮC
+# =============================================================================
+BLACK = (0, 0, 0)           # Màu đen
+YELLOW = (255, 255, 0)      # Màu vàng (Pac-Man)
+WHITE = (255, 255, 255)     # Màu trắng
+RED = (255, 0, 0)           # Màu đỏ (Blinky)
+PINK = (255,100,150)        # Màu hồng (Pinky)
+TEAL = (100,255,255)        # Màu xanh lá cây nhạt (Inky)
+ORANGE = (230,190,40)       # Màu cam (Clyde)
+GREEN = (0, 255, 0)         # Màu xanh lá cây
 
-BLACK = (0, 0, 0)
-YELLOW = (255, 255, 0)
-WHITE = (255, 255, 255)
-RED = (255, 0, 0)
-PINK = (255,100,150)
-TEAL = (100,255,255)
-ORANGE = (230,190,40)
-GREEN = (0, 255, 0)
+# =============================================================================
+# HƯỚNG DI CHUYỂN
+# =============================================================================
+STOP = 0        # Dừng lại
+UP = 1          # Lên trên
+DOWN = -1       # Xuống dưới
+LEFT = 2        # Sang trái
+RIGHT = -2      # Sang phải
+PORTAL = 3      # Cổng teleport
 
-STOP = 0
-UP = 1
-DOWN = -1
-LEFT = 2
-RIGHT = -2
-PORTAL = 3
+# =============================================================================
+# ID CÁC ENTITY TRONG GAME
+# =============================================================================
+PACMAN = 0      # Pac-Man
+PELLET = 1      # Pellet thường (điểm nhỏ)
+POWERPELLET = 2 # Power pellet (điểm lớn, ăn được ghost)
+GHOST = 3       # Ghost chung
+BLINKY = 4      # Ghost đỏ (Blinky)
+PINKY = 5       # Ghost hồng (Pinky)
+INKY = 6        # Ghost xanh (Inky)
+CLYDE = 7       # Ghost cam (Clyde)
+FRUIT = 8       # Trái cây
 
-PACMAN = 0
-PELLET = 1
-POWERPELLET = 2
-GHOST = 3
-BLINKY = 4
-PINKY = 5
-INKY = 6
-CLYDE = 7
-FRUIT = 8
+# =============================================================================
+# CHẾ ĐỘ CỦA GHOST
+# =============================================================================
+SCATTER = 0     # Chế độ tản mát (chạy về góc)
+CHASE = 1       # Chế độ đuổi theo (đuổi theo Pac-Man)
+FREIGHT = 2     # Chế độ sợ hãi (bị ăn được)
+SPAWN = 3       # Chế độ hồi sinh (quay về nhà)
 
-SCATTER = 0
-CHASE = 1
-FREIGHT = 2
-SPAWN = 3
-
-SCORETXT = 0
-LEVELTXT = 1
-READYTXT = 2
-PAUSETXT = 3
-GAMEOVERTXT = 4
+# =============================================================================
+# ID CÁC TEXT HIỂN THỊ
+# =============================================================================
+SCORETXT = 0        # Text hiển thị điểm
+LEVELTXT = 1        # Text hiển thị level
+READYTXT = 2        # Text "READY!"
+PAUSETXT = 3        # Text "PAUSED"
+GAMEOVERTXT = 4     # Text "GAME OVER"
 

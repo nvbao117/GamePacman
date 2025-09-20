@@ -1,4 +1,10 @@
 
+# =============================================================================
+# GAMELAYOUT.PY - LAYOUT UI CHO GAME PAC-MAN
+# =============================================================================
+# File này chứa GameLayout - quản lý giao diện UI trong game
+# Bao gồm control panel, game area, và các hiệu ứng visual
+
 import pygame
 import math
 from ui.uicomponent import UIComponent
@@ -7,24 +13,39 @@ from ui.selectbox import SelectBox
 
 
 class GameLayout(UIComponent):
+    """
+    GameLayout - Quản lý layout UI cho game Pac-Man
+    - Chia màn hình thành game area và control panel
+    - Quản lý thông tin game (score, lives, level, algorithm)
+    - Có hiệu ứng visual và animation đẹp mắt
+    - Hỗ trợ selectbox để chọn thuật toán AI
+    """
     def __init__(self, app):
+        """
+        Khởi tạo GameLayout
+        Args:
+            app: Tham chiếu đến App chính
+        """
         super().__init__(app)
-        self.game_area_rect = None
-        self.control_panel_rect = None
-        self.background_rect = None
+        # Các rectangle chính
+        self.game_area_rect = None      # Khu vực game
+        self.control_panel_rect = None  # Panel điều khiển
+        self.background_rect = None     # Background chính
         
+        # Setup layout dimensions
         self._setup_layout()
         
-        self.score = 0
-        self.lives = 3
-        self.level = 1
-        self.algorithm = "BFS"
-        self.is_playing = False  # Track play/pause state
+        # Thông tin game
+        self.score = 0          # Điểm số
+        self.lives = 55          # Số mạng
+        self.level = 1          # Level hiện tại
+        self.algorithm = "BFS"  # Thuật toán AI
+        self.is_playing = False # Trạng thái play/pause
         
-        # Algorithm options for selectbox
+        # Tùy chọn thuật toán cho selectbox
         self.algorithm_options = ["BFS", "DFS", "A*", "UCS", "IDS"]
         
-        # Initialize selectbox
+        # Khởi tạo selectbox
         self.algorithm_selectbox = None
         self._setup_selectbox()
         
@@ -32,39 +53,44 @@ class GameLayout(UIComponent):
         self.animation_time = 0
         
     def _setup_layout(self):
-        """Setup the game layout dimensions"""
-        # Main background takes full screen
+        """
+        Setup kích thước layout cho game
+        - Chia màn hình thành game area và control panel
+        - Giữ aspect ratio của game gốc
+        - Tối ưu hóa không gian cho game
+        """
+        # Background chính chiếm toàn bộ màn hình
         self.background_rect = pygame.Rect(0, 0, self.app.WIDTH, self.app.HEIGHT)
         
-        # Control panel - right side (smaller size to give more space to game)
-        panel_width = 300  # Further reduced width
+        # Control panel - bên phải (kích thước nhỏ hơn để dành chỗ cho game)
+        panel_width = 300  # Giảm width để dành chỗ cho game
         panel_height = self.app.HEIGHT
         panel_x = self.app.WIDTH - panel_width
         panel_y = 0
         
         self.control_panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
         
-        # Game area - maintain proper aspect ratio for Pac-Man
-        # Calculate optimal size based on original game dimensions
+        # Game area - giữ aspect ratio đúng cho Pac-Man
+        # Tính toán kích thước tối ưu dựa trên kích thước game gốc
         from constants import SCREENSIZE
         original_width, original_height = SCREENSIZE
         
-        # Leave space for title and margins
-        available_width = self.app.WIDTH - panel_width - 40  # 20px margin on each side
-        available_height = self.app.HEIGHT - 120  # More space for title
+        # Để chỗ cho title và margins
+        available_width = self.app.WIDTH - panel_width - 40  # 20px margin mỗi bên
+        available_height = self.app.HEIGHT - 120  # Thêm chỗ cho title
         
-        # Calculate scale to maintain aspect ratio
+        # Tính scale để giữ aspect ratio
         scale_x = available_width / original_width
         scale_y = available_height / original_height
-        scale = min(scale_x, scale_y)  # Use smaller scale to maintain aspect ratio
+        scale = min(scale_x, scale_y)  # Dùng scale nhỏ hơn để giữ aspect ratio
         
-        # Calculate final game area dimensions
+        # Tính kích thước game area cuối cùng
         game_width = int(original_width * scale)
         game_height = int(original_height * scale)
         
-        # Center the game area - moved down more
+        # Căn giữa game area - di chuyển xuống nhiều hơn
         game_x = (self.app.WIDTH - panel_width - game_width) // 2
-        game_y = 100  # More space for title
+        game_y = 100  # Thêm chỗ cho title
         
         self.game_area_rect = pygame.Rect(game_x, game_y, game_width, game_height)
     
@@ -99,24 +125,37 @@ class GameLayout(UIComponent):
             self.algorithm_selectbox.selected_option = self.algorithm_options.index(self.algorithm)
     
     def set_game_info(self, score=0, lives=3, level=1, algorithm="BFS"):
-        """Update game information"""
+        """
+        Cập nhật thông tin game
+        Args:
+            score: Điểm số hiện tại
+            lives: Số mạng còn lại
+            level: Level hiện tại
+            algorithm: Thuật toán AI đang sử dụng
+        """
         self.score = score
         self.lives = lives
         self.level = level
         self.algorithm = algorithm
     
     def render(self):
-        """Render the game layout"""
-        # Draw main background
+        """
+        Render toàn bộ game layout
+        - Vẽ background với hiệu ứng
+        - Vẽ game area frame
+        - Vẽ control panel
+        - Vẽ thông tin game
+        """
+        # Vẽ background chính
         self._draw_background()
         
-        # Draw game area frame
+        # Vẽ frame cho game area
         self._draw_game_area()
         
-        # Draw control panel
+        # Vẽ control panel
         self._draw_control_panel()
         
-        # Draw game info
+        # Vẽ thông tin game
         self._draw_game_info()
     
     def _draw_background(self):
@@ -593,18 +632,32 @@ class GameLayout(UIComponent):
             pygame.draw.circle(self.surface, GHOST_PINK, (int(x), int(y)), 3)
     
     def get_game_area_rect(self):
-        """Get the game area rectangle for game rendering"""
+        """
+        Lấy rectangle của game area để render game
+        Returns:
+            pygame.Rect của game area
+        """
         return self.game_area_rect
     
     def get_control_panel_rect(self):
-        """Get the control panel rectangle"""
+        """
+        Lấy rectangle của control panel
+        Returns:
+            pygame.Rect của control panel
+        """
         return self.control_panel_rect
     
     def handle_selectbox_event(self, event):
-        """Handle selectbox events and return if algorithm changed"""
+        """
+        Xử lý sự kiện selectbox và trả về nếu algorithm thay đổi
+        Args:
+            event: Pygame event
+        Returns:
+            True nếu algorithm thay đổi, False nếu không
+        """
         if self.algorithm_selectbox:
             if self.algorithm_selectbox.handle_event(event):
-                # Check if selection changed
+                # Kiểm tra xem selection có thay đổi không
                 new_algorithm = self.algorithm_selectbox.get_selected_value()
                 if new_algorithm and new_algorithm != self.algorithm:
                     self.algorithm = new_algorithm
@@ -612,13 +665,22 @@ class GameLayout(UIComponent):
         return False
     
     def handle_play_button_click(self, event):
-        """Handle play button click events"""
+        """
+        Xử lý sự kiện click play button
+        Args:
+            event: Pygame event
+        Returns:
+            True nếu play state thay đổi, False nếu không
+        """
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
             if hasattr(self, 'play_button_rect') and self.play_button_rect.collidepoint(event.pos):
                 self.is_playing = not self.is_playing
-                return True  # Indicate that play state changed
+                return True  # Báo hiệu play state đã thay đổi
         return False
     
     def update(self):
-        """Update layout animations"""
+        """
+        Cập nhật animation của layout
+        - Tăng animation_time mỗi frame
+        """
         self.animation_time += 0.02

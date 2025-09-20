@@ -1,3 +1,9 @@
+# =============================================================================
+# MENU_STATE.PY - STATE MENU CHÍNH CỦA GAME PAC-MAN
+# =============================================================================
+# File này chứa MenuState - màn hình menu chính của game
+# Quản lý navigation giữa các màn hình khác nhau và cài đặt
+
 import sys
 import math
 import pygame
@@ -9,26 +15,45 @@ from ui.neontext import NeonText
 from ui.constants import *
 from states.game_state import GameState
 
-class MenuState(State):   # kế thừa từ State
-    HOME = 'home'
-    OPTIONS = 'option'
-    GAME_MODES = 'game_modes'
-    SCORES = 'scores'
-    STATES = 'states'
+class MenuState(State):
+    """
+    MenuState - State menu chính của game Pac-Man
+    - Quản lý navigation giữa các scene khác nhau
+    - Có animation và hiệu ứng visual đẹp mắt
+    - Hỗ trợ keyboard navigation
+    """
+    # Các scene constants
+    HOME = 'home'           # Màn hình chính
+    OPTIONS = 'option'      # Màn hình cài đặt
+    GAME_MODES = 'game_modes'  # Màn hình chế độ chơi
+    SCORES = 'scores'       # Màn hình điểm cao
+    STATES = 'states'       # Màn hình thông tin states
 
     def __init__(self, app, machine):
-        super().__init__(app, machine)   # truyền app + machine cho State
-        self.scene = MenuState.HOME
-        self.animation_time = 0
-        self.selected_algorithm = 'BFS'
-        self._algorithms = ['BFS', 'DFS', 'IDS', 'UCS']
-        self.current_button_index = 0
+        """
+        Khởi tạo MenuState
+        Args:
+            app: Tham chiếu đến App chính
+            machine: StateMachine quản lý states
+        """
+        super().__init__(app, machine)   # Truyền app + machine cho State
+        self.scene = MenuState.HOME  # Scene hiện tại
+        self.animation_time = 0  # Thời gian animation
+        self.selected_algorithm = 'BFS'  # Thuật toán AI được chọn
+        self._algorithms = ['BFS', 'DFS', 'IDS', 'UCS']  # Danh sách thuật toán
+        self.current_button_index = 0  # Index button hiện tại (cho keyboard nav)
 
+        # Khởi tạo background và UI components
         self._load_background()
-
         self._init_ui_components()
 
     def _load_background(self):
+        """
+        Load background image cho menu
+        - Load hình ảnh từ assets/images/pm.jpg
+        - Scale để fit với kích thước màn hình
+        - Throw error nếu không tìm thấy file
+        """
         IMG_PATH = Path("assets/images/pm.jpg")
         if not IMG_PATH.exists():
             raise FileNotFoundError(f"Background image not found at {IMG_PATH}")
@@ -37,9 +62,15 @@ class MenuState(State):   # kế thừa từ State
         self.background = pygame.transform.scale(bg, (self.app.WIDTH, self.app.HEIGHT))
 
     def _init_ui_components(self):
+        """
+        Khởi tạo tất cả UI components cho các scene
+        - Tạo dictionary chứa components cho từng scene
+        - Lưu reference đến algorithm button để update
+        """
         center_x = self.app.WIDTH // 2
         center_y = self.app.HEIGHT // 2
         
+        # Tạo dictionary chứa UI components cho từng scene
         self.UIComponents = {
             MenuState.HOME: self._create_home_components(center_x, center_y),
             MenuState.OPTIONS: self._create_options_components(center_x, center_y),
@@ -48,20 +79,34 @@ class MenuState(State):   # kế thừa từ State
             MenuState.STATES: self._create_states_components(center_x, center_y)
         }
         
+        # Lưu reference đến algorithm button để update text
         self.algo_button = self.UIComponents[MenuState.OPTIONS][2]
 
     def _create_home_components(self, center_x, center_y):
-        # Better spacing and alignment for buttons
-        button_spacing = 80  # Increased spacing between buttons
-        start_y = center_y - 100  # Start position for first button
+        """
+        Tạo UI components cho màn hình chính (HOME)
+        - Title và subtitle với hiệu ứng neon
+        - Các button chính với spacing đẹp
+        - Sử dụng emoji và màu sắc Pac-Man theme
+        
+        Args:
+            center_x, center_y: Tọa độ trung tâm màn hình
+        Returns:
+            List các UI components cho HOME scene
+        """
+        # Spacing và alignment tốt hơn cho buttons
+        button_spacing = 80  # Khoảng cách giữa các buttons
+        start_y = center_y - 100  # Vị trí bắt đầu cho button đầu tiên
         
         return [
+            # Title chính với hiệu ứng neon và rainbow
             NeonText(self.app, "PAC-MAN", PAC_YELLOW, center_x, center_y - 220, 80, 
                      glow=True, rainbow=True, outline=True),
+            # Subtitle
             NeonText(self.app, "ARCADE ADVENTURE", GHOST_PINK, center_x, center_y - 160, 22, 
                      glow=True, outline=True),
             
-            # Main menu buttons with better spacing
+            # Main menu buttons với spacing tốt hơn
             PacManButton(self.app, pos=(center_x, start_y), text="🎮 GAME MODES", 
                          onclick=[self.show_game_modes], primary=True),
             PacManButton(self.app, pos=(center_x, start_y + button_spacing), text="📊 HIGH SCORES", 
@@ -72,7 +117,6 @@ class MenuState(State):   # kế thừa từ State
                          onclick=[self.show_states]),
             PacManButton(self.app, pos=(center_x, start_y + button_spacing * 4), text="X EXIT", 
                          onclick=[self.quit]),
-        
         ]
 
     def _create_options_components(self, center_x, center_y):
@@ -151,6 +195,11 @@ class MenuState(State):   # kế thừa từ State
         ]
 
     def get_algo_description(self):
+        """
+        Lấy mô tả của thuật toán AI hiện tại
+        Returns:
+            String mô tả thuật toán
+        """
         descriptions = {
             'BFS': "● Breadth-First: Explores level by level ●",
             'DFS': "● Depth-First: Goes deep first ●", 
@@ -160,22 +209,39 @@ class MenuState(State):   # kế thừa từ State
         return descriptions.get(self.selected_algorithm, "")
 
     def start_game(self):
-        game_state = GameState(self.app,self.machine,algorithm=self.selected_algorithm)
+        """
+        Bắt đầu game với thuật toán đã chọn
+        """
+        game_state = GameState(self.app, self.machine, algorithm=self.selected_algorithm)
         self.replace_state(game_state)
 
     def start_ai_game(self):
-        game_state = GameState(self.app,self.machine,algorithm=self.selected_algorithm)
+        """
+        Bắt đầu game AI mode
+        """
+        game_state = GameState(self.app, self.machine, algorithm=self.selected_algorithm)
         self.replace_state(game_state)
 
     def start_player_game(self):
-        game_state = GameState(self.app,self.machine,algorithm=None)  # Player mode
+        """
+        Bắt đầu game player mode (không AI)
+        """
+        game_state = GameState(self.app, self.machine, algorithm=None)  # Player mode
         self.replace_state(game_state)
 
     def start_comparison_game(self):
-        game_state = GameState(self.app,self.machine,algorithm=self.selected_algorithm, comparison_mode=True)
+        """
+        Bắt đầu game comparison mode
+        """
+        game_state = GameState(self.app, self.machine, algorithm=self.selected_algorithm, comparison_mode=True)
         self.replace_state(game_state)
 
     def cycle_algorithm(self):
+        """
+        Chuyển đổi thuật toán AI
+        - Cycle qua danh sách algorithms
+        - Cập nhật text của algorithm button
+        """
         idx = self._algorithms.index(self.selected_algorithm)
         self.selected_algorithm = self._algorithms[(idx + 1) % len(self._algorithms)]
         

@@ -1,9 +1,22 @@
+# =============================================================================
+# BFS.PY - THUẬT TOÁN BREADTH-FIRST SEARCH CHO PAC-MAN AI
+# =============================================================================
+# File này chứa thuật toán BFS (Breadth-First Search) để tìm đường đi
+# cho Pac-Man đến pellet gần nhất hoặc mục tiêu cụ thể
+
 from collections import deque
 from constants import *
 from objects.nodes import Node
+
 def bfs(startNode, endNode, pellet_group):
     """
     Thuật toán BFS tìm đường đi từ startNode đến pellet gần nhất hoặc endNode cụ thể
+    
+    BFS (Breadth-First Search):
+    - Tìm kiếm theo chiều rộng (level by level)
+    - Đảm bảo tìm được đường đi ngắn nhất
+    - Sử dụng queue (FIFO) để duyệt
+    - Phù hợp cho tìm đường đi tối ưu
     
     Args:
         startNode: Node bắt đầu
@@ -13,18 +26,22 @@ def bfs(startNode, endNode, pellet_group):
     Returns:
         List các nodes tạo thành đường đi, hoặc None nếu không tìm thấy
     """
+    # Kiểm tra có pellet nào không
     if not pellet_group or not pellet_group.pelletList:
         return None
 
+    # Lấy danh sách các node có pellet
     pellet_nodes = {pellet.node for pellet in pellet_group.pelletList 
                    if pellet.node is not None and pellet.visible}
     
     if not pellet_nodes:
         return None
 
+    # Nếu có endNode cụ thể và nó có pellet, tìm đường đến đó
     if endNode is not None and endNode in pellet_nodes:
         return bfs_to_target(startNode, endNode)
     
+    # Ngược lại, tìm đường đến pellet gần nhất
     return bfs_to_nearest_pellet(startNode, pellet_nodes)
 
 def bfs_to_target(startNode, targetNode):

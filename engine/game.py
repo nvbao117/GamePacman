@@ -60,17 +60,13 @@ class Game(object):
         import math
         import time
         
-        # Create animated time for effects
         current_time = time.time()
         
-        # Create gradient background
         for y in range(SCREENHEIGHT):
-            # Create a subtle gradient from dark blue to black
             intensity = int(15 + (y / SCREENHEIGHT) * 10)
             color = (intensity, intensity, intensity + 20)
             pygame.draw.line(surface, color, (0, y), (SCREENWIDTH, y))
         
-        # Add animated starfield
         for i in range(50):
             x = (i * 37 + current_time * 5) % SCREENWIDTH
             y = (i * 23 + current_time * 3) % SCREENHEIGHT
