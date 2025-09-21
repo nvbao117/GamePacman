@@ -412,21 +412,22 @@ class ComparisonLayout(UIComponent):
         ai_title = font_large.render("AI PLAYER", True, GHOST_BLUE)
         self.surface.blit(ai_title, (ai_section_rect.x + 10, ai_section_rect.y + 5))
         
-        # AI stats - sắp xếp theo chiều ngang với spacing rộng hơn
+        # AI stats - sắp xếp theo chiều ngang với spacing rộng hơn cho Score
         ai_stats_y = ai_section_rect.y + 30
-        ai_stats_spacing = 150  # Tăng khoảng cách lên 150px để rộng hơn
+        ai_score_spacing = 200  # Score cần nhiều chỗ hơn (có thể lên chục nghìn)
+        ai_other_spacing = 120  # Lives và Level ít chỗ hơn
         
-        # Score
+        # Score - rộng hơn để hiển thị số lớn
         ai_score_text = font_medium.render(f"Score: {self.ai_score:,}", True, DOT_WHITE)
         self.surface.blit(ai_score_text, (ai_section_rect.x + 10, ai_stats_y))
         
         # Lives
         ai_lives_text = font_medium.render(f"Lives: {self.ai_lives}", True, DOT_WHITE)
-        self.surface.blit(ai_lives_text, (ai_section_rect.x + 10 + ai_stats_spacing, ai_stats_y))
+        self.surface.blit(ai_lives_text, (ai_section_rect.x + 10 + ai_score_spacing, ai_stats_y))
         
         # Level
         ai_level_text = font_medium.render(f"Level: {self.ai_level + 1}", True, DOT_WHITE)
-        self.surface.blit(ai_level_text, (ai_section_rect.x + 10 + ai_stats_spacing * 2, ai_stats_y))
+        self.surface.blit(ai_level_text, (ai_section_rect.x + 10 + ai_score_spacing + ai_other_spacing, ai_stats_y))
         
         
         # Player Stats Section (Right side) - Chỉ có Score, Lives, Level
@@ -442,21 +443,22 @@ class ComparisonLayout(UIComponent):
         player_title = font_large.render("HUMAN PLAYER", True, GHOST_PINK)
         self.surface.blit(player_title, (player_section_rect.x + 10, player_section_rect.y + 5))
         
-        # Player stats - sắp xếp theo chiều ngang (chỉ 3 stats)
+        # Player stats - sắp xếp theo chiều ngang với spacing rộng hơn cho Score
         player_stats_y = player_section_rect.y + 30
-        player_stats_spacing = 150  # Tăng khoảng cách lên 150px để rộng hơn
+        player_score_spacing = 200  # Score cần nhiều chỗ hơn (có thể lên chục nghìn)
+        player_other_spacing = 120  # Lives và Level ít chỗ hơn
         
-        # Score
+        # Score - rộng hơn để hiển thị số lớn
         player_score_text = font_medium.render(f"Score: {self.player_score:,}", True, DOT_WHITE)
         self.surface.blit(player_score_text, (player_section_rect.x + 10, player_stats_y))
         
         # Lives
         player_lives_text = font_medium.render(f"Lives: {self.player_lives}", True, DOT_WHITE)
-        self.surface.blit(player_lives_text, (player_section_rect.x + 10 + player_stats_spacing, player_stats_y))
+        self.surface.blit(player_lives_text, (player_section_rect.x + 10 + player_score_spacing, player_stats_y))
         
         # Level
         player_level_text = font_medium.render(f"Level: {self.player_level + 1}", True, DOT_WHITE)
-        self.surface.blit(player_level_text, (player_section_rect.x + 10 + player_stats_spacing * 2, player_stats_y))
+        self.surface.blit(player_level_text, (player_section_rect.x + 10 + player_score_spacing + player_other_spacing, player_stats_y))
     
     def _draw_controls_section(self):
         """Draw controls section"""

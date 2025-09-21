@@ -202,10 +202,10 @@ class Game(object):
             self.pacman.pathfinder_name = 'DFS'
             self.pacman.pathfinder = dfs
         elif algo == 'IDS':
-            from engine.ids import ids
+            from engine.ids import iterative_deepening_dfs
             # Wrap ids to ignore extra parameter for default
             self.pacman.pathfinder_name = 'IDS'
-            self.pacman.pathfinder = lambda s, e, p: ids(s, e, p)
+            self.pacman.pathfinder = lambda s, e, p: iterative_deepening_dfs(s, e, p)
         elif algo == 'UCS':
             from engine.ucs import ucs
             self.pacman.pathfinder_name = 'UCS'
