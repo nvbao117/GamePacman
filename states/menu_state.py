@@ -14,6 +14,7 @@ from ui.button import PacManButton
 from ui.neontext import NeonText
 from ui.constants import *
 from states.game_state import GameState
+from states.comparison_state import ComparisonState
 
 class MenuState(State):
     """
@@ -233,8 +234,8 @@ class MenuState(State):
         """
         Bắt đầu game comparison mode
         """
-        game_state = GameState(self.app, self.machine, algorithm=self.selected_algorithm, comparison_mode=True)
-        self.replace_state(game_state)
+        comparison_state = ComparisonState(self.app, self.machine, algorithm=self.selected_algorithm)
+        self.replace_state(comparison_state)
 
     def cycle_algorithm(self):
         """
