@@ -259,7 +259,6 @@ class GameState(State):
     def on_exit(self):
         """
         Được gọi khi state bị exit
-        - Hiện tại không có logic đặc biệt
         """
         pass
 
