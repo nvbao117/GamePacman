@@ -224,7 +224,7 @@ class MenuState(State):
 
     def start_ai_game(self):
         """
-        Bắt đầu game AI mode
+        Bắt đầu game AI mode với thuật toán được chọn
         """
         print(f"Starting AI game with algorithm: {self.selected_algorithm}")
         # Phát âm thanh bắt đầu game
@@ -234,20 +234,25 @@ class MenuState(State):
         
         from states.game_state import GameState
         game_state = GameState(self.app, self.machine, self.selected_algorithm)
+        # Đảm bảo game ở AI mode
+        game_state.game.set_ai_mode(True)
         self.replace_state(game_state)
 
     def start_player_game(self):
         """
-        Bắt đầu game player mode (không AI)
+        Bắt đầu game player mode (chơi thủ công, không AI)
         """
-        print("Starting player game")
+        print("Starting player game (manual control)")
         # Phát âm thanh bắt đầu game
         self.app.sound_system.play_sound('button_click')
         # Bắt đầu nhạc nền
         self.app.sound_system.play_music('background_music')
         
         from states.game_state import GameState
-        game_state = GameState(self.app, self.machine, "MANUAL")
+        # Tạo game state với algorithm mặc định (không quan trọng vì không dùng AI)
+        game_state = GameState(self.app, self.machine, "BFS")
+        # Đảm bảo game ở Player mode
+        game_state.game.set_ai_mode(False)
         self.replace_state(game_state)
 
     def start_comparison_game(self):
@@ -255,8 +260,13 @@ class MenuState(State):
         Bắt đầu game comparison mode
         """
         print("Starting comparison game")
+        # Phát âm thanh bắt đầu game
+        self.app.sound_system.play_sound('button_click')
+        # Bắt đầu nhạc nền
+        self.app.sound_system.play_music('background_music')
+        
         from states.comparison_state import ComparisonState
-        comparison_state = ComparisonState(self.app, self.machine)
+        comparison_state = ComparisonState(self.app, self.machine, self.selected_algorithm)
         self.replace_state(comparison_state)
 
     def cycle_algorithm(self):

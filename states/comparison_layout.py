@@ -207,10 +207,10 @@ class ComparisonLayout(UIComponent):
     def _draw_game_areas(self):
         """Draw both game areas with enhanced transparency and full-screen effect"""
         # Draw AI Game Area (Left)
-        self._draw_single_game_area(self.ai_game_area_rect, "AI PLAYER", GHOST_BLUE)
+        self._draw_single_game_area(self.ai_game_area_rect, "AI PLAYER (AUTO)", GHOST_BLUE)
         
         # Draw Player Game Area (Right)
-        self._draw_single_game_area(self.player_game_area_rect, "HUMAN PLAYER", GHOST_PINK)
+        self._draw_single_game_area(self.player_game_area_rect, "HUMAN PLAYER (MANUAL)", GHOST_PINK)
     
     def _draw_single_game_area(self, game_rect, title_text, border_color):
         """Draw a single game area with title and effects"""
@@ -408,8 +408,8 @@ class ComparisonLayout(UIComponent):
         pygame.draw.rect(self.surface, GHOST_BLUE, ai_section_rect, 2)
         pygame.draw.rect(self.surface, (0, 150, 255), ai_section_rect, 1)
         
-        # AI title
-        ai_title = font_large.render("AI PLAYER", True, GHOST_BLUE)
+        # AI title với mode indicator
+        ai_title = font_large.render("AI PLAYER (AUTO)", True, GHOST_BLUE)
         self.surface.blit(ai_title, (ai_section_rect.x + 10, ai_section_rect.y + 5))
         
         # AI stats - sắp xếp theo chiều ngang với spacing rộng hơn cho Score
@@ -439,8 +439,8 @@ class ComparisonLayout(UIComponent):
         pygame.draw.rect(self.surface, GHOST_PINK, player_section_rect, 2)
         pygame.draw.rect(self.surface, (0, 150, 255), player_section_rect, 1)
         
-        # Player title
-        player_title = font_large.render("HUMAN PLAYER", True, GHOST_PINK)
+        # Player title với mode indicator
+        player_title = font_large.render("HUMAN PLAYER (MANUAL)", True, GHOST_PINK)
         self.surface.blit(player_title, (player_section_rect.x + 10, player_section_rect.y + 5))
         
         # Player stats - sắp xếp theo chiều ngang với spacing rộng hơn cho Score

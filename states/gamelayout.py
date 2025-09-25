@@ -519,8 +519,31 @@ class GameLayout(UIComponent):
         algo_text = font.render("AI ALGORITHM", True, PAC_YELLOW)
         self.surface.blit(algo_text, (self.control_panel_rect.x + 30, y_start))
         
-        # Draw the selectbox with special highlight
-        if self.algorithm_selectbox:
+        # Hiển thị mode hiện tại (AI/Player)
+        # Lấy thông tin mode từ game state thông qua app
+        mode_text = "Mode: AI"  # Mặc định
+        if hasattr(self.app, 'state_machine') and self.app.state_machine.current_state:
+            current_state = self.app.state_machine.current_state
+            if hasattr(current_state, 'game') and hasattr(current_state.game, 'ai_mode'):
+                mode_text = "Mode: AI" if current_state.game.ai_mode else "Mode: Player"
+        
+        mode_color = PAC_YELLOW if "AI" in mode_text else GHOST_PINK
+        mode_surface = font.render(mode_text, True, mode_color)
+        self.surface.blit(mode_surface, (self.control_panel_rect.x + 30, y_start + 20))
+        
+        # Hướng dẫn chuyển đổi mode (chỉ hiển thị khi ở AI mode)
+        if "AI" in mode_text:
+            help_text = "Press M to toggle mode"
+            help_surface = font.render(help_text, True, DOT_WHITE)
+            self.surface.blit(help_surface, (self.control_panel_rect.x + 30, y_start + 40))
+        else:
+            # Hướng dẫn cho Player mode
+            help_text = "Use arrow keys to move"
+            help_surface = font.render(help_text, True, DOT_WHITE)
+            self.surface.blit(help_surface, (self.control_panel_rect.x + 30, y_start + 40))
+        
+        # Draw the selectbox with special highlight (chỉ khi ở AI mode)
+        if self.algorithm_selectbox and "AI" in mode_text:
             # Add a pulsing glow around selectbox
             glow_intensity = int(100 + 50 * math.sin(self.animation_time * 6))
             glow_rect = pygame.Rect(
@@ -544,7 +567,7 @@ class GameLayout(UIComponent):
         
         # Section background with glow
         section_rect = pygame.Rect(self.control_panel_rect.x + 20, y_start - 5, 
-                                 self.control_panel_rect.width - 40, 130)  # Taller section
+                                 self.control_panel_rect.width - 40, 150)  # Taller section for new control
         
         # Glow effect
         glow_rect = section_rect.inflate(4, 4)
@@ -560,7 +583,8 @@ class GameLayout(UIComponent):
             "↑↓←→ - Move",
             "SPACE - Pause",
             "ESC - Menu",
-            "R - Restart"
+            "R - Restart",
+            "M - Toggle AI/Player"
         ]
         
         for i, control in enumerate(controls):
@@ -576,7 +600,7 @@ class GameLayout(UIComponent):
     
     def _draw_stats_section(self):
         """Draw additional stats section"""
-        y_start = 420  # Moved down to accommodate controls section
+        y_start = 450  # Moved down to accommodate taller controls section
         try:
             font = pygame.font.Font(FONT_PATH, 12)
         except:
@@ -649,7 +673,14 @@ class GameLayout(UIComponent):
         Returns:
             True nếu algorithm thay đổi, False nếu không
         """
-        if self.algorithm_selectbox:
+        # Chỉ xử lý selectbox khi ở AI mode
+        is_ai_mode = True  # Mặc định
+        if hasattr(self.app, 'state_machine') and self.app.state_machine.current_state:
+            current_state = self.app.state_machine.current_state
+            if hasattr(current_state, 'game') and hasattr(current_state.game, 'ai_mode'):
+                is_ai_mode = current_state.game.ai_mode
+        
+        if self.algorithm_selectbox and is_ai_mode:
             # Xử lý mouse hover cho selectbox
             if event.type == pygame.MOUSEMOTION:
                 if hasattr(self.algorithm_selectbox, 'rect') and self.algorithm_selectbox.rect.collidepoint(event.pos):

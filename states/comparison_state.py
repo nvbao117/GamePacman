@@ -44,13 +44,17 @@ class ComparisonState(State):
         # Khởi tạo UI layout và 2 game engines
         self.layout = ComparisonLayout(app)  # Layout UI cho comparison
         self.ai_game = Game(algorithm)  # Game engine cho AI
-        self.player_game = Game("MANUAL")  # Game engine cho người chơi
+        self.player_game = Game("BFS")  # Game engine cho người chơi (algorithm không quan trọng)
         
         # Khởi tạo cả 2 game nếu có method initialize_game
         if hasattr(self.ai_game, 'initialize_game'):
             self.ai_game.initialize_game()
         if hasattr(self.player_game, 'initialize_game'):
             self.player_game.initialize_game()
+        
+        # Đảm bảo AI game chạy ở AI mode và Player game chạy ở Player mode
+        self.ai_game.set_ai_mode(True)      # AI game chạy AI mode
+        self.player_game.set_ai_mode(False) # Player game chạy Player mode
         
         # Lấy thông tin game ban đầu cho AI
         self.ai_score = getattr(self.ai_game, 'score', 0)
@@ -205,6 +209,8 @@ class ComparisonState(State):
         """
         # Xử lý click play button trước
         if self.layout.handle_play_button_click(event):
+            # Phát âm thanh khi click play/pause
+            self.app.sound_system.play_sound('button_click')
             # Trạng thái play đã thay đổi, cập nhật game pause state
             self.is_pause = not self.layout.is_playing
             if hasattr(self.ai_game, 'pause'):
@@ -220,11 +226,15 @@ class ComparisonState(State):
         
         # Xử lý sự kiện selectbox (thay đổi algorithm)
         if self.layout.handle_selectbox_event(event):
+            # Phát âm thanh khi thay đổi algorithm
+            self.app.sound_system.play_sound('button_click')
             # Algorithm đã thay đổi, cập nhật AI game
             self.algorithm = self.layout.algorithm
             self.ai_game = Game(self.algorithm)  # Tạo AI game mới với algorithm mới
             if hasattr(self.ai_game, 'initialize_game'):
                 self.ai_game.initialize_game()
+            # Đảm bảo AI game chạy ở AI mode
+            self.ai_game.set_ai_mode(True)
             # Reset giá trị AI game khi thay đổi algorithm
             self.ai_score = getattr(self.ai_game, 'score', 0)
             self.ai_lives = getattr(self.ai_game, 'lives', 5)
@@ -249,10 +259,13 @@ class ComparisonState(State):
         # Xử lý keyboard events
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
+                self.app.sound_system.play_sound('button_click')
                 self.toggle_pause()  # Toggle pause với SPACE
             elif event.key == pygame.K_ESCAPE:
+                self.app.sound_system.play_sound('button_click')
                 self.pause_game()  # Pause với ESC
             elif event.key == pygame.K_r:
+                self.app.sound_system.play_sound('button_click')
                 self.restart_game()  # Restart với R
     
     def toggle_pause(self):
@@ -282,9 +295,13 @@ class ComparisonState(State):
             self.ai_game.initialize_game()
         
         # Restart Player game
-        self.player_game = Game("MANUAL")
+        self.player_game = Game("BFS")
         if hasattr(self.player_game, 'initialize_game'):
             self.player_game.initialize_game()
+        
+        # Đảm bảo AI game chạy ở AI mode và Player game chạy ở Player mode
+        self.ai_game.set_ai_mode(True)      # AI game chạy AI mode
+        self.player_game.set_ai_mode(False) # Player game chạy Player mode
         
         # Reset tất cả giá trị game về ban đầu
         self.ai_score = getattr(self.ai_game, 'score', 0)

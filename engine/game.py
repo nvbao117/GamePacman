@@ -74,6 +74,7 @@ class Game(object):
         self.starttime = time.time()    # Thời gian bắt đầu level
         self.endtime = time.time()      # Thời gian kết thúc level
         self.running = True             # Game có đang chạy không
+        self.ai_mode = True             # Chế độ AI (True) hay Player (False)
     
     def setBackground(self):
         """
@@ -344,7 +345,11 @@ class Game(object):
             self.checkFruitEvents()
         if self.pacman.alive:
             if not self.pause.paused:
-                self.pacman.update_ai(dt,self.pellets,True)
+                # Kiểm tra mode hiện tại để quyết định sử dụng AI hay Player control
+                if hasattr(self, 'ai_mode') and self.ai_mode:
+                    self.pacman.update_ai(dt, self.pellets, True)  # AI mode
+                else:
+                    self.pacman.update(dt)  # Player mode
         else:
             self.pacman.update(dt)
         
@@ -572,3 +577,47 @@ class Game(object):
     def quit_game(self):
         """Quit the game"""
         self.running = False
+    
+    def set_ai_mode(self, ai_mode):
+        """
+        Chuyển đổi giữa AI mode và Player mode
+        Args:
+            ai_mode: True cho AI mode, False cho Player mode
+        """
+        self.ai_mode = ai_mode
+        print(f"Switched to {'AI' if ai_mode else 'Player'} mode")
+    
+    def set_algorithm(self, algorithm):
+        """
+        Thay đổi thuật toán AI
+        Args:
+            algorithm: Tên thuật toán ('BFS', 'DFS', 'A*', 'UCS', 'IDS')
+        """
+        if hasattr(self, 'pacman') and self.pacman:
+            # Cập nhật thuật toán cho Pac-Man
+            if algorithm == 'DFS':
+                from engine.dfs import dfs
+                self.pacman.pathfinder_name = 'DFS'
+                self.pacman.pathfinder = dfs
+            elif algorithm == 'IDS':
+                from engine.ids import iterative_deepening_dfs
+                self.pacman.pathfinder_name = 'IDS'
+                self.pacman.pathfinder = lambda s, e, p: iterative_deepening_dfs(s, e, p)
+            elif algorithm == 'UCS':
+                from engine.ucs import ucs
+                self.pacman.pathfinder_name = 'UCS'
+                self.pacman.pathfinder = ucs
+            elif algorithm == 'A*':
+                from engine.a_star import a_star
+                self.pacman.pathfinder_name = 'A*'
+                self.pacman.pathfinder = a_star
+            else:  # BFS
+                from engine.bfs import bfs
+                self.pacman.pathfinder_name = 'BFS'
+                self.pacman.pathfinder = bfs
+            
+            # Reset path khi thay đổi thuật toán
+            self.pacman.path = []
+            self.pacman.locked_target_node = None
+            
+            print(f"Algorithm changed to: {algorithm}")

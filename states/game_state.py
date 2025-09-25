@@ -56,6 +56,9 @@ class GameState(State):
         # Cập nhật thông tin lên layout
         self.layout.set_game_info(self.score, self.lives, self.level, self.algorithm)
         
+        # Khởi tạo mode mặc định
+        self.game.set_ai_mode(True)  # Bắt đầu với AI mode
+        
     def _render_scaled_game(self, game_surface, game_rect):
         """
         Render game content với scaling phù hợp để giữ tỷ lệ khung hình
@@ -205,17 +208,10 @@ class GameState(State):
             self.app.sound_system.play_sound('button_click')
             # Algorithm đã thay đổi, cập nhật game
             self.algorithm = self.layout.algorithm
-            self.game = Game(self.algorithm)  # Tạo game mới với algorithm mới
-            if hasattr(self.game, 'initialize_game'):
-                self.game.initialize_game()
-            # Reset giá trị game khi thay đổi algorithm
-            self.score = getattr(self.game, 'score', 0)
-            self.lives = getattr(self.game, 'lives', 5)
-            self.level = getattr(self.game, 'level', 0)
+            # Chỉ thay đổi algorithm, không tạo game mới
+            self.game.set_algorithm(self.algorithm)
+            # Cập nhật thông tin lên layout
             self.layout.set_game_info(self.score, self.lives, self.level, self.algorithm)
-            # Reset trạng thái play khi thay đổi algorithm
-            self.layout.is_playing = False
-            self.is_pause = True
         
         # Chuyển tiếp events cho game engine
         if hasattr(self.game, 'handle_event'):
@@ -229,6 +225,10 @@ class GameState(State):
                 self.pause_game()  # Pause với ESC
             elif event.key == pygame.K_r:
                 self.restart_game()  # Restart với R
+            elif event.key == pygame.K_m:
+                # Chỉ cho phép toggle mode khi ở AI mode
+                if hasattr(self.game, 'ai_mode') and self.game.ai_mode:
+                    self.toggle_ai_mode()  # Toggle AI/Player mode với M
     def toggle_pause(self):
         """
         Chuyển đổi trạng thái pause
@@ -301,6 +301,17 @@ class GameState(State):
             self.app.screen = pygame.display.set_mode((self.app.WIDTH, self.app.HEIGHT), pygame.FULLSCREEN)
         else:
             self.app.screen = pygame.display.set_mode((self.app.WIDTH, self.app.HEIGHT))
+    
+    def toggle_ai_mode(self):
+        """
+        Chuyển đổi giữa AI mode và Player mode
+        - Toggle giữa AI tự động và điều khiển thủ công
+        """
+        if hasattr(self.game, 'ai_mode'):
+            self.game.set_ai_mode(not self.game.ai_mode)
+            # Cập nhật thông tin hiển thị
+            mode_text = "AI" if self.game.ai_mode else "Player"
+            print(f"Switched to {mode_text} mode")
         
         print("Game state: Settings updated")
 
