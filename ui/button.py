@@ -1,3 +1,9 @@
+# =============================================================================
+# BUTTON.PY - HỆ THỐNG BUTTON CHO GAME PAC-MAN
+# =============================================================================
+# File này chứa các class Button để tạo UI buttons
+# Hỗ trợ hover effects, click events, và keyboard navigation
+
 import pygame
 import math
 from ui.uicomponent import UIComponent
@@ -5,20 +11,42 @@ from ui.constants import *
 
 
 class Button(UIComponent):
+    """
+    Class Button cơ bản cho UI
+    - Hỗ trợ hover effects và click events
+    - Có thể tùy chỉnh kích thước, font, và vị trí
+    - Hỗ trợ keyboard navigation
+    """
     def __init__(self, app, pos, text, size=(300, 70), font_size=22, onclick=None, topleft=False):
+        """
+        Khởi tạo button
+        Args:
+            app: Tham chiếu đến App chính
+            pos: Vị trí button (x, y)
+            text: Text hiển thị trên button
+            size: Kích thước button (width, height)
+            font_size: Kích thước font
+            onclick: List các callback khi click
+            topleft: Có sử dụng topleft positioning không
+        """
         super().__init__(app)
         self.text = str(text)
         self.w, self.h = size
+        # Tính toán vị trí dựa trên topleft flag
         self.x = pos[0] - self.w // 2 if not topleft else pos[0]
         self.y = pos[1] - self.h // 2 if not topleft else pos[1]
         self.rect = pygame.Rect(self.x, self.y, self.w, self.h)
-        self.is_hovered = False
-        self._pressed_inside = False
+        
+        # Trạng thái button
+        self.is_hovered = False      # Có đang hover không
+        self._pressed_inside = False # Có đang press bên trong không
+        self.is_focused = False      # Có đang focus không (keyboard nav)
+        
+        # Callbacks và font
         self.onclick = list(onclick) if onclick else []
         self.font_path = FONT_PATH
         self.font_size = font_size
         self._font = pygame.font.Font(self.font_path, self.font_size)
-        self.is_focused = False
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEMOTION:

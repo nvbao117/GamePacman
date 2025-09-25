@@ -1,3 +1,9 @@
+# =============================================================================
+# GAME.PY - CLASS CHÍNH QUẢN LÝ GAME PAC-MAN
+# =============================================================================
+# File này chứa class Game - quản lý toàn bộ logic game, render, và các sự kiện
+# Bao gồm khởi tạo game, cập nhật logic, xử lý va chạm, và render
+
 import pygame
 from pygame.locals import * 
 from constants import *
@@ -11,47 +17,88 @@ from objects.ghosts import GhostGroup
 from objects.pellets import PelletGroup
 from ui.text import TextGroup
 import time
+
 class Game(object):
+    """
+    Class chính quản lý toàn bộ game Pac-Man
+    - Khởi tạo và quản lý tất cả objects trong game
+    - Xử lý logic game, va chạm, và sự kiện
+    - Render game với các hiệu ứng visual
+    - Quản lý state của game (pause, level, score, lives)
+    """
     def __init__(self, algorithm: str = 'BFS'):
+        """
+        Khởi tạo game với thuật toán AI được chọn
+        
+        Args:
+            algorithm: Thuật toán AI cho Pac-Man ('BFS', 'DFS', 'IDS', 'UCS', 'A*')
+        """
         pygame.init()
-        # Store algorithm
+        
+        # Lưu thuật toán AI được chọn
         self.algorithm = algorithm
+        
+        # Các thuộc tính màn hình và render
         self.screen = None
         self.background = None
-        self.background_norm = None
-        self.background_flash = None 
+        self.background_norm = None      # Background bình thường
+        self.background_flash = None    # Background khi flash (level complete)
         self.clock = pygame.time.Clock()
-        self.fruit = None
-        self.pause = Pause(True)
-        self.level = 0 
-        self.lives = 5
-        self.score = 0 
-        self.textgroup=TextGroup()
-        self.lifesprites = LifeSprites(self.lives)
-        self.flashBG = False
-        self.flashTime = 0.2
-        self.flashTimer = 0 
-        self.fruitCaptured = []
-        self.fruitNode = None
-        self.mazedata = MazeData() 
-        self.starttime = time.time()
-        self.endtime = time.time()
-        self.running = True
+        
+        # Objects trong game
+        self.fruit = None               # Trái cây hiện tại
+        self.pause = Pause(True)        # Hệ thống pause
+        
+        # Thông tin game
+        self.level = 0                  # Level hiện tại
+        self.lives = 5                  # Số mạng còn lại
+        self.score = 0                  # Điểm số hiện tại
+        
+        # UI components
+        self.textgroup = TextGroup()    # Nhóm text hiển thị
+        self.lifesprites = LifeSprites(self.lives)  # Sprites hiển thị số mạng
+        
+        # Hiệu ứng visual
+        self.flashBG = False            # Có flash background không
+        self.flashTime = 0.2            # Thời gian flash
+        self.flashTimer = 0             # Timer cho flash
+        
+        # Quản lý fruit
+        self.fruitCaptured = []         # Danh sách fruit đã ăn
+        self.fruitNode = None           # Node chứa fruit
+        
+        # Dữ liệu maze
+        self.mazedata = MazeData()      # Dữ liệu maze hiện tại
+        
+        # Thời gian
+        self.starttime = time.time()    # Thời gian bắt đầu level
+        self.endtime = time.time()      # Thời gian kết thúc level
+        self.running = True             # Game có đang chạy không
     
     def setBackground(self):
+        """
+        Thiết lập background cho game với các hiệu ứng visual
+        - Tạo background bình thường và flash
+        - Thêm gradient và hiệu ứng theo level
+        - Áp dụng maze sprites lên background
+        """
+        # Tạo surface cho background bình thường
         self.background_norm = pygame.surface.Surface(SCREENSIZE).convert()
         self.background_norm.fill(BLACK)
+        
+        # Tạo surface cho background flash (khi level complete)
         self.background_flash = pygame.surface.Surface(SCREENSIZE).convert()
         self.background_flash.fill(BLACK)
         
-        # Create enhanced background with gradient and effects
+        # Tạo background nâng cao với gradient và hiệu ứng
         self._create_enhanced_background(self.background_norm, self.level % 5)
         self._create_enhanced_background(self.background_flash, 5)
         
-        # Apply maze sprites on top
+        # Áp dụng maze sprites lên background
         self.background_norm = self.mazesprites.constructBackground(self.background_norm, self.level%5)
         self.background_flash = self.mazesprites.constructBackground(self.background_flash, 5)
         
+        # Reset flash state
         self.flashBG = False
         self.background = self.background_norm
     
@@ -185,17 +232,34 @@ class Game(object):
         self.startGame()
     
     def startGame(self):
+        """
+        Khởi tạo và bắt đầu game mới
+        - Load maze data cho level hiện tại
+        - Tạo tất cả objects (Pac-Man, ghosts, pellets, nodes)
+        - Thiết lập thuật toán AI cho Pac-Man
+        - Cấu hình vị trí bắt đầu và access rules
+        """
+        # Load maze data cho level hiện tại
         self.mazedata.loadMaze(self.level)
+        
+        # Tạo maze sprites
         self.mazesprites = MazeSprites(
             "assets/maze/"+self.mazedata.obj.name+".txt", 
             "assets/maze/"+self.mazedata.obj.name+"_rotation.txt"
         )
+        
+        # Thiết lập background
         self.setBackground()
+        
+        # Tạo node group và thiết lập connections
         self.nodes = NodeGroup("assets/maze/"+self.mazedata.obj.name+".txt")
-        self.mazedata.obj.setPortalPairs(self.nodes)
-        self.mazedata.obj.connectHomeNodes(self.nodes)
+        self.mazedata.obj.setPortalPairs(self.nodes)      # Thiết lập portal pairs
+        self.mazedata.obj.connectHomeNodes(self.nodes)    # Kết nối home nodes
+        
+        # Tạo Pac-Man tại vị trí bắt đầu
         self.pacman = Pacman(self.nodes.getNodeFromTiles(*self.mazedata.obj.pacmanStart))
-        # Set algorithm
+        
+        # Thiết lập thuật toán AI cho Pac-Man
         algo = self.algorithm
         if algo == 'DFS':
             from engine.dfs import dfs
@@ -203,7 +267,7 @@ class Game(object):
             self.pacman.pathfinder = dfs
         elif algo == 'IDS':
             from engine.ids import iterative_deepening_dfs
-            # Wrap ids to ignore extra parameter for default
+            # Wrap ids để bỏ qua tham số extra
             self.pacman.pathfinder_name = 'IDS'
             self.pacman.pathfinder = lambda s, e, p: iterative_deepening_dfs(s, e, p)
         elif algo == 'UCS':
@@ -214,17 +278,23 @@ class Game(object):
             from engine.bfs import bfs
             self.pacman.pathfinder_name = 'BFS'
             self.pacman.pathfinder = bfs
+        
+        # Tạo pellets
         self.pellets = PelletGroup("assets/maze/"+self.mazedata.obj.name+".txt",self.nodes)
+        
+        # Tạo ghosts
         self.ghosts = GhostGroup(self.nodes.getStartTempNode(), self.pacman)
 
+        # Thiết lập vị trí bắt đầu cho từng ghost
         self.ghosts.pinky.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(2, 3)))
         self.ghosts.inky.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(0, 3)))
         self.ghosts.clyde.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(4, 3)))
         self.ghosts.setSpawnNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(2, 3)))
         self.ghosts.blinky.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(2, 0)))
 
-        self.nodes.denyHomeAccess(self.pacman)
-        self.nodes.denyHomeAccessList(self.ghosts)
+        # Thiết lập access rules
+        self.nodes.denyHomeAccess(self.pacman)                    # Pac-Man không vào home
+        self.nodes.denyHomeAccessList(self.ghosts)                # Ghosts không vào home
         self.ghosts.inky.startNode.denyAccess(RIGHT, self.ghosts.inky)
         self.ghosts.clyde.startNode.denyAccess(LEFT, self.ghosts.clyde)
         self.ghosts.blinky.startNode.denyAccess(LEFT, self.ghosts.clyde)

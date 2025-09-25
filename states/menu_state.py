@@ -12,9 +12,8 @@ from pathlib import Path
 from statemachine import State
 from ui.button import PacManButton
 from ui.neontext import NeonText
+# from ui.advanced_settings import AdvancedSettingsModal  # Removed - not needed
 from ui.constants import *
-from states.game_state import GameState
-from states.comparison_state import ComparisonState
 
 class MenuState(State):
     """
@@ -37,7 +36,7 @@ class MenuState(State):
             app: Tham chiếu đến App chính
             machine: StateMachine quản lý states
         """
-        super().__init__(app, machine)   # Truyền app + machine cho State
+        super().__init__(app, machine)
         self.scene = MenuState.HOME  # Scene hiện tại
         self.animation_time = 0  # Thời gian animation
         self.selected_algorithm = 'BFS'  # Thuật toán AI được chọn
@@ -47,6 +46,12 @@ class MenuState(State):
         # Khởi tạo background và UI components
         self._load_background()
         self._init_ui_components()
+        
+        # Khởi tạo biến để theo dõi button focus
+        self._last_button_index = -1
+        self._last_hovered_button = -1
+        
+        # Advanced Settings removed - use enhanced basic settings instead
 
     def _load_background(self):
         """
@@ -113,7 +118,8 @@ class MenuState(State):
             PacManButton(self.app, pos=(center_x, start_y + button_spacing), text="📊 HIGH SCORES", 
                          onclick=[self.show_scores]),
             PacManButton(self.app, pos=(center_x, start_y + button_spacing * 2), text="🔧 SETTINGS", 
-                         onclick=[self.show_options]),
+                         onclick=[self.show_settings]),
+            # Advanced Settings button removed - enhanced basic settings instead
             PacManButton(self.app, pos=(center_x, start_y + button_spacing * 3), text="ℹ️ STATES", 
                          onclick=[self.show_states]),
             PacManButton(self.app, pos=(center_x, start_y + button_spacing * 4), text="X EXIT", 
@@ -213,28 +219,44 @@ class MenuState(State):
         """
         Bắt đầu game với thuật toán đã chọn
         """
-        game_state = GameState(self.app, self.machine, algorithm=self.selected_algorithm)
-        self.replace_state(game_state)
+        print(f"Starting game with algorithm: {self.selected_algorithm}")
+        # TODO: Implement game start logic
 
     def start_ai_game(self):
         """
         Bắt đầu game AI mode
         """
-        game_state = GameState(self.app, self.machine, algorithm=self.selected_algorithm)
+        print(f"Starting AI game with algorithm: {self.selected_algorithm}")
+        # Phát âm thanh bắt đầu game
+        self.app.sound_system.play_sound('button_click')
+        # Bắt đầu nhạc nền
+        self.app.sound_system.play_music('background_music')
+        
+        from states.game_state import GameState
+        game_state = GameState(self.app, self.machine, self.selected_algorithm)
         self.replace_state(game_state)
 
     def start_player_game(self):
         """
         Bắt đầu game player mode (không AI)
         """
-        game_state = GameState(self.app, self.machine, algorithm=None)  # Player mode
+        print("Starting player game")
+        # Phát âm thanh bắt đầu game
+        self.app.sound_system.play_sound('button_click')
+        # Bắt đầu nhạc nền
+        self.app.sound_system.play_music('background_music')
+        
+        from states.game_state import GameState
+        game_state = GameState(self.app, self.machine, "MANUAL")
         self.replace_state(game_state)
 
     def start_comparison_game(self):
         """
         Bắt đầu game comparison mode
         """
-        comparison_state = ComparisonState(self.app, self.machine, algorithm=self.selected_algorithm)
+        print("Starting comparison game")
+        from states.comparison_state import ComparisonState
+        comparison_state = ComparisonState(self.app, self.machine)
         self.replace_state(comparison_state)
 
     def cycle_algorithm(self):
@@ -243,6 +265,7 @@ class MenuState(State):
         - Cycle qua danh sách algorithms
         - Cập nhật text của algorithm button
         """
+        self.app.sound_system.play_sound('button_click')
         idx = self._algorithms.index(self.selected_algorithm)
         self.selected_algorithm = self._algorithms[(idx + 1) % len(self._algorithms)]
         
@@ -250,28 +273,45 @@ class MenuState(State):
             self.algo_button.text = f"AI: {self.selected_algorithm}"
 
     def show_game_modes(self):
+        self.app.sound_system.play_sound('button_click')
         self.scene = MenuState.GAME_MODES
         self.current_button_index = 0
+        self._last_button_index = -1  # Reset để không phát hover sound
         self._update_scene_focus()
 
     def show_scores(self):
+        self.app.sound_system.play_sound('button_click')
         self.scene = MenuState.SCORES
         self.current_button_index = 0
+        self._last_button_index = -1  # Reset để không phát hover sound
         self._update_scene_focus()
 
     def show_states(self):
+        self.app.sound_system.play_sound('button_click')
         self.scene = MenuState.STATES
         self.current_button_index = 0
+        self._last_button_index = -1  # Reset để không phát hover sound
         self._update_scene_focus()
 
     def show_options(self):
+        self.app.sound_system.play_sound('button_click')
         self.scene = MenuState.OPTIONS
         self.current_button_index = 0
+        self._last_button_index = -1  # Reset để không phát hover sound
         self._update_scene_focus()
+    
+    def show_settings(self):
+        """Hiển thị setting modal"""
+        self.app.sound_system.play_sound('button_click')
+        self.app.setting_modal.show()
+    
+    # Advanced settings method removed - not needed anymore
 
     def back_to_home(self):
+        self.app.sound_system.play_sound('button_click')
         self.scene = MenuState.HOME
         self.current_button_index = 0
+        self._last_button_index = -1  # Reset để không phát hover sound
         self._update_scene_focus()
     
     def _update_scene_focus(self):
@@ -295,6 +335,8 @@ class MenuState(State):
         for comp in self.UIComponents[self.scene]:
             if hasattr(comp, 'render'):
                 comp.render()   # các component tự vẽ vào app.screen
+        
+        # Advanced settings removed - only basic settings modal
 
     def _draw_pac_dots(self, screen):
         dot_colors = [DOT_WHITE, PAC_YELLOW, GHOST_PINK, GHOST_RED]
@@ -318,17 +360,44 @@ class MenuState(State):
         for comp in self.UIComponents[self.scene]:
             if hasattr(comp, 'update'):
                 comp.update()
+        
+        # Advanced settings removed - only basic settings
 
     def handle_events(self, event):
+        # Advanced settings removed - only basic settings now
+        
         if event.type == pygame.KEYDOWN:
             self._handle_keyboard_navigation(event)
         elif event.type == pygame.MOUSEBUTTONDOWN:
             for comp in self.UIComponents[self.scene]:
                 if hasattr(comp, "handle_event"):
                     comp.handle_event(event)
+        elif event.type == pygame.MOUSEMOTION:
+            # Xử lý mouse hover để phát âm thanh
+            self._handle_mouse_hover(event)
+        
         for comp in self.UIComponents[self.scene]:
             if hasattr(comp, "handle_event"):
                 comp.handle_event(event)
+    
+    def _handle_mouse_hover(self, event):
+        """Xử lý mouse hover để phát âm thanh"""
+        buttons = [comp for comp in self.UIComponents[self.scene] if isinstance(comp, PacManButton)]
+        mouse_pos = event.pos
+        
+        # Tìm button đang được hover
+        hovered_button_index = -1
+        for i, button in enumerate(buttons):
+            if hasattr(button, 'rect') and button.rect.collidepoint(mouse_pos):
+                hovered_button_index = i
+                break
+        
+        # Phát âm thanh hover nếu button thay đổi
+        if hovered_button_index != -1 and hovered_button_index != getattr(self, '_last_hovered_button', -1):
+            self.app.sound_system.play_sound('button_hover')
+            self._last_hovered_button = hovered_button_index
+        elif hovered_button_index == -1:
+            self._last_hovered_button = -1
     
     def _handle_keyboard_navigation(self, event):
         buttons = [comp for comp in self.UIComponents[self.scene] if isinstance(comp, PacManButton)]        
@@ -351,10 +420,46 @@ class MenuState(State):
                 self.back_to_home()
     
     def _update_button_focus(self, buttons):
+        # Lưu index cũ để phát hiện thay đổi
+        old_index = getattr(self, '_last_button_index', -1)
+        
         for i, button in enumerate(buttons):
             button.set_focus(False)  # Xóa tiêu điểm của tất cả nút
         buttons[self.current_button_index].set_focus(True)
+        
+        # Phát âm thanh hover nếu button thay đổi
+        if old_index != self.current_button_index and old_index != -1:
+            self.app.sound_system.play_sound('button_hover')
+        
+        # Lưu index hiện tại
+        self._last_button_index = self.current_button_index
             
+    def on_resume(self):
+        """
+        Được gọi khi state được resume
+        """
+        pass
+    
+    def on_exit(self):
+        """
+        Được gọi khi state bị exit
+        """
+        pass
+    
+    def on_settings_changed(self, settings):
+        """
+        Được gọi khi settings thay đổi
+        """
+        # Cập nhật volume cho menu state nếu cần
+        if hasattr(self.app, 'sfx_volume'):
+            self.app.sfx_volume = settings.get('sfx_volume', 0.8)
+        
+        # Cập nhật music volume nếu có
+        if 'music_volume' in settings:
+            pygame.mixer.music.set_volume(settings['music_volume'])
+        
+        print("Menu state: Settings updated")
+    
     @classmethod
     def quit(cls):
         pygame.quit()

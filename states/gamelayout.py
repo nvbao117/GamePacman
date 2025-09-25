@@ -62,8 +62,7 @@ class GameLayout(UIComponent):
         # Background chính chiếm toàn bộ màn hình
         self.background_rect = pygame.Rect(0, 0, self.app.WIDTH, self.app.HEIGHT)
         
-        # Control panel - bên phải (kích thước nhỏ hơn để dành chỗ cho game)
-        panel_width = 300  # Giảm width để dành chỗ cho game
+        panel_width = 300 
         panel_height = self.app.HEIGHT
         panel_x = self.app.WIDTH - panel_width
         panel_y = 0
@@ -96,11 +95,10 @@ class GameLayout(UIComponent):
     
     def _setup_selectbox(self):
         """Setup the algorithm selectbox"""
-        # Position selectbox in the algorithm section
         selectbox_x = self.control_panel_rect.x + 15
-        selectbox_y = 640  # Below the algorithm label
-        selectbox_width = self.control_panel_rect.width - 30  # Adjusted for new panel width
-        selectbox_height = 40  # Slightly taller for better visibility
+        selectbox_y = 640  
+        selectbox_width = self.control_panel_rect.width - 30 
+        selectbox_height = 40  
         
         self.algorithm_selectbox = SelectBox(
             selectbox_x, selectbox_y, selectbox_width, selectbox_height,
@@ -113,12 +111,11 @@ class GameLayout(UIComponent):
         except:
             self.algorithm_selectbox.font = pygame.font.Font(None, 12)
         
-        # Customize colors to match Pac-Man theme - highly visible
-        self.algorithm_selectbox.bg_color = (70, 70, 100)  # Brighter background
-        self.algorithm_selectbox.border_color = PAC_YELLOW  # Yellow border for visibility
-        self.algorithm_selectbox.selected_color = (120, 200, 240)  # Very bright blue for selected
-        self.algorithm_selectbox.hover_color = (90, 90, 120)  # Brighter hover
-        self.algorithm_selectbox.text_color = DOT_WHITE  # White text
+        self.algorithm_selectbox.bg_color = (70, 70, 100) 
+        self.algorithm_selectbox.border_color = PAC_YELLOW  
+        self.algorithm_selectbox.selected_color = (120, 200, 240) 
+        self.algorithm_selectbox.hover_color = (90, 90, 120) 
+        self.algorithm_selectbox.text_color = DOT_WHITE  
         
         # Set initial selection based on current algorithm
         if self.algorithm in self.algorithm_options:
@@ -194,8 +191,6 @@ class GameLayout(UIComponent):
             pygame.draw.circle(self.surface, color, (int(x), int(y)), size)
     
     def _draw_game_area(self):
-        """Draw the game area with enhanced transparency and full-screen effect"""
-        # Create a semi-transparent overlay for the game area
         overlay_surface = pygame.Surface((self.game_area_rect.width, self.game_area_rect.height), pygame.SRCALPHA)
         
         # Semi-transparent background with gradient
@@ -279,7 +274,6 @@ class GameLayout(UIComponent):
         subtitle_color = (200, 200, 255)
         subtitle_surface = font_subtitle.render(subtitle_text, True, subtitle_color)
         self.surface.blit(subtitle_surface, subtitle_rect)
-    
     
     def _draw_control_panel(self):
         """Draw the control panel with enhanced transparency effects"""
@@ -656,6 +650,15 @@ class GameLayout(UIComponent):
             True nếu algorithm thay đổi, False nếu không
         """
         if self.algorithm_selectbox:
+            # Xử lý mouse hover cho selectbox
+            if event.type == pygame.MOUSEMOTION:
+                if hasattr(self.algorithm_selectbox, 'rect') and self.algorithm_selectbox.rect.collidepoint(event.pos):
+                    if not getattr(self, '_selectbox_hovered', False):
+                        self.app.sound_system.play_sound('button_hover')
+                        self._selectbox_hovered = True
+                else:
+                    self._selectbox_hovered = False
+            
             if self.algorithm_selectbox.handle_event(event):
                 # Kiểm tra xem selection có thay đổi không
                 new_algorithm = self.algorithm_selectbox.get_selected_value()
@@ -674,8 +677,18 @@ class GameLayout(UIComponent):
         """
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
             if hasattr(self, 'play_button_rect') and self.play_button_rect.collidepoint(event.pos):
+                # Phát âm thanh khi click play/pause
+                self.app.sound_system.play_sound('button_click')
                 self.is_playing = not self.is_playing
                 return True  # Báo hiệu play state đã thay đổi
+        elif event.type == pygame.MOUSEMOTION:
+            # Xử lý mouse hover cho play button
+            if hasattr(self, 'play_button_rect') and self.play_button_rect.collidepoint(event.pos):
+                if not getattr(self, '_play_button_hovered', False):
+                    self.app.sound_system.play_sound('button_hover')
+                    self._play_button_hovered = True
+            else:
+                self._play_button_hovered = False
         return False
     
     def update(self):

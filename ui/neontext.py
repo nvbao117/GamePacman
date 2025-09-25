@@ -1,10 +1,35 @@
+# =============================================================================
+# NEONTEXT.PY - HỆ THỐNG TEXT VỚI HIỆU ỨNG NEON CHO GAME PAC-MAN
+# =============================================================================
+# File này chứa class NeonText để tạo text với hiệu ứng đẹp mắt
+# Hỗ trợ glow, rainbow, outline effects
+
 import math
 import pygame
 from ui.uicomponent import UIComponent
 from ui.constants import FONT_PATH
 
 class NeonText(UIComponent):
+    """
+    Class NeonText tạo text với hiệu ứng neon đẹp mắt
+    - Hỗ trợ glow effect (hiệu ứng phát sáng)
+    - Hỗ trợ rainbow effect (hiệu ứng cầu vồng)
+    - Hỗ trợ outline effect (hiệu ứng viền)
+    - Có animation tự động
+    """
     def __init__(self, app, text, color, x, y, size, glow=False, rainbow=False, outline=False):
+        """
+        Khởi tạo NeonText
+        Args:
+            app: Tham chiếu đến App chính
+            text: Text hiển thị (có thể là function)
+            color: Màu sắc cơ bản
+            x, y: Vị trí text
+            size: Kích thước font
+            glow: Có hiệu ứng glow không
+            rainbow: Có hiệu ứng rainbow không
+            outline: Có hiệu ứng outline không
+        """
         super().__init__(app)
         self.text = text
         self.base_color = color
@@ -14,11 +39,13 @@ class NeonText(UIComponent):
         self.outline = outline
         self.font = pygame.font.Font(FONT_PATH, size)
         
-        # Khởi tạo rect
+        # Khởi tạo rect từ text ban đầu
         initial_label = self.font.render(str(self.text), True, self.base_color)
         self.rect = initial_label.get_rect(center=(x, y))
-        self.animation_time = 0
-        self.pulse_time = 0
+        
+        # Biến animation
+        self.animation_time = 0  # Thời gian animation
+        self.pulse_time = 0      # Thời gian pulse effect
 
     def render(self):
         text_value = self.text() if callable(self.text) else self.text

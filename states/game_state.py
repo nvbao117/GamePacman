@@ -101,7 +101,6 @@ class GameState(State):
         x_offset = (game_rect.width - scaled_width) // 2
         y_offset = (game_rect.height - scaled_height) // 2
         
-        # Xóa game surface trước
         game_surface.fill((0, 0, 0, 0))
         
         # Vẽ game đã scale lên game surface
@@ -131,6 +130,7 @@ class GameState(State):
         - Đồng bộ trạng thái play/pause
         - Cập nhật game engine nếu không pause
         - Kiểm tra game over
+        - Xử lý âm thanh
         """
         # Luôn cập nhật layout animations
         self.layout.update()
@@ -139,6 +139,9 @@ class GameState(State):
         self.layout.is_playing = not self.is_pause
         
         if not self.is_pause and self.game_running:
+            # Lưu score cũ để phát hiện thay đổi
+            old_score = self.score
+            
             # Cập nhật game engine nếu có
             if hasattr(self.game, 'update'):
                 self.game.update()
@@ -147,6 +150,23 @@ class GameState(State):
             self.score = getattr(self.game, 'score', self.score)
             self.lives = getattr(self.game, 'lives', self.lives)
             self.level = getattr(self.game, 'level', self.level)
+            
+            # Phát âm thanh khi score thay đổi (ăn pellet)
+            if self.score > old_score:
+                score_diff = self.score - old_score
+                if score_diff == 10:  # Ăn pellet thường
+                    self.app.sound_system.play_sound('pellet')
+                elif score_diff == 50:  # Ăn power pellet
+                    self.app.sound_system.play_sound('power_pellet')
+                elif score_diff >= 100:  # Ăn fruit
+                    self.app.sound_system.play_sound('fruit')
+            
+            # Kiểm tra game over hoặc level complete
+            if hasattr(self.game, 'game_over') and self.game.game_over:
+                self.app.sound_system.play_sound('game_over')
+                self.app.sound_system.stop_music()
+            elif hasattr(self.game, 'level_complete') and self.game.level_complete:
+                self.app.sound_system.play_sound('level_complete')
             
             # Cập nhật layout với giá trị game hiện tại
             self.layout.set_game_info(self.score, self.lives, self.level, self.algorithm)
@@ -181,6 +201,8 @@ class GameState(State):
         
         # Xử lý sự kiện selectbox (thay đổi algorithm)
         if self.layout.handle_selectbox_event(event):
+            # Phát âm thanh khi thay đổi algorithm
+            self.app.sound_system.play_sound('button_click')
             # Algorithm đã thay đổi, cập nhật game
             self.algorithm = self.layout.algorithm
             self.game = Game(self.algorithm)  # Tạo game mới với algorithm mới
@@ -261,4 +283,24 @@ class GameState(State):
         Được gọi khi state bị exit
         """
         pass
+    
+    def on_settings_changed(self, settings):
+        """
+        Được gọi khi settings thay đổi
+        """
+        # Cập nhật volume cho game state
+        if hasattr(self.app, 'sfx_volume'):
+            self.app.sfx_volume = settings.get('sfx_volume', 0.8)
+        
+        # Cập nhật music volume nếu có
+        if 'music_volume' in settings:
+            pygame.mixer.music.set_volume(settings['music_volume'])
+        
+        # Cập nhật fullscreen nếu cần
+        if 'fullscreen' in settings and settings['fullscreen']:
+            self.app.screen = pygame.display.set_mode((self.app.WIDTH, self.app.HEIGHT), pygame.FULLSCREEN)
+        else:
+            self.app.screen = pygame.display.set_mode((self.app.WIDTH, self.app.HEIGHT))
+        
+        print("Game state: Settings updated")
 
