@@ -23,7 +23,6 @@ def ucs_to_target(startNode, targetNode):
     queue = PriorityQueue()
     queue.put((0, startNode))
     parent = {startNode: None}
-    visited = {startNode}
     costs = {startNode: 0}
     
     while not queue.empty():
@@ -35,15 +34,13 @@ def ucs_to_target(startNode, targetNode):
         for direction in [UP, DOWN, LEFT, RIGHT, PORTAL]:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in visited and 
-                can_move_to(current_node, direction)):
+            if neighbor and can_move_to(current_node, direction):
                 new_cost = cost + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in costs or new_cost < costs[neighbor]:
+                if new_cost < costs.get(neighbor, float('inf')):
                     costs[neighbor] = new_cost
-                    queue.put((new_cost, neighbor))
                     parent[neighbor] = current_node
-                    visited.add(neighbor)
+                    queue.put((new_cost, neighbor))
     
     return None
 
@@ -54,7 +51,6 @@ def ucs_to_nearest_pellet(startNode, pellet_nodes):
     queue = PriorityQueue()
     queue.put((0, startNode))
     parent = {startNode: None}
-    visited = {startNode}
     costs = {startNode: 0}
     while not queue.empty():
         cost, current_node = queue.get()
@@ -65,15 +61,13 @@ def ucs_to_nearest_pellet(startNode, pellet_nodes):
         for direction in [UP, DOWN, LEFT, RIGHT, PORTAL]:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in visited and 
-                can_move_to(current_node, direction)):
+            if neighbor and can_move_to(current_node, direction):
                 new_cost = cost + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in costs or new_cost < costs[neighbor]:
+                if new_cost < costs.get(neighbor, float('inf')):
                     costs[neighbor] = new_cost
-                    queue.put((new_cost, neighbor))
                     parent[neighbor] = current_node
-                    visited.add(neighbor)
+                    queue.put((new_cost, neighbor))
     return None
 
 def ucs_with_priority(startNode, endNode, pellet_group, priority_direction=None):
@@ -98,7 +92,6 @@ def ucs_to_target_with_priority(startNode, targetNode, priority_direction=None):
     queue = PriorityQueue()
     queue.put((0, startNode))
     parent = {startNode: None}
-    visited = {startNode}
     costs = {startNode: 0}
     
     while not queue.empty():
@@ -112,15 +105,13 @@ def ucs_to_target_with_priority(startNode, targetNode, priority_direction=None):
         for direction in directions:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in visited and 
-                can_move_to(current_node, direction)):
+            if neighbor and can_move_to(current_node, direction):
                 new_cost = cost + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in costs or new_cost < costs[neighbor]:
+                if new_cost < costs.get(neighbor, float('inf')):
                     costs[neighbor] = new_cost
-                    queue.put((new_cost, neighbor))
                     parent[neighbor] = current_node
-                    visited.add(neighbor)
+                    queue.put((new_cost, neighbor))
     
     return None
 
@@ -131,7 +122,6 @@ def ucs_to_nearest_pellet_with_priority(startNode, pellet_nodes, priority_direct
     queue = PriorityQueue()
     queue.put((0, startNode))
     parent = {startNode: None}
-    visited = {startNode}
     costs = {startNode: 0}
     
     while not queue.empty():
@@ -145,15 +135,13 @@ def ucs_to_nearest_pellet_with_priority(startNode, pellet_nodes, priority_direct
         for direction in directions:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in visited and 
-                can_move_to(current_node, direction)):
+            if neighbor and can_move_to(current_node, direction):
                 new_cost = cost + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in costs or new_cost < costs[neighbor]:
+                if new_cost < costs.get(neighbor, float('inf')):
                     costs[neighbor] = new_cost
-                    queue.put((new_cost, neighbor))
                     parent[neighbor] = current_node
-                    visited.add(neighbor)
+                    queue.put((new_cost, neighbor))
     
     return None
 

@@ -69,6 +69,10 @@ def a_star_to_target(startNode, targetNode):
     while not queue.empty():
         current_f, current_node = queue.get()
         
+        # Skip stale queue entries
+        if current_node in f_cost and current_f > f_cost[current_node]:
+            continue
+        
         # Tìm thấy target
         if current_node == targetNode:
             return trace_path(parent, current_node)
@@ -77,14 +81,12 @@ def a_star_to_target(startNode, targetNode):
         for direction in [UP, DOWN, LEFT, RIGHT, PORTAL]:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in g_cost and 
-                can_move_to(current_node, direction)):
-                
+            if neighbor and can_move_to(current_node, direction):
                 # Tính tentative g cost
                 tentative_g = g_cost[current_node] + get_cost(current_node, neighbor, direction)
                 
                 # Cập nhật nếu tìm được đường tốt hơn
-                if neighbor not in g_cost or tentative_g < g_cost[neighbor]:
+                if tentative_g < g_cost.get(neighbor, float('inf')):
                     g_cost[neighbor] = tentative_g
                     f_cost[neighbor] = tentative_g + heuristic(neighbor, targetNode)
                     queue.put((f_cost[neighbor], neighbor))
@@ -105,18 +107,19 @@ def a_star_to_nearest_pellet(startNode, pellet_nodes):
     while not queue.empty():
         current_f, current_node = queue.get()
         
+        if current_node in f_cost and current_f > f_cost[current_node]:
+            continue
+        
         if current_node in pellet_nodes:
             return trace_path(parent, current_node)
         
         for direction in [UP, DOWN, LEFT, RIGHT, PORTAL]:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in g_cost and 
-                can_move_to(current_node, direction)):
-                
+            if neighbor and can_move_to(current_node, direction):
                 tentative_g = g_cost[current_node] + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in g_cost or tentative_g < g_cost[neighbor]:
+                if tentative_g < g_cost.get(neighbor, float('inf')):
                     g_cost[neighbor] = tentative_g
                     # Tìm pellet gần nhất từ neighbor
                     min_heuristic = min(heuristic(neighbor, pellet) for pellet in pellet_nodes)
@@ -154,6 +157,9 @@ def a_star_to_target_with_priority(startNode, targetNode, priority_direction=Non
     while not queue.empty():
         current_f, current_node = queue.get()
         
+        if current_node in f_cost and current_f > f_cost[current_node]:
+            continue
+        
         if current_node == targetNode:
             return trace_path(parent, current_node)
         
@@ -162,12 +168,10 @@ def a_star_to_target_with_priority(startNode, targetNode, priority_direction=Non
         for direction in directions:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in g_cost and 
-                can_move_to(current_node, direction)):
-                
+            if neighbor and can_move_to(current_node, direction):
                 tentative_g = g_cost[current_node] + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in g_cost or tentative_g < g_cost[neighbor]:
+                if tentative_g < g_cost.get(neighbor, float('inf')):
                     g_cost[neighbor] = tentative_g
                     f_cost[neighbor] = tentative_g + heuristic(neighbor, targetNode)
                     queue.put((f_cost[neighbor], neighbor))
@@ -188,6 +192,9 @@ def a_star_to_nearest_pellet_with_priority(startNode, pellet_nodes, priority_dir
     while not queue.empty():
         current_f, current_node = queue.get()
         
+        if current_node in f_cost and current_f > f_cost[current_node]:
+            continue
+        
         if current_node in pellet_nodes:
             return trace_path(parent, current_node)
         
@@ -196,12 +203,10 @@ def a_star_to_nearest_pellet_with_priority(startNode, pellet_nodes, priority_dir
         for direction in directions:
             neighbor = current_node.neighbors.get(direction)
             
-            if (neighbor and neighbor not in g_cost and 
-                can_move_to(current_node, direction)):
-                
+            if neighbor and can_move_to(current_node, direction):
                 tentative_g = g_cost[current_node] + get_cost(current_node, neighbor, direction)
                 
-                if neighbor not in g_cost or tentative_g < g_cost[neighbor]:
+                if tentative_g < g_cost.get(neighbor, float('inf')):
                     g_cost[neighbor] = tentative_g
                     min_heuristic = min(heuristic(neighbor, pellet) for pellet in pellet_nodes)
                     f_cost[neighbor] = tentative_g + min_heuristic

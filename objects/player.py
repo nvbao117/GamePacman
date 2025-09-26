@@ -14,6 +14,10 @@ from objects.pellets import PelletGroup
 from objects.nodes import Node
 from collections import deque
 from engine.a_star import a_star
+from engine.dfs import dfs
+from engine.bfs import bfs
+from engine.dfs import ids
+from engine.ucs import ucs
 import sys
 
 class Pacman(Entity):
@@ -42,6 +46,7 @@ class Pacman(Entity):
         self.path = []  # Đường đi đã tính toán
         self.locked_target_node = None  # Node mục tiêu đã khóa
         self.previous_node = None  # Node trước đó (để tránh backtracking)
+        self.search_algo = 'astar'  # bfs | dfs | ids | ucs | astar
     
     def reset(self):
         """
@@ -67,6 +72,16 @@ class Pacman(Entity):
             path: List các node tạo thành đường đi
         """
         self.path = path[1:]  # Bỏ qua node đầu tiên (node hiện tại)
+    
+    def set_search_algorithm(self, algo_name):
+        """
+        Chọn thuật toán tìm đường: 'bfs' | 'dfs' | 'ids' | 'ucs' | 'astar'
+        """
+        allowed = {'bfs', 'dfs', 'ids', 'ucs', 'astar'}
+        if algo_name in allowed:
+            self.search_algo = algo_name
+        else:
+            self.search_algo = 'astar'
     
     def get_direction(self, from_node, to_node):
         """
@@ -161,7 +176,7 @@ class Pacman(Entity):
             # Xử lý portal nếu có
             if self.node.neighbors[PORTAL] is not None: 
                 self.node = self.node.neighbors[PORTAL] 
-                
+            
             # AI pathfinding logic
             if auto and pelletGroup is not None and pelletGroup.pelletList:
                 # Sử dụng BFS cải tiến với ưu tiên hướng hiện tại
@@ -172,13 +187,22 @@ class Pacman(Entity):
                     not any(p.node == self.locked_target_node for p in pelletGroup.pelletList)):
                     self.locked_target_node = None
                     # Tìm pellet gần nhất
-                    path = a_star(self.node, None, pelletGroup)
+                    path = bfs(self.node, None, pelletGroup)
                     if path and len(path) > 0:
                         self.locked_target_node = path[-1]
                 
-                # Tính toán đường đi mới nếu chưa có
+                # Tính toán đường đi mới nếu chưa có, theo thuật toán đã chọn
                 if not self.path:
-                    path = a_star(self.node, self.locked_target_node, pelletGroup)
+                    if self.search_algo == 'bfs':
+                        path = bfs(self.node, self.locked_target_node, pelletGroup)
+                    elif self.search_algo == 'dfs':
+                        path = dfs(self.node, self.locked_target_node, pelletGroup)
+                    elif self.search_algo == 'ids':
+                        path = ids(self.node, self.locked_target_node, pelletGroup)
+                    elif self.search_algo == 'ucs':
+                        path = ucs(self.node, self.locked_target_node, pelletGroup)
+                    else:  # 'astar'
+                        path = a_star(self.node, self.locked_target_node, pelletGroup)
                     if path:
                         self.set_path(path)
                 
@@ -198,10 +222,21 @@ class Pacman(Entity):
                         break
                     attempts += 1
                     
-                # Replan nếu cần thiết
+                # Replan nếu cần thiết, dùng cùng thuật toán; fallback BFS
                 if direction == STOP or self.getNewTarget(direction) is self.node:
                     self.path = []
-                    path = a_star(self.node, self.locked_target_node, pelletGroup)
+                    if self.search_algo == 'bfs':
+                        path = bfs(self.node, self.locked_target_node, pelletGroup)
+                    elif self.search_algo == 'dfs':
+                        path = dfs(self.node, self.locked_target_node, pelletGroup)
+                    elif self.search_algo == 'ids':
+                        path = ids(self.node, self.locked_target_node, pelletGroup)
+                    elif self.search_algo == 'ucs':
+                        path = ucs(self.node, self.locked_target_node, pelletGroup)
+                    else:
+                        path = a_star(self.node, self.locked_target_node, pelletGroup)
+                    if not path:
+                        path = bfs(self.node, self.locked_target_node, pelletGroup)
                     if path:
                         self.set_path(path)
                         direction = self.move_along_path()
