@@ -74,9 +74,9 @@ class Node(object) :
     
     def positions(self):
         """
-        In vị trí của node (để debug)
+        Trả về vị trí của node (dùng cho debug)
         """
-        print(f"{self.position.x,self.position.y}")
+        return (self.position.x, self.position.y)
     
     def render(self,screen):
         """

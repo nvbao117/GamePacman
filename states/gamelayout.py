@@ -4,13 +4,12 @@
 # =============================================================================
 # File này chứa GameLayout - quản lý giao diện UI trong game
 # Bao gồm control panel, game area, và các hiệu ứng visual
-
 import pygame
 import math
 from ui.uicomponent import UIComponent
 from ui.constants import *
 from ui.selectbox import SelectBox
-
+from ui.ai_mode_selector import AIModeSelector
 
 class GameLayout(UIComponent):
     """
@@ -40,13 +39,34 @@ class GameLayout(UIComponent):
         self.lives = 55          # Số mạng
         self.level = 1          # Level hiện tại
         self.algorithm = "BFS"  # Thuật toán AI
+        self.ghost_mode = True  # Chế độ Ghost
         self.is_playing = False # Trạng thái play/pause
         
         # Tùy chọn thuật toán cho selectbox
-        self.algorithm_options = ["BFS", "DFS", "A*", "UCS", "IDS"]
+        self.algorithm_options = ["BFS", "DFS", "A*", "UCS", "IDS", "GREEDY"]
+        
+        # Tùy chọn Ghost mode cho selectbox
+        self.ghost_mode_options = ["Ghost ON", "Ghost OFF"]
+        
+        # Tùy chọn heuristic cho BFS
+        self.heuristic_options = ["NONE", "MANHATTAN", "EUCLIDEAN"]
+        self.current_heuristic = 0  # Mặc định NONE
+        
+        # Few pellets mode settings
+        self.few_pellets_mode = False
+        self.few_pellets_count = 20
+        self.preset_modes = [
+            {"name": "Normal", "count": 0, "description": "All pellets"},
+            {"name": "Few (77)", "count": 7, "description": "7 pellets only"},
+        ]
+        self.selected_preset = 0  # Normal mode by default
         
         # Khởi tạo selectbox
         self.algorithm_selectbox = None
+        self.ghost_mode_selectbox = None
+        self.few_pellets_selectbox = None
+        self.heuristic_selectbox = None
+        self.ai_mode_selector = None
         self._setup_selectbox()
         
         # Animation
@@ -94,18 +114,63 @@ class GameLayout(UIComponent):
         self.game_area_rect = pygame.Rect(game_x, game_y, game_width, game_height)
     
     def _setup_selectbox(self):
-        """Setup the algorithm selectbox"""
+        """Setup the algorithm and ghost mode selectboxes"""
+        
         selectbox_x = self.control_panel_rect.x + 15
-        selectbox_y = 640  
+        selectbox_y = 660  # Di chuyển xuống thấp hơn nữa
         selectbox_width = self.control_panel_rect.width - 30 
         selectbox_height = 40  
         
-        self.algorithm_selectbox = SelectBox(
+
+        # Ghost mode selectbox
+        self.ghost_mode_selectbox = SelectBox(
             selectbox_x, selectbox_y, selectbox_width, selectbox_height,
+            self.ghost_mode_options, font_size=12
+        )
+        try:
+            self.ghost_mode_selectbox.font = pygame.font.Font(FONT_PATH, 12)
+        except:
+            self.ghost_mode_selectbox.font = pygame.font.Font(None, 12)
+        
+        self.ghost_mode_selectbox.bg_color = (70, 70, 100) 
+        self.ghost_mode_selectbox.border_color = GHOST_PINK  
+        self.ghost_mode_selectbox.selected_color = (200, 120, 240) 
+        self.ghost_mode_selectbox.hover_color = (90, 90, 120) 
+        self.ghost_mode_selectbox.text_color = DOT_WHITE  
+        
+        # Set initial selection based on current ghost mode
+        if self.ghost_mode:
+            self.ghost_mode_selectbox.selected_option = 0  # Ghost ON
+        else:
+            self.ghost_mode_selectbox.selected_option = 1  # Ghost OFF
+        
+
+        # Heuristic selectbox
+        heuristic_selectbox_y = selectbox_y + selectbox_height + 50
+        self.heuristic_selectbox = SelectBox(
+            selectbox_x, heuristic_selectbox_y, selectbox_width, selectbox_height,
+            self.heuristic_options, font_size=12
+        )
+        
+        try:
+            self.heuristic_selectbox.font = pygame.font.Font(FONT_PATH, 12)
+        except:
+            self.heuristic_selectbox.font = pygame.font.Font(None, 12)
+        
+        self.heuristic_selectbox.bg_color = (70, 70, 100) 
+        self.heuristic_selectbox.border_color = (0, 200, 100)  # Green color
+        self.heuristic_selectbox.selected_color = (100, 255, 150) 
+        self.heuristic_selectbox.hover_color = (90, 90, 120) 
+        self.heuristic_selectbox.text_color = DOT_WHITE  
+        self.heuristic_selectbox.selected_option = self.current_heuristic
+
+        # Algorithm selectbox
+        algorithm_selectbox_y = selectbox_y + selectbox_height + 150
+        self.algorithm_selectbox = SelectBox(
+            selectbox_x, algorithm_selectbox_y, selectbox_width, selectbox_height,
             self.algorithm_options, font_size=12
         )
         
-        # Use game font
         try:
             self.algorithm_selectbox.font = pygame.font.Font(FONT_PATH, 12)
         except:
@@ -117,11 +182,41 @@ class GameLayout(UIComponent):
         self.algorithm_selectbox.hover_color = (90, 90, 120) 
         self.algorithm_selectbox.text_color = DOT_WHITE  
         
-        # Set initial selection based on current algorithm
         if self.algorithm in self.algorithm_options:
             self.algorithm_selectbox.selected_option = self.algorithm_options.index(self.algorithm)
-    
-    def set_game_info(self, score=0, lives=3, level=1, algorithm="BFS"):
+        
+      
+        
+        # AI Mode Selector
+        ai_selector_y = 50
+        self.ai_mode_selector = AIModeSelector(
+            selectbox_x, ai_selector_y, selectbox_width, selectbox_height
+        )
+
+        # Few Pellets Mode selectbox (trong section riêng)
+        few_pellets_options = [mode["name"] for mode in self.preset_modes]
+        few_pellets_y = 1020  # Vị trí trong few pellets section
+        self.few_pellets_selectbox = SelectBox(
+            selectbox_x, few_pellets_y, selectbox_width, selectbox_height,
+            few_pellets_options, font_size=12
+        )
+        
+        # Use game font
+        try:
+            self.few_pellets_selectbox.font = pygame.font.Font(FONT_PATH, 12)
+        except:
+            self.few_pellets_selectbox.font = pygame.font.Font(None, 12)
+        
+        self.few_pellets_selectbox.bg_color = (70, 70, 100) 
+        self.few_pellets_selectbox.border_color = GHOST_ORANGE  
+        self.few_pellets_selectbox.selected_color = (240, 160, 80) 
+        self.few_pellets_selectbox.hover_color = (90, 90, 120) 
+        self.few_pellets_selectbox.text_color = DOT_WHITE  
+        
+        # Set initial selection
+        self.few_pellets_selectbox.selected_option = self.selected_preset
+              
+    def set_game_info(self, score=0, lives=3, level=1, algorithm="BFS", ghost_mode=True, game_time="00:00", game_instance=None):
         """
         Cập nhật thông tin game
         Args:
@@ -129,11 +224,32 @@ class GameLayout(UIComponent):
             lives: Số mạng còn lại
             level: Level hiện tại
             algorithm: Thuật toán AI đang sử dụng
+            ghost_mode: Chế độ Ghost (True/False)
+            game_time: Thời gian game hiện tại
+            game_instance: Instance của game để lấy thông tin path
         """
         self.score = score
         self.lives = lives
         self.level = level
         self.algorithm = algorithm
+        self._game_instance = game_instance
+        self.ghost_mode = ghost_mode
+        self.game_time = game_time
+        
+        # Lấy thông tin steps từ game instance
+        if game_instance and hasattr(game_instance, 'get_step_info'):
+            self.step_info = game_instance.get_step_info()
+        else:
+            self.step_info = {
+                'total_steps': 0,
+                'ai_steps': 0,
+                'player_steps': 0,
+                'current_mode': 'Unknown'
+            }
+    
+    def update(self):
+        """Cập nhật layout animations"""
+        super().update()
     
     def render(self):
         """
@@ -143,16 +259,9 @@ class GameLayout(UIComponent):
         - Vẽ control panel
         - Vẽ thông tin game
         """
-        # Vẽ background chính
         self._draw_background()
-        
-        # Vẽ frame cho game area
         self._draw_game_area()
-        
-        # Vẽ control panel
         self._draw_control_panel()
-        
-        # Vẽ thông tin game
         self._draw_game_info()
     
     def _draw_background(self):
@@ -338,8 +447,73 @@ class GameLayout(UIComponent):
         self._draw_lives_section()
         self._draw_controls_section()
         self._draw_stats_section()
-        self._draw_play_section()  # Play button above algorithm
-        self._draw_algorithm_section()  # Algorithm at bottom
+        self._draw_few_pellets_section()  
+        self._draw_play_section() 
+        self._draw_algorithm_section()  
+        
+        # Draw selectboxes on top (highest z-index)
+        self._draw_selectboxes()
+    
+    def _draw_selectboxes(self):
+        """Draw all selectboxes on top of other elements"""
+        # AI Mode Selector
+        if self.ai_mode_selector:
+            self.ai_mode_selector.draw(self.surface)
+        
+        # Few Pellets Selectbox
+        if self.few_pellets_selectbox:
+            glow_intensity = int(100 + 50 * math.sin(self.animation_time * 5))
+            glow_rect = pygame.Rect(
+                self.few_pellets_selectbox.rect.x - 3,
+                self.few_pellets_selectbox.rect.y - 3,
+                self.few_pellets_selectbox.rect.width + 6,
+                self.few_pellets_selectbox.rect.height + 6
+            )
+        pygame.draw.rect(self.surface, (glow_intensity, glow_intensity // 2, 0), glow_rect, 2)
+        self.few_pellets_selectbox.draw(self.surface)
+
+        
+        # Algorithm Selectbox (only in AI mode)
+        is_ai_mode = True
+        if hasattr(self.app, 'state_machine') and self.app.state_machine.current_state:
+            current_state = self.app.state_machine.current_state
+            if hasattr(current_state, 'game') and hasattr(current_state.game, 'ai_mode'):
+                is_ai_mode = current_state.game.ai_mode
+        
+        if self.algorithm_selectbox and is_ai_mode:
+            glow_intensity = int(100 + 50 * math.sin(self.animation_time * 6))
+            glow_rect = pygame.Rect(
+                self.algorithm_selectbox.rect.x - 3,
+                self.algorithm_selectbox.rect.y - 3,
+                self.algorithm_selectbox.rect.width + 6,
+                self.algorithm_selectbox.rect.height + 6
+            )
+            pygame.draw.rect(self.surface, (glow_intensity, glow_intensity, 0), glow_rect, 2)
+            self.algorithm_selectbox.draw(self.surface)
+        
+        # Heuristic Selectbox (for all algorithms in AI mode)
+        if self.heuristic_selectbox and is_ai_mode:
+            glow_intensity = int(100 + 50 * math.sin(self.animation_time * 5))
+            glow_rect = pygame.Rect(
+                self.heuristic_selectbox.rect.x - 3,
+                self.heuristic_selectbox.rect.y - 3,
+                self.heuristic_selectbox.rect.width + 6,
+                self.heuristic_selectbox.rect.height + 6
+            )
+            pygame.draw.rect(self.surface, (0, glow_intensity, glow_intensity//2), glow_rect, 2)
+            self.heuristic_selectbox.draw(self.surface)
+        
+        # Ghost Mode Selectbox
+        if self.ghost_mode_selectbox:
+            glow_intensity = int(100 + 50 * math.sin(self.animation_time * 4))
+            glow_rect = pygame.Rect(
+                self.ghost_mode_selectbox.rect.x - 3,
+                self.ghost_mode_selectbox.rect.y - 3,
+                self.ghost_mode_selectbox.rect.width + 6,
+                self.ghost_mode_selectbox.rect.height + 6
+            )
+            pygame.draw.rect(self.surface, (glow_intensity, 0, glow_intensity), glow_rect, 2)
+            self.ghost_mode_selectbox.draw(self.surface)
     
     def _draw_score_section(self):
         """Draw score section with enhanced design"""
@@ -355,7 +529,7 @@ class GameLayout(UIComponent):
         
         # Section background with enhanced glow
         section_rect = pygame.Rect(self.control_panel_rect.x + 20, y_start - 5, 
-                                 self.control_panel_rect.width - 40, 100)  # Taller and wider section
+                                 self.control_panel_rect.width - 40, 110)  # Adjusted height
         
         # Enhanced glow effect
         glow_rect = section_rect.inflate(6, 6)
@@ -496,32 +670,33 @@ class GameLayout(UIComponent):
             pygame.draw.circle(self.surface, (0, 0, 0), (eye_x, eye_y), 2)
     
     def _draw_algorithm_section(self):
-        """Draw algorithm section - now at bottom"""
-        y_start = 610  # Below play section
+        y_start = 620  
         try:
             font = pygame.font.Font(FONT_PATH, 14)
         except:
             font = pygame.font.Font(None, 14)
-        
-        # Section background with enhanced glow
         section_rect = pygame.Rect(self.control_panel_rect.x + 20, y_start - 5, 
-                                 self.control_panel_rect.width - 40, 80)  # Appropriate height
+                                 self.control_panel_rect.width - 40, 300)  
         
-        # Enhanced glow effect
         glow_rect = section_rect.inflate(6, 6)
         pygame.draw.rect(self.surface, (80, 80, 120), glow_rect, 3)
         
-        # Main background
         pygame.draw.rect(self.surface, (50, 50, 80), section_rect)
-        pygame.draw.rect(self.surface, PAC_YELLOW, section_rect, 3)  # Yellow border for visibility
+        pygame.draw.rect(self.surface, PAC_YELLOW, section_rect, 3)  
         pygame.draw.rect(self.surface, (0, 180, 255), section_rect, 1)
         
-        algo_text = font.render("AI ALGORITHM", True, PAC_YELLOW)
-        self.surface.blit(algo_text, (self.control_panel_rect.x + 30, y_start))
+        ghost_text = font.render("GHOST MODE", True, GHOST_PINK)
+        self.surface.blit(ghost_text, (self.control_panel_rect.x + 30, y_start))
         
-        # Hiển thị mode hiện tại (AI/Player)
-        # Lấy thông tin mode từ game state thông qua app
-        mode_text = "Mode: AI"  # Mặc định
+        ghost_mode_text = "Ghost: ON" if self.ghost_mode else "Ghost: OFF"
+        ghost_mode_color = GHOST_PINK if self.ghost_mode else DOT_WHITE
+        ghost_mode_surface = font.render(ghost_mode_text, True, ghost_mode_color)
+        self.surface.blit(ghost_mode_surface, (self.control_panel_rect.x + 30, y_start + 20))
+        
+        algo_text = font.render("AI ALGORITHM", True, PAC_YELLOW)
+        self.surface.blit(algo_text, (self.control_panel_rect.x + 30, y_start + 200))  
+        
+        mode_text = "Mode: AI"
         if hasattr(self.app, 'state_machine') and self.app.state_machine.current_state:
             current_state = self.app.state_machine.current_state
             if hasattr(current_state, 'game') and hasattr(current_state.game, 'ai_mode'):
@@ -529,33 +704,12 @@ class GameLayout(UIComponent):
         
         mode_color = PAC_YELLOW if "AI" in mode_text else GHOST_PINK
         mode_surface = font.render(mode_text, True, mode_color)
-        self.surface.blit(mode_surface, (self.control_panel_rect.x + 30, y_start + 20))
+        self.surface.blit(mode_surface, (self.control_panel_rect.x + 30, y_start + 180)) 
         
-        # Hướng dẫn chuyển đổi mode (chỉ hiển thị khi ở AI mode)
-        if "AI" in mode_text:
-            help_text = "Press M to toggle mode"
-            help_surface = font.render(help_text, True, DOT_WHITE)
-            self.surface.blit(help_surface, (self.control_panel_rect.x + 30, y_start + 40))
-        else:
-            # Hướng dẫn cho Player mode
-            help_text = "Use arrow keys to move"
-            help_surface = font.render(help_text, True, DOT_WHITE)
-            self.surface.blit(help_surface, (self.control_panel_rect.x + 30, y_start + 40))
-        
-        # Draw the selectbox with special highlight (chỉ khi ở AI mode)
-        if self.algorithm_selectbox and "AI" in mode_text:
-            # Add a pulsing glow around selectbox
-            glow_intensity = int(100 + 50 * math.sin(self.animation_time * 6))
-            glow_rect = pygame.Rect(
-                self.algorithm_selectbox.rect.x - 3,
-                self.algorithm_selectbox.rect.y - 3,
-                self.algorithm_selectbox.rect.width + 6,
-                self.algorithm_selectbox.rect.height + 6
-            )
-            pygame.draw.rect(self.surface, (glow_intensity, glow_intensity, 0), glow_rect, 2)
-            
-            # Draw the selectbox
-            self.algorithm_selectbox.draw(self.surface)
+        # Draw heuristic label (hiện cho tất cả algorithms)
+        if self.heuristic_selectbox and "AI" in mode_text:
+            heuristic_label = font.render("ALGORITHM HEURISTIC", True, (0, 200, 100))
+            self.surface.blit(heuristic_label, (self.control_panel_rect.x + 30, y_start + 100))
     
     def _draw_controls_section(self):
         """Draw controls section"""
@@ -567,7 +721,7 @@ class GameLayout(UIComponent):
         
         # Section background with glow
         section_rect = pygame.Rect(self.control_panel_rect.x + 20, y_start - 5, 
-                                 self.control_panel_rect.width - 40, 150)  # Taller section for new control
+                                 self.control_panel_rect.width - 40, 150)  # Standard height
         
         # Glow effect
         glow_rect = section_rect.inflate(4, 4)
@@ -581,23 +735,22 @@ class GameLayout(UIComponent):
         controls = [
             "CONTROLS",
             "↑↓←→ - Move",
-            "SPACE - Pause",
+            "SPACE - Start Game",
             "ESC - Menu",
             "R - Restart",
-            "M - Toggle AI/Player"
+            "M - Toggle AI/Player",
         ]
         
         for i, control in enumerate(controls):
             color = PAC_YELLOW if i == 0 else DOT_WHITE
-            # Add subtle animation to control text
             if i > 0:
                 alpha = int(200 + 30 * math.sin(self.animation_time * 2 + i))
                 alpha = max(0, min(255, alpha))
                 color = (alpha, alpha, alpha)
             text_surface = font.render(control, True, color)
             self.surface.blit(text_surface, 
-                            (self.control_panel_rect.x + 30, y_start + 15 + i * 20))  # Better spacing
-    
+                            (self.control_panel_rect.x + 30, y_start + 15 + i * 20))  
+                            
     def _draw_stats_section(self):
         """Draw additional stats section"""
         y_start = 450  # Moved down to accommodate taller controls section
@@ -620,26 +773,107 @@ class GameLayout(UIComponent):
         pygame.draw.rect(self.surface, (0, 150, 255), section_rect, 1)
         
         # Stats title
-        stats_text = font.render("STATS", True, PAC_YELLOW)
+        stats_text = font.render("GAME STATE", True, PAC_YELLOW)
         self.surface.blit(stats_text, (self.control_panel_rect.x + 30, y_start))
         
-        # Add animated elements with better effects
-        for i in range(5):
-            x = self.control_panel_rect.x + 30 + i * 60  # More spacing between stats
-            y = y_start + 30
-            alpha = int(80 + 60 * math.sin(self.animation_time * 2 + i * 0.5))
-            alpha = max(0, min(255, alpha))
-            size = int(2 + 3 * math.sin(self.animation_time * 3 + i))
-            size = max(1, size)
-            color = (alpha, alpha, min(255, alpha + 50))
-            pygame.draw.circle(self.surface, color, (int(x), int(y)), size)
+        # Game Time display
+        time_text = font.render(f"Time: {self.game_time}", True, GHOST_PINK)
+        self.surface.blit(time_text, (self.control_panel_rect.x + 30, y_start + 25))
+        
+        # Algorithm display
+        algo_text = font.render(f"Algorithm: {self.algorithm}", True, DOT_WHITE)
+        self.surface.blit(algo_text, (self.control_panel_rect.x + 30, y_start + 45))
+        
+        # Ghost Mode display
+        ghost_mode_text = "Ghost: ON" if self.ghost_mode else "Ghost: OFF"
+        ghost_color = GHOST_PINK if self.ghost_mode else (128, 128, 128)
+        mode_text = font.render(ghost_mode_text, True, ghost_color)
+        self.surface.blit(mode_text, (self.control_panel_rect.x + 30, y_start + 65))
+        
+        # Steps display
+        if hasattr(self, 'step_info'):
+            steps_text = f"Steps: {self.step_info['total_steps']}"
+            steps_color = GHOST_BLUE if self.step_info['total_steps'] > 0 else DOT_WHITE
+            steps_surface = font.render(steps_text, True, steps_color)
+            self.surface.blit(steps_surface, (self.control_panel_rect.x + 30, y_start + 85))
             
-            # Add glow effect
-            for j in range(2, 0, -1):
-                glow_alpha = int(alpha * 0.5 - j * 20)
-                glow_alpha = max(0, min(255, glow_alpha))
-                glow_color = (glow_alpha, glow_alpha, min(255, glow_alpha + 30))
-                pygame.draw.circle(self.surface, glow_color, (int(x), int(y)), size + j * 2, 1)
+            # AI/Player steps breakdown
+            if self.step_info['ai_steps'] > 0 or self.step_info['player_steps'] > 0:
+                breakdown_text = f"AI: {self.step_info['ai_steps']} | Player: {self.step_info['player_steps']}"
+                breakdown_color = GHOST_BLUE if self.step_info['current_mode'] == 'AI' else PAC_YELLOW
+                breakdown_surface = font.render(breakdown_text, True, breakdown_color)
+                self.surface.blit(breakdown_surface, (self.control_panel_rect.x + 30, y_start + 105))
+        else:
+            # Debug: Hiển thị khi không có step_info
+            debug_text = "No step_info"
+            debug_surface = font.render(debug_text, True, (255, 0, 0))
+            self.surface.blit(debug_surface, (self.control_panel_rect.x + 30, y_start + 85))
+        
+        # AI Path progress (giữ lại để hiển thị tiến trình AI)
+        try:
+            if hasattr(self, '_game_instance') and hasattr(self._game_instance, 'pacman'):
+                path_info = self._game_instance.pacman.get_path_info()
+                
+                if isinstance(path_info, dict) and path_info['total_steps'] > 0:
+                    # Display AI PATH progress
+                    path_title = font.render("AI PATH:", True, GHOST_BLUE)
+                    self.surface.blit(path_title, (self.control_panel_rect.x + 200, y_start))
+                    
+                    progress_text = f"{path_info['current_step']}/{path_info['total_steps']} ({path_info['progress_percent']:.1f}%)"
+                    progress_color = GHOST_BLUE if not path_info['is_completed'] else PAC_YELLOW
+                    text = font.render(progress_text, True, progress_color)
+                    self.surface.blit(text, (self.control_panel_rect.x + 200, y_start + 20))
+        except Exception:
+            # Không hiển thị error
+            pass
+    
+    def _draw_few_pellets_section(self):
+        """Draw few pellets mode section"""
+        y_start = 950  # Between stats and play sections
+        try:
+            font = pygame.font.Font(FONT_PATH, 14)
+            font_small = pygame.font.Font(FONT_PATH, 12)
+        except:
+            font = pygame.font.Font(None, 14)
+            font_small = pygame.font.Font(None, 12)
+        
+        # Section background with glow
+        section_rect = pygame.Rect(self.control_panel_rect.x + 20, y_start - 5, 
+                                 self.control_panel_rect.width - 40, 80)
+        
+        # Enhanced glow effect
+        glow_rect = section_rect.inflate(6, 6)
+        pygame.draw.rect(self.surface, (80, 80, 120), glow_rect, 3)
+        
+        # Main background with gradient
+        for i in range(section_rect.height):
+            alpha = int(50 + (i / section_rect.height) * 20)
+            color = (alpha, alpha, alpha + 30)
+            pygame.draw.line(self.surface, color, 
+                           (section_rect.x, section_rect.y + i),
+                           (section_rect.right, section_rect.y + i))
+        
+        pygame.draw.rect(self.surface, GHOST_ORANGE, section_rect, 3)
+        pygame.draw.rect(self.surface, (255, 160, 0), section_rect, 1)
+        
+        # Section title
+        title_text = font.render("PELLETS MODE", True, GHOST_ORANGE)
+        self.surface.blit(title_text, (self.control_panel_rect.x + 30, y_start))
+        
+        # Current mode display
+        if self.few_pellets_mode:
+            mode_text = f"Few Pellets: {self.few_pellets_count}"
+            mode_color = GHOST_ORANGE
+        else:
+            mode_text = "Normal: All Pellets"
+            mode_color = DOT_WHITE
+        
+        mode_surface = font_small.render(mode_text, True, mode_color)
+        self.surface.blit(mode_surface, (self.control_panel_rect.x + 30, y_start + 25))
+        
+        # Mode selector
+        selector_text = font_small.render("Select Mode:", True, DOT_WHITE)
+        self.surface.blit(selector_text, (self.control_panel_rect.x + 30, y_start + 45))
     
     def _draw_game_info(self):
         """Draw additional game information"""
@@ -650,29 +884,21 @@ class GameLayout(UIComponent):
             pygame.draw.circle(self.surface, GHOST_PINK, (int(x), int(y)), 3)
     
     def get_game_area_rect(self):
-        """
-        Lấy rectangle của game area để render game
-        Returns:
-            pygame.Rect của game area
-        """
         return self.game_area_rect
     
     def get_control_panel_rect(self):
-        """
-        Lấy rectangle của control panel
-        Returns:
-            pygame.Rect của control panel
-        """
         return self.control_panel_rect
     
     def handle_selectbox_event(self, event):
         """
-        Xử lý sự kiện selectbox và trả về nếu algorithm thay đổi
-        Args:
-            event: Pygame event
-        Returns:
-            True nếu algorithm thay đổi, False nếu không
+        Xử lý sự kiện selectbox và trả về nếu algorithm hoặc ghost mode thay đổi
         """
+        algorithm_changed = False
+        ghost_mode_changed = False
+        ai_mode_changed = False
+        few_pellets_changed = False
+        heuristic_changed = False
+        
         # Chỉ xử lý selectbox khi ở AI mode
         is_ai_mode = True  # Mặc định
         if hasattr(self.app, 'state_machine') and self.app.state_machine.current_state:
@@ -680,40 +906,103 @@ class GameLayout(UIComponent):
             if hasattr(current_state, 'game') and hasattr(current_state.game, 'ai_mode'):
                 is_ai_mode = current_state.game.ai_mode
         
+        # Xử lý AI Mode Selector (luôn xử lý)
+        if self.ai_mode_selector:
+            if self.ai_mode_selector.handle_events(event):
+                new_ai_mode = self.ai_mode_selector.get_current_mode()
+                ai_mode_changed = True
+        
+        if self.ghost_mode_selectbox:
+            if event.type == pygame.MOUSEMOTION:
+                if hasattr(self.ghost_mode_selectbox, 'rect') and self.ghost_mode_selectbox.rect.collidepoint(event.pos):
+                    if not getattr(self, '_ghost_selectbox_hovered', False):
+                        self.app.sound_system.play_sound('button_hover')
+                        self._ghost_selectbox_hovered = True
+                else:
+                    self._ghost_selectbox_hovered = False
+            
+            if self.ghost_mode_selectbox.handle_event(event):
+                # Kiểm tra xem selection có thay đổi không
+                new_ghost_mode_text = self.ghost_mode_selectbox.get_selected_value()
+                if new_ghost_mode_text:
+                    new_ghost_mode = (new_ghost_mode_text == "Ghost ON")
+                    if new_ghost_mode != self.ghost_mode:
+                        self.ghost_mode = new_ghost_mode
+                        ghost_mode_changed = True
+        
+        # Xử lý algorithm selectbox (ở dưới)
         if self.algorithm_selectbox and is_ai_mode:
             # Xử lý mouse hover cho selectbox
             if event.type == pygame.MOUSEMOTION:
                 if hasattr(self.algorithm_selectbox, 'rect') and self.algorithm_selectbox.rect.collidepoint(event.pos):
-                    if not getattr(self, '_selectbox_hovered', False):
+                    if not getattr(self, '_algorithm_selectbox_hovered', False):
                         self.app.sound_system.play_sound('button_hover')
-                        self._selectbox_hovered = True
+                        self._algorithm_selectbox_hovered = True
                 else:
-                    self._selectbox_hovered = False
+                    self._algorithm_selectbox_hovered = False
             
             if self.algorithm_selectbox.handle_event(event):
                 # Kiểm tra xem selection có thay đổi không
                 new_algorithm = self.algorithm_selectbox.get_selected_value()
                 if new_algorithm and new_algorithm != self.algorithm:
                     self.algorithm = new_algorithm
-                    return True
-        return False
+                    algorithm_changed = True
+        
+        # Xử lý few pellets selectbox
+        if self.few_pellets_selectbox:
+            if event.type == pygame.MOUSEMOTION:
+                if hasattr(self.few_pellets_selectbox, 'rect') and self.few_pellets_selectbox.rect.collidepoint(event.pos):
+                    if not getattr(self, '_few_pellets_selectbox_hovered', False):
+                        self.app.sound_system.play_sound('button_hover')
+                        self._few_pellets_selectbox_hovered = True
+                else:
+                    self._few_pellets_selectbox_hovered = False
+            
+            if self.few_pellets_selectbox.handle_event(event):
+                # Kiểm tra xem selection có thay đổi không
+                new_preset_index = self.few_pellets_selectbox.selected_option
+                if new_preset_index != self.selected_preset:
+                    self.selected_preset = new_preset_index
+                    selected_mode = self.preset_modes[new_preset_index]
+                    
+                    if selected_mode["count"] == 0:  # Normal mode
+                        self.few_pellets_mode = False
+                    elif selected_mode["count"] == -1:  # Custom mode
+                        # Keep current settings for custom
+                        pass
+                    else:  # Specific count
+                        self.few_pellets_mode = True
+                        self.few_pellets_count = selected_mode["count"]
+                    
+                    few_pellets_changed = True
+        
+        # Xử lý heuristic selectbox 
+        if self.heuristic_selectbox and is_ai_mode:
+            if event.type == pygame.MOUSEMOTION:
+                if hasattr(self.heuristic_selectbox, 'rect') and self.heuristic_selectbox.rect.collidepoint(event.pos):
+                    if not getattr(self, '_heuristic_selectbox_hovered', False):
+                        self.app.sound_system.play_sound('button_hover')
+                        self._heuristic_selectbox_hovered = True
+                else:
+                    self._heuristic_selectbox_hovered = False
+            
+            if self.heuristic_selectbox.handle_event(event):
+                # Kiểm tra xem selection có thay đổi không
+                new_heuristic_index = self.heuristic_selectbox.selected_option
+                if new_heuristic_index != self.current_heuristic:
+                    self.current_heuristic = new_heuristic_index
+                    heuristic_changed = True
+        
+        return algorithm_changed, ghost_mode_changed, ai_mode_changed, few_pellets_changed, heuristic_changed
     
     def handle_play_button_click(self, event):
-        """
-        Xử lý sự kiện click play button
-        Args:
-            event: Pygame event
-        Returns:
-            True nếu play state thay đổi, False nếu không
-        """
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  
             if hasattr(self, 'play_button_rect') and self.play_button_rect.collidepoint(event.pos):
-                # Phát âm thanh khi click play/pause
                 self.app.sound_system.play_sound('button_click')
                 self.is_playing = not self.is_playing
-                return True  # Báo hiệu play state đã thay đổi
+                return True 
+                
         elif event.type == pygame.MOUSEMOTION:
-            # Xử lý mouse hover cho play button
             if hasattr(self, 'play_button_rect') and self.play_button_rect.collidepoint(event.pos):
                 if not getattr(self, '_play_button_hovered', False):
                     self.app.sound_system.play_sound('button_hover')

@@ -20,23 +20,41 @@ import time
 
 class Game(object):
     """
-    Class chính quản lý toàn bộ game Pac-Man
-    - Khởi tạo và quản lý tất cả objects trong game
-    - Xử lý logic game, va chạm, và sự kiện
-    - Render game với các hiệu ứng visual
-    - Quản lý state của game (pause, level, score, lives)
+    Class Game - Quản lý toàn bộ logic game Pac-Man
+    
+    Chức năng chính:
+    - Khởi tạo và quản lý tất cả objects (Pacman, Ghosts, Pellets, Maze)
+    - Update logic game mỗi frame (movement, collisions, AI)
+    - Render tất cả objects lên màn hình
+    - Xử lý va chạm giữa Pacman và Ghosts/Pellets/Fruits  
+    - Quản lý timer, score, lives, levels
+    - Tích hợp analytics system để theo dõi performance
+    - Hỗ trợ các thuật toán AI (BFS, DFS, A*, UCS, IDS, Greedy)
     """
     def __init__(self, algorithm: str = 'BFS'):
-        """
-        Khởi tạo game với thuật toán AI được chọn
-        
-        Args:
-            algorithm: Thuật toán AI cho Pac-Man ('BFS', 'DFS', 'IDS', 'UCS', 'A*')
-        """
         pygame.init()
         
         # Lưu thuật toán AI được chọn
         self.algorithm = algorithm
+        self.algorithm_heuristic = "NONE"  # Mặc định không heuristic
+        self.custom_heuristic = None  # Hàm heuristic tùy chỉnh
+        
+        # Hệ thống đo thời gian
+        self.start_time = None
+        self.game_time = 0.0
+        self.is_timer_running = False
+        self.timer_started_by_user = False  # Flag để đảm bảo timer chỉ bắt đầu khi user nhấn SPACE
+        
+        # Performance tracking
+        self.steps_taken = 0
+        self.pathfinding_calls = 0
+        self.last_position = None
+        
+        # Step counting system
+        self.total_steps = 0 
+        self.ai_steps = 0     # Số bước khi dùng AI
+        self.player_steps = 0 # Số bước khi điều khiển thủ công
+        self.last_step_position = None  # Vị trí cuối cùng để detect step
         
         # Các thuộc tính màn hình và render
         self.screen = None
@@ -57,6 +75,7 @@ class Game(object):
         # UI components
         self.textgroup = TextGroup()    # Nhóm text hiển thị
         self.lifesprites = LifeSprites(self.lives)  # Sprites hiển thị số mạng
+        self.hybrid_ai_display = None   # Sẽ được khởi tạo sau khi tạo pacman
         
         # Hiệu ứng visual
         self.flashBG = False            # Có flash background không
@@ -75,6 +94,11 @@ class Game(object):
         self.endtime = time.time()      # Thời gian kết thúc level
         self.running = True             # Game có đang chạy không
         self.ai_mode = True             # Chế độ AI (True) hay Player (False)
+        self.ghost_mode = True          # Chế độ Ghost (True) hay không có Ghost (False)
+        
+        # Few pellets mode configuration
+        self.few_pellets_mode = False   # Chế độ few pellets
+        self.few_pellets_count = 20     # Số lượng pellets trong chế độ few pellets
     
     def setBackground(self):
         """
@@ -229,7 +253,6 @@ class Game(object):
         # Corner energy effects removed for cleaner interface
     
     def initialize_game(self):
-        """Initialize game without starting the main loop"""
         self.startGame()
     
     def startGame(self):
@@ -240,7 +263,6 @@ class Game(object):
         - Thiết lập thuật toán AI cho Pac-Man
         - Cấu hình vị trí bắt đầu và access rules
         """
-        # Load maze data cho level hiện tại
         self.mazedata.loadMaze(self.level)
         
         # Tạo maze sprites
@@ -257,31 +279,41 @@ class Game(object):
         self.mazedata.obj.setPortalPairs(self.nodes)      # Thiết lập portal pairs
         self.mazedata.obj.connectHomeNodes(self.nodes)    # Kết nối home nodes
         
-        # Tạo Pac-Man tại vị trí bắt đầu
         self.pacman = Pacman(self.nodes.getNodeFromTiles(*self.mazedata.obj.pacmanStart))
+        self.pacman.game_instance = self
         
-        # Thiết lập thuật toán AI cho Pac-Man
+        # Khởi tạo Hybrid AI Display
+        
+        # Thiết lập thuật toán AI cho Pac-Man - sử dụng algorithms_practical
+        from engine.algorithms_practical import (
+            bfs, dfs, a_star, ucs, iterative_deepening_dfs, greedy
+        )
+        
         algo = self.algorithm
         if algo == 'DFS':
-            from engine.dfs import dfs
             self.pacman.pathfinder_name = 'DFS'
             self.pacman.pathfinder = dfs
         elif algo == 'IDS':
-            from engine.ids import iterative_deepening_dfs
-            # Wrap ids để bỏ qua tham số extra
             self.pacman.pathfinder_name = 'IDS'
-            self.pacman.pathfinder = lambda s, e, p: iterative_deepening_dfs(s, e, p)
+            self.pacman.pathfinder = iterative_deepening_dfs
         elif algo == 'UCS':
-            from engine.ucs import ucs
             self.pacman.pathfinder_name = 'UCS'
             self.pacman.pathfinder = ucs
-        else:
-            from engine.bfs import bfs
+        elif algo == 'A*':
+            self.pacman.pathfinder_name = 'A*'
+            self.pacman.pathfinder = a_star
+        elif algo == 'GREEDY':
+            self.pacman.pathfinder_name = 'GREEDY'
+            self.pacman.pathfinder = greedy
+        else:  # BFS (mặc định)
             self.pacman.pathfinder_name = 'BFS'
             self.pacman.pathfinder = bfs
         
-        # Tạo pellets
-        self.pellets = PelletGroup("assets/maze/"+self.mazedata.obj.name+".txt",self.nodes)
+        # Tạo pellets với cấu hình few pellets mode
+        few_pellets_mode = getattr(self, 'few_pellets_mode', False)
+        few_pellets_count = getattr(self, 'few_pellets_count', 20)
+        self.pellets = PelletGroup("assets/maze/"+self.mazedata.obj.name+".txt", self.nodes, 
+                                 few_pellets_mode, few_pellets_count)
         
         # Tạo ghosts
         self.ghosts = GhostGroup(self.nodes.getStartTempNode(), self.pacman)
@@ -293,15 +325,15 @@ class Game(object):
         self.ghosts.setSpawnNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(2, 3)))
         self.ghosts.blinky.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(2, 0)))
 
-        # Thiết lập access rules
-        self.nodes.denyHomeAccess(self.pacman)                    # Pac-Man không vào home
-        self.nodes.denyHomeAccessList(self.ghosts)                # Ghosts không vào home
-        self.ghosts.inky.startNode.denyAccess(RIGHT, self.ghosts.inky)
-        self.ghosts.clyde.startNode.denyAccess(LEFT, self.ghosts.clyde)
-        self.ghosts.blinky.startNode.denyAccess(LEFT, self.ghosts.clyde)
-        self.ghosts.pinky.startNode.denyAccess(LEFT, self.ghosts.clyde)
-        self.mazedata.obj.denyGhostsAccess(self.ghosts, self.nodes)
-
+        self.nodes.denyHomeAccess(self.pacman)                    
+        if self.ghost_mode:
+            self.nodes.denyHomeAccessList(self.ghosts)                
+            self.ghosts.inky.startNode.denyAccess(RIGHT, self.ghosts.inky)
+            self.ghosts.clyde.startNode.denyAccess(LEFT, self.ghosts.clyde)
+            self.ghosts.blinky.startNode.denyAccess(LEFT, self.ghosts.clyde)
+            self.ghosts.pinky.startNode.denyAccess(LEFT, self.ghosts.clyde)
+            self.mazedata.obj.denyGhostsAccess(self.ghosts, self.nodes)
+        
     def startGame_old(self) : 
         self.mazedata.loadMaze(self.level)
         self.mazesprites = MazeSprites("assets/maze/maze1.txt","assets/maze/maze1_rotation.txt")
@@ -312,7 +344,9 @@ class Game(object):
         self.nodes.connectHomeNodes(homekey,(12,14),LEFT)
         self.nodes.connectHomeNodes(homekey,(15,14),RIGHT)
         self.pacman = Pacman(self.nodes.getNodeFromTiles(15,26))
-        self.pellets = PelletGroup("assets/maze/maze1.txt")
+        few_pellets_mode = getattr(self, 'few_pellets_mode', False)
+        few_pellets_count = getattr(self, 'few_pellets_count', 20)
+        self.pellets = PelletGroup("assets/maze/maze1.txt", self.nodes, few_pellets_mode, few_pellets_count)
         self.ghosts = GhostGroup(self.nodes.getStartTempNode(),self.pacman)
         self.ghosts.blinky.setStartNode(self.nodes.getNodeFromTiles(2+11.5, 0+14))
         self.ghosts.pinky.setStartNode(self.nodes.getNodeFromTiles(2+11.5, 3+14))
@@ -332,22 +366,26 @@ class Game(object):
         self.nodes.denyAccessList(15, 26, UP, self.ghosts)
     
     def update(self) : 
-        
         dt = self.clock.tick(60) / 1000.0
         self.textgroup.update(dt)
         self.pellets.update(dt)
         if not self.pause.paused:
-            # self.ghosts.update(dt)
+            if self.ghost_mode:
+                self.ghosts.update(dt)
             if self.fruit is not None:
                 self.fruit.update(dt)
             self.checkPelletEvents()
             self.checkGhostEvents()
             self.checkFruitEvents()
+        else:
+            if self.is_timer_running:
+                self.stop_timer()
         if self.pacman.alive:
             if not self.pause.paused:
-                # Kiểm tra mode hiện tại để quyết định sử dụng AI hay Player control
+                self._track_step()
                 if hasattr(self, 'ai_mode') and self.ai_mode:
-                    self.pacman.update_ai(dt, self.pellets, True)  # AI mode
+                    ghost_group = self.ghosts if self.ghost_mode else None
+                    self.pacman.update_ai(dt, self.pellets, True, ghostGroup=ghost_group)  # AI mode
                 else:
                     self.pacman.update(dt)  # Player mode
         else:
@@ -365,9 +403,11 @@ class Game(object):
         afterPauseMethod = self.pause.update(dt)
         if afterPauseMethod is not None :
             afterPauseMethod()
-        # self.checkEvents()
-        # self.render(self.screen)
-              
+        
+        # Update Hybrid AI Display
+        if hasattr(self, 'hybrid_ai_display') and self.hybrid_ai_display:
+            self.hybrid_ai_display.update(dt)
+        
     def checkEvents(self) : 
         for event in pygame.event.get():
             if event.type == QUIT : 
@@ -391,49 +431,64 @@ class Game(object):
                             self.showEntities()
                         else:
                             self.textgroup.showText(PAUSETXT)
+                
+                # Hybrid AI Controls
+                if event.key == K_h:  # H key để toggle Hybrid AI
+                    if hasattr(self.pacman, 'toggle_hybrid_ai'):
+                        self.pacman.toggle_hybrid_ai()
+                
+                if event.key == K_i:  # I key để show AI status
+                    if hasattr(self.pacman, 'get_ai_status'):
+                        status = self.pacman.get_ai_status()
+                
+                if event.key == K_u:  # U key để toggle UI display
+                    if hasattr(self, 'hybrid_ai_display') and self.hybrid_ai_display:
+                        self.hybrid_ai_display.toggle_display()
                              
     def checkPelletEvents(self) :
         pellet = self.pacman.eatPellets(self.pellets.pelletList)
         if pellet:
             self.pellets.numEaten += 1 
             self.updateScore(pellet.points)
-            if self.pellets.numEaten == 30 :
-                self.ghosts.inky.startNode.allowAccess(RIGHT,self.ghosts.inky)
-            if self.pellets.numEaten == 70 : 
-                self.ghosts.clyde.startNode.allowAccess(LEFT,self.ghosts.clyde)
+            if self.ghost_mode:
+                if self.pellets.numEaten == 30 :
+                    self.ghosts.inky.startNode.allowAccess(RIGHT,self.ghosts.inky)
+                if self.pellets.numEaten == 70 : 
+                    self.ghosts.clyde.startNode.allowAccess(LEFT,self.ghosts.clyde)
             self.pellets.pelletList.remove(pellet)
-            if pellet.name == POWERPELLET:
+            if pellet.name == POWERPELLET and self.ghost_mode:
                 self.ghosts.startFreight()
             if self.pellets.isEmpty():
                 self.flashBG = True
                 self.hideEntities()
                 self.endtime = time.time()
-                print(self.endtime - self.starttime)
                 self.pause.setPause(pauseTime=3,func=self.nextLevel)
     
     def checkGhostEvents(self) :
-        for ghost in self.ghosts:
-            if self.pacman.collideGhost(ghost):
-                if ghost.mode.current is FREIGHT:
-                    self.pacman.visible = False
-                    ghost.visible = False
-                    self.updateScore(ghost.points) 
-                    self.textgroup.addText(str(ghost.points),WHITE,ghost.position.x,ghost.position.y,8,time=1 )
-                    self.ghosts.updatePoints()
-                    self.pause.setPause(pauseTime=1,func=self.showEntities)
-                    ghost.startSpawn()
-                    self.nodes.allowHomeAccess(ghost) 
-                elif ghost.mode.current is not SPAWN : 
-                    if self.pacman.alive : 
-                        self.lives -= 1 
-                        self.lifesprites.removeImage()
-                        self.pacman.die()
-                        self.ghosts.hide()
-                        if self.lives <= 0 : 
-                            self.textgroup.showText(GAMEOVERTXT) 
-                            self.pause.setPause(pauseTime=3,func=self.restartGame) 
-                        else : 
-                            self.pause.setPause(pauseTime=3,func=self.resetLevel) 
+        # Chỉ kiểm tra ghost events khi ghost mode được bật
+        if self.ghost_mode:
+            for ghost in self.ghosts:
+                if self.pacman.collideGhost(ghost):
+                    if ghost.mode.current is FREIGHT:
+                        self.pacman.visible = False
+                        ghost.visible = False
+                        self.updateScore(ghost.points) 
+                        self.textgroup.addText(str(ghost.points),WHITE,ghost.position.x,ghost.position.y,8,time=1 )
+                        self.ghosts.updatePoints()
+                        self.pause.setPause(pauseTime=1,func=self.showEntities)
+                        ghost.startSpawn()
+                        self.nodes.allowHomeAccess(ghost) 
+                    elif ghost.mode.current is not SPAWN : 
+                        if self.pacman.alive : 
+                            self.lives -= 1 
+                            self.lifesprites.removeImage()
+                            self.pacman.die()
+                            self.ghosts.hide()
+                            if self.lives <= 0 : 
+                                self.textgroup.showText(GAMEOVERTXT) 
+                                self.pause.setPause(pauseTime=3,func=self.restartGame) 
+                            else : 
+                                self.pause.setPause(pauseTime=3,func=self.resetLevel) 
     
     def checkFruitEvents(self) :
         if self.pellets.numEaten == 50 or self.pellets.numEaten == 140 : 
@@ -456,11 +511,13 @@ class Game(object):
             
     def showEntities(self) :
         self.pacman.visible = True
-        self.ghosts.show()
+        if self.ghost_mode:
+            self.ghosts.show()
     
     def hideEntities(self):
         self.pacman.visible = False
-        self.ghosts.hide()
+        if self.ghost_mode:
+            self.ghosts.hide()
     
     def nextLevel(self):
         self.showEntities()
@@ -481,13 +538,17 @@ class Game(object):
         self.textgroup.showText(READYTXT)
         self.lifesprites.resetLives(self.lives)
         self.fruitCaptured = []
+        # Reset timer khi restart game hoàn toàn
+        self.reset_timer()
         
     def resetLevel(self):
         self.pause.paused = True
         self.pacman.reset()
-        self.ghosts.reset()
+        if self.ghost_mode:
+            self.ghosts.reset()
         self.fruit = None
         self.textgroup.showText(READYTXT)
+        # Không reset timer khi Pacman chết nhưng còn mạng
         
     def updateScore(self,points) : 
         self.score += points
@@ -503,7 +564,8 @@ class Game(object):
         if self.fruit is not None:
             self.fruit.render(self.screen)       
         self.pacman.render(self.screen)
-        # self.ghosts.render(self.screen)
+        if self.ghost_mode:
+            self.ghosts.render(self.screen)
         self.textgroup.render(self.screen)
         
         # Enhanced life sprites rendering
@@ -568,10 +630,15 @@ class Game(object):
             self.pellets.render(surface)
         if hasattr(self, 'pacman'):
             self.pacman.render(surface)
-        if hasattr(self, 'ghosts'):
+        if hasattr(self, 'ghosts') and self.ghost_mode:
             self.ghosts.render(surface)
         if hasattr(self, 'fruit') and self.fruit:
             self.fruit.render(surface)
+        
+        # Render Hybrid AI Display
+        if hasattr(self, 'hybrid_ai_display') and self.hybrid_ai_display:
+            self.hybrid_ai_display.draw(surface)
+        
         # Removed textgroup render - score and level now shown in control panel
     
     def quit_game(self):
@@ -579,45 +646,197 @@ class Game(object):
         self.running = False
     
     def set_ai_mode(self, ai_mode):
-        """
-        Chuyển đổi giữa AI mode và Player mode
-        Args:
-            ai_mode: True cho AI mode, False cho Player mode
-        """
         self.ai_mode = ai_mode
-        print(f"Switched to {'AI' if ai_mode else 'Player'} mode")
+    
+    def set_few_pellets_mode(self, enabled: bool, count: int = 20):
+        """Set few pellets mode"""
+        self.few_pellets_mode = enabled
+        self.few_pellets_count = max(7, min(100, count))  # Giới hạn từ 5 đến 100
+    
+    def set_ghost_mode(self, ghost_mode):
+        self.ghost_mode = ghost_mode
+        if hasattr(self, 'ghosts'):
+            for ghost in self.ghosts.ghosts:
+                ghost.visible = ghost_mode
+            if not ghost_mode:
+                self.ghosts.hide()
+            else:
+                self.ghosts.show()
     
     def set_algorithm(self, algorithm):
-        """
-        Thay đổi thuật toán AI
-        Args:
-            algorithm: Tên thuật toán ('BFS', 'DFS', 'A*', 'UCS', 'IDS')
-        """
+        self.algorithm = algorithm  # Cập nhật algorithm
         if hasattr(self, 'pacman') and self.pacman:
-            # Cập nhật thuật toán cho Pac-Man
+            from engine.algorithms_practical import (
+                bfs_practical, dfs_practical, astar_practical, ucs_practical, 
+                ids_practical, greedy_practical, heuristic_manhattan, heuristic_euclidean
+            )
             if algorithm == 'DFS':
-                from engine.dfs import dfs
                 self.pacman.pathfinder_name = 'DFS'
-                self.pacman.pathfinder = dfs
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(dfs_practical)
             elif algorithm == 'IDS':
-                from engine.ids import iterative_deepening_dfs
                 self.pacman.pathfinder_name = 'IDS'
-                self.pacman.pathfinder = lambda s, e, p: iterative_deepening_dfs(s, e, p)
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(ids_practical)
             elif algorithm == 'UCS':
-                from engine.ucs import ucs
                 self.pacman.pathfinder_name = 'UCS'
-                self.pacman.pathfinder = ucs
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(ucs_practical)
             elif algorithm == 'A*':
-                from engine.a_star import a_star
                 self.pacman.pathfinder_name = 'A*'
-                self.pacman.pathfinder = a_star
-            else:  # BFS
-                from engine.bfs import bfs
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar_practical)
+            elif algorithm == 'GREEDY':
+                self.pacman.pathfinder_name = 'GREEDY'
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(greedy_practical)
+            else:  # BFS (mặc định)
                 self.pacman.pathfinder_name = 'BFS'
-                self.pacman.pathfinder = bfs
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(bfs_practical)
             
             # Reset path khi thay đổi thuật toán
             self.pacman.path = []
             self.pacman.locked_target_node = None
+            self.pacman.previous_node = None
+    
+    def _get_algorithm_with_heuristic(self, algorithm_func):
+        """Lấy algorithm function với heuristic tương ứng"""
+        from engine.algorithms_practical import (
+            heuristic_manhattan, heuristic_euclidean
+        )
+        
+        if self.algorithm_heuristic == "MANHATTAN":
+            return lambda start, pellets: algorithm_func(start, pellets, heuristic_manhattan)
+        elif self.algorithm_heuristic == "EUCLIDEAN":
+            return lambda start, pellets: algorithm_func(start, pellets, heuristic_euclidean)
+        else:  # NONE
+            return lambda start, pellets: algorithm_func(start, pellets, None)
+    
+    
+    def set_algorithm_heuristic(self, heuristic):
+        """Đặt heuristic cho tất cả thuật toán"""
+        self.algorithm_heuristic = heuristic
+        
+        # Cập nhật pathfinder cho thuật toán hiện tại
+        if hasattr(self, 'pacman') and self.pacman:
+            # Reset path để áp dụng heuristic mới ngay lập tức
+            self.pacman.path = []
+            self.pacman.locked_target_node = None
+            self.pacman.previous_node = None
+            self.pacman.path_computed = False
             
-            print(f"Algorithm changed to: {algorithm}")
+            # Re-apply algorithm với heuristic mới
+            self.set_algorithm(self.algorithm)
+    
+    def load_heuristic_from_config(self, config):
+        """Load heuristic setting từ config"""
+        if hasattr(config, 'get'):
+            # Hỗ trợ cả tên cũ và tên mới
+            self.algorithm_heuristic = config.get('algorithm_heuristic', config.get('bfs_heuristic', 'NONE'))
+        else:
+            self.algorithm_heuristic = "NONE"
+            
+            # Reset path computation flags
+            self.pacman.path_computed = False
+            self.pacman.original_pellet_count = 0
+            
+            # Cập nhật interval pathfinding cho thuật toán mới
+            if hasattr(self.pacman, '_update_pathfind_interval'):
+                self.pacman._update_pathfind_interval()
+            
+            # Reset timer khi thay đổi thuật toán (như restart game)
+            self.reset_timer()
+              
+    def start_timer(self):
+        """Bắt đầu đo thời gian game"""
+        if not self.is_timer_running:
+            self.start_time = time.time() - self.game_time
+            self.is_timer_running = True
+            self.timer_started_by_user = True            
+    
+    def stop_timer(self):
+        """Dừng đo thời gian game và lưu thời gian hiện tại"""
+        if self.is_timer_running and self.start_time:
+            self.game_time = time.time() - self.start_time
+            self.is_timer_running = False
+    
+    def reset_timer(self):
+        """Reset thời gian game về 0"""
+        self.start_time = None
+        self.game_time = 0.0
+        self.is_timer_running = False
+        self.timer_started_by_user = False
+    
+    def get_game_time(self):
+        """Lấy thời gian game hiện tại (tính bằng giây)"""
+        if self.is_timer_running and self.start_time:
+            return time.time() - self.start_time
+        return self.game_time
+    
+    def get_formatted_time(self):
+        """Lấy thời gian game được format (MM:SS)"""
+        total_seconds = int(self.get_game_time())
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        return f"{minutes:02d}:{seconds:02d}"
+    
+    def get_current_heuristic_info(self):
+        """Lấy thông tin heuristic hiện tại"""
+        return {
+            'heuristic_name': self.algorithm_heuristic,
+            'algorithm_name': self.algorithm,
+            'is_custom': hasattr(self, 'custom_heuristic') and self.custom_heuristic is not None
+        }
+    
+    def _track_step(self):
+        """
+        Đếm số bước di chuyển của Pacman
+        - Detect khi Pacman di chuyển từ node này sang node khác
+        - Phân biệt giữa AI steps và Player steps
+        """
+        if not self.pacman or not self.pacman.node:
+            return
+            
+        current_position = (self.pacman.node.position.x, self.pacman.node.position.y)
+        
+        # Debug: In vị trí hiện tại mỗi 100 frames
+        if hasattr(self, '_track_debug_counter'):
+            self._track_debug_counter += 1
+        else:
+            self._track_debug_counter = 0
+            
+        # if self._track_debug_counter % 100 == 0:
+
+        
+        # Nếu có vị trí trước đó và khác vị trí hiện tại
+        if self.last_step_position and self.last_step_position != current_position:
+            # Tăng tổng số bước
+            self.total_steps += 1
+            
+            # Phân biệt AI steps và Player steps
+            if hasattr(self, 'ai_mode') and self.ai_mode:
+                self.ai_steps += 1
+            else:
+                self.player_steps += 1
+                
+            # # Debug: In thông tin steps
+            # if self.total_steps % 10 == 0:  # In mỗi 10 bước để debug
+            #     mode = "AI" if (hasattr(self, 'ai_mode') and self.ai_mode) else "Player"
+        
+        # Cập nhật vị trí cuối cùng
+        self.last_step_position = current_position
+    
+    def get_step_info(self):
+        """
+        Lấy thông tin về số bước
+        Returns:
+            dict: Thông tin chi tiết về steps
+        """
+        return {
+            'total_steps': self.total_steps,
+            'ai_steps': self.ai_steps,
+            'player_steps': self.player_steps,
+            'current_mode': 'AI' if (hasattr(self, 'ai_mode') and self.ai_mode) else 'Player'
+        }
+    
+    def reset_steps(self):
+        self.total_steps = 0
+        self.ai_steps = 0
+        self.player_steps = 0
+        self.last_step_position = None
+    

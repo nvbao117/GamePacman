@@ -12,22 +12,9 @@ from ui.setting_modal import SettingModal
 from sound_system import SoundSystem
 from config_manager import ConfigManager, ConfigCategory
 import sys
-import logging
 
-# =============================================================================
-# THIẾT LẬP LOGGING
-# =============================================================================
-# Cấu hình hệ thống logging để ghi lại thông tin debug và lỗi
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 class App: 
-    """
-    Class chính của ứng dụng Pac-Man
-    - Quản lý vòng lặp game chính
-    - Khởi tạo và quản lý các hệ thống con (config, sound, state machine)
-    - Xử lý events và render
-    """
     def __init__(self):
         """
         Khởi tạo ứng dụng Pac-Man
@@ -35,13 +22,11 @@ class App:
         - Khởi tạo pygame và các hệ thống con
         - Tạo state machine với GameInitState làm state đầu tiên
         """
-        logger.info("Initializing Pac-Man application...")
         
         # Khởi tạo ConfigManager - quản lý cấu hình game
         try:
             self.config = ConfigManager()
         except Exception as e:
-            logger.critical(f"Failed to initialize config system: {e}")
             pygame.quit()
             sys.exit(1)
         
@@ -67,17 +52,15 @@ class App:
         # Tạo modal cài đặt
         self.setting_modal = SettingModal(self)
         
-        # Deprecated - sẽ bị xóa trong phiên bản tương lai
+        # Backward compatibility for sfx_volume
         self.sfx_volume = self.config.get('sfx_volume', 0.8)
 
         # Tạo state machine với GameInitState làm state đầu tiên
-        self.state_machine = StateMachine(GameInitState, self)
+        self.state_machine = StateMachine(MenuState, self)
         
         # Thiết lập các listener cho config changes
         self._setup_config_listeners()
-        
-        logger.info("Application initialized successfully")
-    
+            
     def _setup_display(self):
         """
         Thiết lập màn hình dựa trên cấu hình
@@ -101,8 +84,7 @@ class App:
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT), flags)
         pygame.display.set_caption("Pac-Man Arcade - Professional Edition")
         
-        logger.info(f"Display setup: {self.WIDTH}x{self.HEIGHT}, Fullscreen: {fullscreen}, VSync: {vsync}")
-    
+
     def _setup_config_listeners(self):
         """
         Thiết lập các listener cho thay đổi cấu hình
@@ -120,7 +102,6 @@ class App:
         self.config.add_listener('fullscreen', self._on_video_config_changed)
         self.config.add_listener('vsync', self._on_video_config_changed)
         
-        logger.info("Config listeners setup completed")
     
     def _on_audio_config_changed(self, key: str, new_value, old_value):
         """
@@ -128,7 +109,6 @@ class App:
         - Cập nhật volume của sound system
         - Cập nhật backward compatibility
         """
-        logger.info(f"Audio config changed: {key} = {new_value}")
         if hasattr(self, 'sound_system'):
             self.sound_system.update_volume()
         
@@ -142,12 +122,9 @@ class App:
         Xử lý thay đổi cấu hình video (yêu cầu restart)
         - Cập nhật settings cho hiệu ứng tức thì nếu có thể
         """
-        logger.warning(f"Video config changed: {key} = {new_value}. Restart required for full effect.")
         # Cập nhật settings cho hiệu ứng tức thì nếu có thể
         self.settings[key] = new_value
     
-    # Resource methods removed - not needed for basic game
-
     def run(self): 
         """
         Vòng lặp chính của game
@@ -157,10 +134,8 @@ class App:
         - Kiểm soát FPS
         """
         fps_limit = self.config.get('fps_limit', 60)
-        logger.info(f"Starting main loop with FPS limit: {fps_limit}")
         
         while self.running:
-            # Tính delta time (thời gian giữa các frame)
             dt = self.clock.tick(fps_limit) / 1000
             
             # Xử lý events từ pygame
@@ -198,9 +173,6 @@ class App:
             pygame.display.flip()
 
         # Tự động lưu config và dọn dẹp trước khi thoát
-        logger.info("Shutting down application...")
-        
-        # Dọn dẹp các hệ thống
         if hasattr(self, 'sound_system'):
             self.sound_system.cleanup()
         
@@ -211,10 +183,7 @@ class App:
         # Thoát pygame và ứng dụng
         pygame.quit()
         sys.exit()
-# =============================================================================
-# ĐIỂM KHỞI ĐỘNG CHƯƠNG TRÌNH
-# =============================================================================
+
 if __name__ == "__main__":
-    # Tạo và chạy ứng dụng Pac-Man
     app = App()
     app.run()

@@ -38,10 +38,12 @@ class PowerPellet(Pellet):
             self.timer = 0
             
 class PelletGroup(object):
-    def __init__(self, pelletfile, nodes: NodeGroup):
+    def __init__(self, pelletfile, nodes: NodeGroup, few_pellets_mode=False, few_pellets_count=20):
         self.pelletList = []
         self.powerpellets = []
         self.numEaten = 0
+        self.few_pellets_mode = few_pellets_mode
+        self.few_pellets_count = few_pellets_count
         self.createPelletList(pelletfile, nodes)
     
     def update(self, dt):
@@ -50,18 +52,39 @@ class PelletGroup(object):
             
     def createPelletList(self, pelletfile, nodes: NodeGroup):
         data = self.readPelletfile(pelletfile)
+        all_pellets = []  # Tạm thời lưu tất cả pellets
+        
         for row in range(data.shape[0]):
             for col in range(data.shape[1]):
                 if data[row][col] in ['.', '+']:
                     node = nodes.getNodeForPellet(col, row)
                     pellet = Pellet(row, col, node)
-                    self.pelletList.append(pellet)
+                    all_pellets.append(pellet)
 
                 elif data[row][col] in ['P', 'p']:
                     node = nodes.getNodeForPellet(col, row)
                     pp = PowerPellet(row, col, node)
-                    self.pelletList.append(pp)
+                    all_pellets.append(pp)
                     self.powerpellets.append(pp)
+        
+        # Nếu chế độ few pellets được bật, chỉ chọn một số pellets ngẫu nhiên
+        if self.few_pellets_mode:
+            import random
+            # Đảm bảo giữ lại tất cả power pellets
+            power_pellets = [p for p in all_pellets if p.name == POWERPELLET]
+            regular_pellets = [p for p in all_pellets if p.name == PELLET]
+            
+            # Tính số pellets thường cần chọn
+            remaining_slots = self.few_pellets_count - len(power_pellets)
+            if remaining_slots > 0 and len(regular_pellets) > remaining_slots:
+                selected_regular = random.sample(regular_pellets, remaining_slots)
+            elif remaining_slots > 0:
+                selected_regular = regular_pellets
+            else:
+                selected_regular = []
+            self.pelletList = power_pellets + selected_regular
+        else:
+            self.pelletList = all_pellets
     def readPelletfile(self, textfile):
         return np.loadtxt(textfile, dtype='<U1')
     

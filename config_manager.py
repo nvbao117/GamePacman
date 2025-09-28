@@ -1,8 +1,7 @@
 # =============================================================================
 # CONFIG_MANAGER.PY - HỆ THỐNG QUẢN LÝ CẤU HÌNH CHUYÊN NGHIỆP
 # =============================================================================
-# File này chứa ConfigManager - quản lý tất cả cấu hình game một cách chuyên nghiệp
-# Hỗ trợ lưu trữ persistent, validation, và event notification
+
 
 import json
 import os
@@ -10,11 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Callable, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
-import logging
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 class ConfigCategory(Enum):
     """Enum cho các category của config"""
@@ -62,7 +57,6 @@ class ConfigManager:
         # Load config
         self._load_config()
         
-        logger.info("ConfigManager initialized successfully")
     
     def _define_schemas(self):
         """Định nghĩa schema cho tất cả config keys"""
@@ -120,6 +114,18 @@ class ConfigManager:
                         description="Enable UI animations"),
             ConfigSchema("particle_effects", True, category=ConfigCategory.UI,
                         description="Enable particle effects"),
+            
+            # Game Mode Settings
+            ConfigSchema("few_pellets_mode", False, category=ConfigCategory.GAMEPLAY,
+                        description="Enable few pellets mode (only some pellets instead of all)"),
+            ConfigSchema("few_pellets_count", 20, 5, 100, category=ConfigCategory.GAMEPLAY,
+                        description="Number of pellets in few pellets mode"),
+            
+            # AI Algorithm Settings
+            ConfigSchema("bfs_heuristic", "NONE", valid_values=["NONE", "MANHATTAN", "EUCLIDEAN"],
+                        category=ConfigCategory.GAMEPLAY, description="Heuristic function for BFS algorithm (deprecated)"),
+            ConfigSchema("algorithm_heuristic", "NONE", valid_values=["NONE", "MANHATTAN", "EUCLIDEAN"],
+                        category=ConfigCategory.GAMEPLAY, description="Heuristic function for all algorithms"),
         ]
         
         for schema in schemas:
@@ -132,12 +138,9 @@ class ConfigManager:
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     loaded_config = json.load(f)
                     self._validate_and_merge_config(loaded_config)
-                    logger.info(f"Config loaded from {self.config_file}")
             else:
-                logger.info("Config file not found, using defaults")
                 self._use_default_config()
         except (json.JSONDecodeError, Exception) as e:
-            logger.error(f"Error loading config: {e}")
             self._try_backup_recovery()
     
     def _try_backup_recovery(self):
@@ -147,13 +150,10 @@ class ConfigManager:
                 with open(self.backup_file, 'r', encoding='utf-8') as f:
                     backup_config = json.load(f)
                     self._validate_and_merge_config(backup_config)
-                    logger.info("Config recovered from backup")
                     self.save_config()  # Save as main config
             else:
-                logger.warning("No backup found, using defaults")
                 self._use_default_config()
         except Exception as e:
-            logger.error(f"Backup recovery failed: {e}")
             self._use_default_config()
     
     def _use_default_config(self):
@@ -161,7 +161,6 @@ class ConfigManager:
         self.config = {}
         for key, schema in self.schemas.items():
             self.config[key] = schema.default_value
-        logger.info("Using default configuration")
     
     def _validate_and_merge_config(self, loaded_config: Dict[str, Any]):
         """Validate và merge config từ file với schema"""
@@ -173,7 +172,6 @@ class ConfigManager:
                 if self._validate_value(key, value):
                     self.config[key] = value
                 else:
-                    logger.warning(f"Invalid value for {key}: {value}, using default: {schema.default_value}")
                     self.config[key] = schema.default_value
             else:
                 self.config[key] = schema.default_value
@@ -228,7 +226,6 @@ class ConfigManager:
             True nếu thành công, False nếu validation fail
         """
         if not self._validate_value(key, value):
-            logger.warning(f"Invalid value for {key}: {value}")
             return False
         
         old_value = self.config.get(key)
@@ -237,7 +234,6 @@ class ConfigManager:
         if notify and old_value != value:
             self._notify_listeners(key, value, old_value)
         
-        logger.debug(f"Config updated: {key} = {value}")
         return True
     
     def get_category(self, category: ConfigCategory) -> Dict[str, Any]:
@@ -274,8 +270,8 @@ class ConfigManager:
                 try:
                     callback(key, new_value, old_value)
                 except Exception as e:
-                    logger.error(f"Error in config listener for {key}: {e}")
-    
+                    pass
+
     def save_config(self):
         """Lưu config ra file"""
         try:
@@ -288,10 +284,9 @@ class ConfigManager:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2, ensure_ascii=False)
             
-            logger.info(f"Config saved to {self.config_file}")
         except Exception as e:
-            logger.error(f"Error saving config: {e}")
-    
+            pass
+
     def reset_to_defaults(self, category: Optional[ConfigCategory] = None):
         """
         Reset config về mặc định
@@ -312,7 +307,6 @@ class ConfigManager:
         for key in self.config:
             self._notify_listeners(key, self.config[key], None)
         
-        logger.info(f"Config reset to defaults for category: {category}")
     
     def get_schema(self, key: str) -> Optional[ConfigSchema]:
         """Lấy schema của config key"""
@@ -327,20 +321,18 @@ class ConfigManager:
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2, ensure_ascii=False)
-            logger.info(f"Config exported to {file_path}")
         except Exception as e:
-            logger.error(f"Error exporting config: {e}")
-    
+            pass
+
     def import_config(self, file_path: str):
         """Import config từ file"""
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 imported_config = json.load(f)
                 self._validate_and_merge_config(imported_config)
-                logger.info(f"Config imported from {file_path}")
         except Exception as e:
-            logger.error(f"Error importing config: {e}")
-    
+            pass
+        
     def get_requires_restart_keys(self) -> List[str]:
         """Lấy danh sách keys cần restart khi thay đổi"""
         return [key for key, schema in self.schemas.items() if schema.requires_restart]

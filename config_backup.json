@@ -20,5 +20,7 @@
   "ui_scale": 1.0,
   "show_fps": false,
   "animations_enabled": false,
-  "particle_effects": false
+  "particle_effects": false,
+  "few_pellets_mode": false,
+  "few_pellets_count": 20
 }

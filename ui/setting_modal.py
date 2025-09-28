@@ -82,6 +82,8 @@ class SettingModal:
             self.ai_speed = config.get('ai_speed', 1.0)
             self.show_path = config.get('show_path', False)
             self.auto_pause = config.get('auto_pause', True)
+            self.few_pellets_mode = config.get('few_pellets_mode', False)
+            self.few_pellets_count = config.get('few_pellets_count', 20)
         else:
             # Default values
             self.master_volume = 0.7
@@ -102,6 +104,8 @@ class SettingModal:
             self.ai_speed = 1.0
             self.show_path = False
             self.auto_pause = True
+            self.few_pellets_mode = False
+            self.few_pellets_count = 20
     
     def _save_settings(self):
         """Lưu settings vào ConfigManager"""
@@ -125,6 +129,8 @@ class SettingModal:
             config.set('ai_speed', self.ai_speed)
             config.set('show_path', self.show_path)
             config.set('auto_pause', self.auto_pause)
+            config.set('few_pellets_mode', self.few_pellets_mode)
+            config.set('few_pellets_count', self.few_pellets_count)
             
             # Save to file
             config.save_config()
@@ -209,12 +215,16 @@ class SettingModal:
         # Display section
         self._setup_display_section()
         
+        # Gameplay section
+        self._setup_gameplay_section()
+        
         # Additional sections integrated directly in draw methods
         
         # Collect all interactive elements
-        self.sliders = [self.master_slider, self.music_slider, self.sfx_slider]
+        self.sliders = [self.master_slider, self.music_slider, self.sfx_slider, self.few_pellets_slider]
         self.checkboxes = [self.music_checkbox, self.sfx_checkbox, self.background_music_checkbox, 
-                          self.ambient_sounds_checkbox, self.fullscreen_checkbox, self.vsync_checkbox]
+                          self.ambient_sounds_checkbox, self.fullscreen_checkbox, self.vsync_checkbox,
+                          self.few_pellets_checkbox]
     
     def _setup_volume_section(self):
         """Thiết lập phần Volume"""
@@ -350,6 +360,54 @@ class SettingModal:
             self.vsync
         )
     
+    def _setup_gameplay_section(self):
+        """Thiết lập phần Gameplay"""
+        section_y = self.dialog_y + 320  # Di chuyển xuống dưới
+        
+        # Gameplay title
+        self.gameplay_title = NeonText(
+            self.app,
+            "🎮 GAMEPLAY",
+            GHOST_BLUE,
+            self.dialog_x + 20,
+            section_y,
+            16,
+            outline=True
+        )
+        
+        # Few pellets mode checkbox
+        checkbox_y = section_y + 25
+        self.few_pellets_checkbox = CheckBox(
+            self.dialog_x + 30,
+            checkbox_y,
+            20,
+            "Few Pellets Mode",
+            18,
+            self.few_pellets_mode
+        )
+        
+        # Few pellets count slider
+        self.few_pellets_slider = Slider(
+            self.dialog_x + 30,
+            checkbox_y + 40,
+            200,
+            30,
+            min_value=5,
+            max_value=100,
+            initial_value=self.few_pellets_count
+        )
+        
+        # Few pellets count label
+        self.few_pellets_label = NeonText(
+            self.app,
+            f"Pellets Count: {int(self.few_pellets_count)}",
+            DOT_WHITE,
+            self.dialog_x + 250,
+            checkbox_y + 50,
+            14,
+            outline=True
+        )
+    
     def show(self):
         """Hiển thị modal"""
         self.visible = True
@@ -361,13 +419,11 @@ class SettingModal:
         self.app.sound_system.play_sound('button_click')
         self.visible = False
         self._save_settings()
-        print("Settings saved")
     
     def _apply_settings(self):
         """Áp dụng settings"""
         self.app.sound_system.play_sound('button_click')
         self._update_settings()
-        print("Settings applied")
     
     def _reset_settings(self):
         """Reset settings về mặc định"""
@@ -394,7 +450,6 @@ class SettingModal:
         self._apply_audio_settings()
         self._apply_display_settings()
         self._save_settings()
-        print("Settings reset to defaults")
     
     def handle_events(self, event):
         """Xử lý sự kiện - chỉ khi modal đang hiển thị"""
@@ -499,6 +554,22 @@ class SettingModal:
                 self._update_settings(apply_immediately=False)
                 return True
             
+            # Few Pellets Mode checkbox
+            few_pellets_rect = pygame.Rect(self.dialog_x + 50, additional_y + 50, 18, 18)
+            if few_pellets_rect.collidepoint(mouse_x, mouse_y):
+                self.few_pellets_mode = not self.few_pellets_mode
+                self._update_settings(apply_immediately=False)
+                return True
+            
+            # Few Pellets Count slider
+            if self.few_pellets_mode:
+                few_pellets_slider_rect = pygame.Rect(self.dialog_x + 50, additional_y + 75, 200, 20)
+                if few_pellets_slider_rect.collidepoint(mouse_x, mouse_y):
+                    self.few_pellets_count = int(5 + ((mouse_x - (self.dialog_x + 50)) / 200) * 95)
+                    self.few_pellets_count = max(5, min(100, self.few_pellets_count))
+                    self._update_settings(apply_immediately=False)
+                    return True
+            
             # AI Speed slider
             ai_speed_y = additional_y + 55
             ai_slider_rect = pygame.Rect(self.dialog_x + 130, ai_speed_y + 5, 150, 15)
@@ -527,6 +598,8 @@ class SettingModal:
         self.ambient_sounds_enabled = self.ambient_sounds_checkbox.is_checked()
         self.fullscreen = self.fullscreen_checkbox.is_checked()
         self.vsync = self.vsync_checkbox.is_checked()
+        self.few_pellets_mode = self.few_pellets_checkbox.is_checked()
+        self.few_pellets_count = int(self.few_pellets_slider.get_value())
         
         # Validate settings
         self._validate_settings()
@@ -587,8 +660,7 @@ class SettingModal:
                 self._play_test_sound()
                 
         except Exception as e:
-            print(f"Error applying audio settings: {e}")
-    
+            pass
     def _notify_settings_changed(self):
         """Thông báo cho tất cả states về việc thay đổi settings"""
         try:
@@ -599,18 +671,15 @@ class SettingModal:
                     current_state.on_settings_changed(self.app.settings)
             
             # Thông báo cho tất cả states khác nếu cần
-            print("Settings applied globally to all states")
         except Exception as e:
-            print(f"Error notifying settings change: {e}")
-    
+            pass
     def _play_test_sound(self):
         """Phát âm thanh test để người dùng nghe thấy volume"""
         try:
             # Sử dụng âm thanh pellet để test
             self.app.sound_system.play_sound('pellet')
         except Exception as e:
-            print(f"Error playing test sound: {e}")
-    
+            pass
     def _apply_display_settings(self):
         """Áp dụng cài đặt hiển thị"""
         try:
@@ -624,8 +693,7 @@ class SettingModal:
                 self.app.clock = pygame.time.Clock()
                 
         except Exception as e:
-            print(f"Error applying display settings: {e}")
-    
+            pass
     def _update_ui_components(self):
         """Cập nhật UI components"""
         if not hasattr(self, 'master_slider'):
@@ -640,6 +708,8 @@ class SettingModal:
         self.ambient_sounds_checkbox.set_checked(bool(self.ambient_sounds_enabled))
         self.fullscreen_checkbox.set_checked(bool(self.fullscreen))
         self.vsync_checkbox.set_checked(bool(self.vsync))
+        self.few_pellets_checkbox.set_checked(bool(self.few_pellets_mode))
+        self.few_pellets_slider.set_value(max(5, min(100, self.few_pellets_count)))
     
     def update(self, dt):
         """Cập nhật logic"""
@@ -1035,6 +1105,41 @@ class SettingModal:
         
         fps_text = font.render("Show FPS", True, (200, 200, 200))
         screen.blit(fps_text, (self.dialog_x + 75, y_start + 22))
+        
+        # Few Pellets Mode checkbox
+        few_pellets_rect = pygame.Rect(self.dialog_x + 50, y_start + 50, 18, 18)
+        if self.few_pellets_mode:
+            pygame.draw.rect(screen, (0, 255, 100), few_pellets_rect, border_radius=3)
+            pygame.draw.rect(screen, (255, 255, 255), few_pellets_rect, 2, border_radius=3)
+            # Checkmark
+            pygame.draw.line(screen, (255, 255, 255), 
+                           (few_pellets_rect.x + 3, few_pellets_rect.y + 9), 
+                           (few_pellets_rect.x + 8, few_pellets_rect.y + 14), 3)
+            pygame.draw.line(screen, (255, 255, 255), 
+                           (few_pellets_rect.x + 8, few_pellets_rect.y + 14), 
+                           (few_pellets_rect.x + 15, few_pellets_rect.y + 7), 3)
+        else:
+            pygame.draw.rect(screen, (60, 60, 80), few_pellets_rect, border_radius=3)
+            pygame.draw.rect(screen, (100, 100, 120), few_pellets_rect, 2, border_radius=3)
+        
+        few_pellets_text = font.render("Few Pellets Mode", True, (200, 200, 200))
+        screen.blit(few_pellets_text, (self.dialog_x + 75, y_start + 52))
+        
+        # Few Pellets Count slider
+        if self.few_pellets_mode:
+            slider_rect = pygame.Rect(self.dialog_x + 50, y_start + 75, 200, 20)
+            pygame.draw.rect(screen, (40, 40, 60), slider_rect, border_radius=10)
+            pygame.draw.rect(screen, (100, 100, 150), slider_rect, 2, border_radius=10)
+            
+            # Slider handle
+            handle_x = self.dialog_x + 50 + int((self.few_pellets_count - 5) / 95 * 200)
+            handle_rect = pygame.Rect(handle_x - 8, y_start + 75, 16, 20)
+            pygame.draw.rect(screen, (0, 200, 255), handle_rect, border_radius=8)
+            pygame.draw.rect(screen, (255, 255, 255), handle_rect, 2, border_radius=8)
+            
+            # Count label
+            count_text = font.render(f"Count: {int(self.few_pellets_count)}", True, (200, 200, 200))
+            screen.blit(count_text, (self.dialog_x + 260, y_start + 78))
         
         # Animations checkbox
         anim_rect = pygame.Rect(self.dialog_x + 180, y_start + 20, 18, 18)

@@ -207,7 +207,6 @@ class GameInitState(State):
             if hasattr(self.game_engine, 'initialize_game'):
                 self.game_engine.initialize_game()
         except Exception as e:
-            print(f"Error initializing game: {e}")
             self.game_engine = None
     
     def _transition_to_game(self):
