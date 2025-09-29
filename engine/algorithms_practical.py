@@ -355,20 +355,31 @@ def dls_find_nearest_pellet(start_node, pellet_nodes, limit):
 # GREEDY
 # =============================================================================
 
-def greedy_path_to_all_pellets(start_node, pellet_nodes, heuristic=None):
+def greedy(start_node, pellet_group, heuristic_func=None):
     """
     Tìm đường đi qua tất cả các pellet bằng thuật toán Greedy với heuristic.
     Ở mỗi bước, chọn pellet gần nhất (theo heuristic) và di chuyển tới đó.
     """
+    if not pellet_group or not pellet_group.pelletList:
+        return None
+
+    pellet_nodes = get_visible_pellet_nodes(pellet_group)
+    if not pellet_nodes:
+        return None
+
+    # Sử dụng heuristic mặc định nếu không có
+    if heuristic_func is None:
+        heuristic_func = heuristic_manhattan
+
     current_node = start_node
     remaining_pellets = set(pellet_nodes)
     full_path = [current_node]
 
     while remaining_pellets:
         # Tìm pellet gần nhất theo heuristic
-        nearest_pellet = min(remaining_pellets, key=lambda n: heuristic(current_node, n))
+        nearest_pellet = min(remaining_pellets, key=lambda n: heuristic_func(current_node, n))
         # Tìm đường đi ngắn nhất (theo số bước) tới pellet gần nhất
-        path_to_pellet = greedy_find_path(current_node, nearest_pellet, heuristic)
+        path_to_pellet = greedy_find_path(current_node, nearest_pellet, heuristic_func)
         if not path_to_pellet:
             break  # Không tìm được đường đi
 
@@ -390,6 +401,10 @@ def greedy_find_path(start_node, goal_node, heuristic=None):
     Tìm đường đi từ start_node tới goal_node bằng thuật toán Greedy Best-First Search.
     """
     from collections import deque
+
+    # Sử dụng heuristic mặc định nếu không có
+    if heuristic is None:
+        heuristic = heuristic_manhattan
 
     open_set = []
     open_set.append((heuristic(start_node, goal_node), start_node, [start_node]))

@@ -32,10 +32,10 @@ class ComputeOnceSystem:
         # 1. Chưa từng tính toán lần nào
         # 2. Thuật toán AI đã thay đổi
         # 3. Số lượng pellets thay đổi (lên level mới)
-        print("---------------------")
-        print("self.curent_level", self.curent_level)
-        print("self.last_level", self.last_level)
-        print("---------------------")
+        # print("---------------------")
+        # print("self.curent_level", self.curent_level)
+        # print("self.last_level", self.last_level)
+        # print("---------------------")
         pellet_count_now = len([p for p in pelletGroup.pelletList if p.visible])
 
         should_compute = (

@@ -46,7 +46,11 @@ class Pacman(Entity):
         
         # Thuật toán AI pathfinding (có thể thay đổi)
         self.pathfinder_name = 'BFS'  # Tên thuật toán hiện tại
-        self.pathfinder = bfs  # Function thuật toán 
+        self.pathfinder = bfs  # Function thuật toán
+        
+        # Lưu trữ thuật toán gốc để không bị reset
+        self.original_pathfinder_name = 'BFS'
+        self.original_pathfinder = bfs 
         
         # Timer để tránh gọi pathfinding quá thường xuyên
         self.last_pathfind_time = 0
@@ -80,8 +84,9 @@ class Pacman(Entity):
         self.path = []
         self.locked_target_node = None
         self.previous_node = None
-        self.pathfinder_name = 'BFS'
-        self.pathfinder = bfs
+        # Không reset thuật toán - giữ nguyên thuật toán đã chọn
+        # self.pathfinder_name = 'BFS'
+        # self.pathfinder = bfs
         self.last_pathfind_time = 0
         self._update_pathfind_interval()
         self.path_computed = False
@@ -96,6 +101,10 @@ class Pacman(Entity):
         # Reset precomputed path
         self.precomputed_path = []
         self.path_index = 0
+        
+        # Không reset thuật toán - giữ nguyên thuật toán đã chọn
+        # self.pathfinder_name = self.original_pathfinder_name
+        # self.pathfinder = self.original_pathfinder
         
     def _update_pathfind_interval(self):
         """
@@ -114,9 +123,6 @@ class Pacman(Entity):
             else:  # DFS, UCS
                 self.pathfind_interval = 0.3  # 0.3 giây cho DFS, UCS
         
-    def set_path(self, path):
-        self.path = path[1:]  # Bỏ qua node đầu tiên (node hiện tại)
-    
     def force_recompute_path(self):
         """
         Buộc tính lại path ngay lập tức với heuristic mới
@@ -131,78 +137,14 @@ class Pacman(Entity):
         if hasattr(self, 'precomputed_path'):
             self.precomputed_path = []
             self.path_index = 0
-            
-    def get_direction(self, from_node, to_node):
-        """
-        Lấy hướng di chuyển từ node này sang node khác
-        Hướng di chuyển (UP, DOWN, LEFT, RIGHT, PORTAL) hoặc STOP
-        """
-        for direction, neighbor in from_node.neighbors.items():
-            if neighbor == to_node:
-                return direction
-        return STOP
     
     def die(self):
         self.alive = False
         self.direction = STOP 
 
-    def move_along_path(self):
-        """
-        Di chuyển Pac-Man theo đường đi đã tính toán
-        - Xử lý backtracking để tránh ping-pong
-        - Kiểm tra hướng hợp lệ
-        - Cập nhật path khi đến node mới
-        Returns:
-            Hướng di chuyển tiếp theo hoặc STOP
-        """
-        if not self.path:
-            return STOP
-            
-        # Tránh backtracking ngay lập tức (ping-pong effect)
-        if (self.previous_node is not None and 
-            len(self.path) >= 1 and 
-            self.path[0] == self.previous_node):
-            
-            if len(self.path) > 1:
-                # Ưu tiên bỏ qua bước quay lại nếu có bước khác
-                self.path.pop(0)
-            else:
-                # Dead-end: cho phép quay lại 1 bước để thoát
-                direction_back = self.get_direction(self.node, self.previous_node)
-                return direction_back if direction_back != STOP else STOP
-                
-        # Lấy node tiếp theo và hướng di chuyển
-        next_node = self.path[0]
-        direction = self.get_direction(self.node, next_node)
-        
-        if direction == STOP:
-            self.path = []
-            return STOP
-            
-        # Không cho phép đảo ngược hướng giữa chừng khi auto
-        opposite = self.oppositeDirection(direction)
-        if opposite and self.direction == opposite:
-            return self.direction
-            
-        # Nếu đã đến node tiếp theo, xóa khỏi path
-        if self.overshotTarget() and self.node == next_node:
-            self.path.pop(0)
-            
-        return direction
-    
     def update_ai(self, dt, pelletGroup=None, auto=False, ghostGroup=None):
         """
-        Cập nhật Pac-Man với AI pathfinding - HỖ TRỢ HYBRID AI
-        
-        Có 3 chế độ AI:
-        1. TRADITIONAL: Sử dụng compute-once system (BFS, DFS, A*, etc.)
-        2. HYBRID: Kết hợp offline planning + online decision-making
-        
-        Args:
-            dt: Delta time
-            pelletGroup: Nhóm pellets còn lại trong game
-            auto: Có sử dụng AI tự động không
-            ghostGroup: Nhóm ghosts (cho hybrid AI)
+        Cập nhật Pac-Man với AI pathfinding
         """
         self.sprites.update(dt) 
         self.position += self.directions[self.direction] * self.speed * dt
@@ -224,6 +166,8 @@ class Pacman(Entity):
                 if self.use_hybrid_ai:
                     direction = self.hybrid_ai.get_direction(pelletGroup, ghostGroup)
                 else:
+                    print(self.pathfinder_name)
+                    print(self.pathfinder)
                     direction = compute_once.get_direction(
                         self, pelletGroup, self.pathfinder, self.pathfinder_name
                     )
@@ -285,16 +229,13 @@ class Pacman(Entity):
         self.use_hybrid_ai = not self.use_hybrid_ai
         status = "enabled" if self.use_hybrid_ai else "disabled"
     
-    def get_ai_status(self):
-        """Lấy thông tin trạng thái AI"""
-        if self.use_hybrid_ai:
-            return self.hybrid_ai.get_status_info()
-        else:
-            return {
-                "ai_type": "Traditional",
-                "algorithm": self.pathfinder_name,
-                "hybrid_enabled": False
-            }
+    def set_algorithm(self, algorithm_name, algorithm_func):
+        """Cập nhật thuật toán AI và lưu trữ để không bị reset"""
+        self.pathfinder_name = algorithm_name
+        self.pathfinder = algorithm_func
+        self.original_pathfinder_name = algorithm_name
+        self.original_pathfinder = algorithm_func
+        self._update_pathfind_interval()
     
     def getValidKey(self):
         """
@@ -343,174 +284,6 @@ class Pacman(Entity):
             return True
         return False
     
-    def set_precomputed_path(self, path):
-        """
-        Thiết lập path đã được tính sẵn từ AI algorithms
-        """
-        if path and len(path) > 1:
-            self.precomputed_path = path[1:] 
-            self.path_index = 0
-        else:
-            self.precomputed_path = []
-            self.path_index = 0
     
-    def _follow_precomputed_path(self, pelletGroup):
-        """
-        Follow path đã được tính sẵn từ AI algorithms
-        Args:
-            pelletGroup: Nhóm pellets còn lại
-        Returns:
-            direction: Hướng di chuyển tiếp theo
-        """
-        # Kiểm tra xem có path không
-        if not self.precomputed_path or self.path_index >= len(self.precomputed_path):
-            # Hết path hoặc chưa có path -> compute new path
-            return self._compute_new_path_if_needed(pelletGroup)
-        
-        # Lấy node tiếp theo từ path
-        target_node = self.precomputed_path[self.path_index]
-        
-        # Kiểm tra nếu đã ở target node, advance path
-        if self.node == target_node:
-            self.path_index += 1
-            remaining = len(self.precomputed_path) - self.path_index
-            if remaining % 50 == 0:
-                pass
-            
-            # Lấy target mới sau khi advance
-            if self.path_index < len(self.precomputed_path):
-                target_node = self.precomputed_path[self.path_index]
-            else:
-                # Hết path
-                return self._compute_new_path_if_needed(pelletGroup)
-        
-        # Tìm direction đến target node
-        direction = self._get_direction_to_node(self.node, target_node)
-        
-        # Nếu không thể di chuyển, thử skip ahead
-        if direction == STOP:
-            return self._handle_blocked_path(pelletGroup)
-        
-        return direction
     
-    def _compute_new_path_if_needed(self, pelletGroup):
-        """
-        Compute path mới khi cần thiết
-        """
-        if not pelletGroup or not pelletGroup.pelletList:
-            return STOP
-        
-        # Tính path mới khi cần thiết
-        
-        try:
-            # Gọi AI algorithm để tính path
-            new_path = self.pathfinder(self.node, None, pelletGroup)
-            
-            if new_path and len(new_path) > 1:
-                self.set_precomputed_path(new_path)
-                return self._follow_precomputed_path(pelletGroup)
-            else:
-                return self._greedy_fallback(pelletGroup)
-                
-        except Exception:
-            return self._greedy_fallback(pelletGroup)
     
-    def _handle_blocked_path(self, pelletGroup):
-        """
-        Xử lý khi path bị block
-        """
-        # Path bị block: thử skip ahead
-        
-        # Thử skip 1-3 bước trong path
-        for skip in range(1, min(4, len(self.precomputed_path) - self.path_index)):
-            if self.path_index + skip < len(self.precomputed_path):
-                next_target = self.precomputed_path[self.path_index + skip]
-                direction = self._get_direction_to_node(self.node, next_target)
-                
-                if direction != STOP:
-                    self.path_index += skip
-                    return direction
-        
-        # Không thể skip -> compute new path
-        self.precomputed_path = []
-        self.path_index = 0
-        return self._compute_new_path_if_needed(pelletGroup)
-    
-    def _get_direction_to_node(self, from_node, to_node):
-        """
-        Tìm direction từ from_node đến to_node
-        """
-        if not from_node or not to_node:
-            return STOP
-        
-        for direction, neighbor in from_node.neighbors.items():
-            if neighbor == to_node:
-                # Kiểm tra xem có thể di chuyển không
-                if direction == PORTAL:
-                    return direction
-                elif PACMAN in from_node.access[direction]:
-                    return direction
-        
-        return STOP
-    
-    def _greedy_fallback(self, pelletGroup):
-        """
-        Greedy fallback khi không có path
-        """
-        if not pelletGroup or not pelletGroup.pelletList:
-            return STOP
-        
-        # Tìm pellet gần nhất
-        pellet_nodes = [p.node for p in pelletGroup.pelletList if p.node and p.visible]
-        if not pellet_nodes:
-            return STOP
-        
-        nearest_pellet = min(pellet_nodes, 
-                           key=lambda p: self._manhattan_distance(self.node, p))
-        
-        # Di chuyển về phía pellet gần nhất
-        best_direction = STOP
-        min_distance = float('inf')
-        
-        for direction in [UP, DOWN, LEFT, RIGHT, PORTAL]:
-            neighbor = self.node.neighbors.get(direction)
-            if neighbor:
-                can_move = (direction == PORTAL or 
-                           PACMAN in self.node.access[direction])
-                
-                if can_move:
-                    distance = self._manhattan_distance(neighbor, nearest_pellet)
-                    if distance < min_distance:
-                        min_distance = distance
-                        best_direction = direction
-        
-        return best_direction
-    
-    def _manhattan_distance(self, node1, node2):
-        if not node1 or not node2:
-            return float('inf')
-        
-        dx = abs(node1.position.x - node2.position.x)
-        dy = abs(node1.position.y - node2.position.y)
-        return dx + dy
-    
-    def get_path_info(self):
-        """
-        Lấy thông tin về path hiện tại
-        """
-        if not self.precomputed_path:
-            return "No precomputed path"
-        
-        total_steps = len(self.precomputed_path)
-        current_step = self.path_index
-        remaining_steps = total_steps - current_step
-        progress_percent = (current_step / total_steps) * 100 if total_steps > 0 else 0
-        
-        return {
-            'algorithm': self.pathfinder_name,
-            'total_steps': total_steps,
-            'current_step': current_step,
-            'remaining_steps': remaining_steps,
-            'progress_percent': progress_percent,
-            'is_completed': current_step >= total_steps
-        }  

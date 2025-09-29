@@ -42,9 +42,22 @@ class GameLayout(UIComponent):
         self.ghost_mode = True  # Chế độ Ghost
         self.is_playing = False # Trạng thái play/pause
         
-        # Tùy chọn thuật toán cho selectbox
-        self.algorithm_options = ["BFS", "DFS", "A*", "UCS", "IDS", "GREEDY"]
-        
+        # Tùy chọn thuật toán cho selectbox - sẽ được cập nhật dựa trên AI mode
+        # Thêm các thuật toán mới vào danh sách bên dưới nếu cần
+        self.algorithm_options = [
+            "BFS", "DFS", "A*", 
+            "UCS", "IDS", "GREEDY",
+            "Hill Climbing", "Genetic Algorithm", "Minimax",
+            "Simulated Annealing"
+        ] 
+
+        self.online_algorithms = [
+            "A*", "GREEDY", "Hill Climbing", "Minimax",
+            "Genetic Algorithm", "Simulated Annealing"
+        ]
+
+        self.offline_algorithms = ["BFS", "DFS", "A*", "UCS", "IDS"]  
+
         # Tùy chọn Ghost mode cho selectbox
         self.ghost_mode_options = ["Ghost ON", "Ghost OFF"]
         
@@ -57,9 +70,12 @@ class GameLayout(UIComponent):
         self.few_pellets_count = 20
         self.preset_modes = [
             {"name": "Normal", "count": 0, "description": "All pellets"},
-            {"name": "Few (77)", "count": 7, "description": "7 pellets only"},
+            {"name": "Few (7)", "count": 7, "description": "7 pellets only"},
         ]
         self.selected_preset = 0  # Normal mode by default
+        
+        # Current AI mode để track thay đổi
+        self.current_ai_mode = "OFFLINE"  # Mặc định
         
         # Khởi tạo selectbox
         self.algorithm_selectbox = None
@@ -69,8 +85,37 @@ class GameLayout(UIComponent):
         self.ai_mode_selector = None
         self._setup_selectbox()
         
+        # Khởi tạo algorithm options cho AI mode mặc định
+        self.update_algorithm_options_for_ai_mode(self.current_ai_mode)
+        
         # Animation
         self.animation_time = 0
+        
+    def update_algorithm_options_for_ai_mode(self, ai_mode):
+        """
+        Cập nhật danh sách thuật toán dựa trên AI mode được chọn
+        
+        Args:
+            ai_mode: "ONLINE" hoặc "OFFLINE"
+        """
+        if ai_mode == "ONLINE":
+            self.algorithm_options = self.online_algorithms.copy()
+        elif ai_mode == "OFFLINE":
+            self.algorithm_options = self.offline_algorithms.copy()
+        
+        # Cập nhật algorithm selectbox nếu đã được khởi tạo
+        if self.algorithm_selectbox:
+            self.algorithm_selectbox.options = self.algorithm_options
+            # Reset selection nếu algorithm hiện tại không có trong danh sách mới
+            if self.algorithm not in self.algorithm_options:
+                self.algorithm = self.algorithm_options[0] if self.algorithm_options else "BFS"
+            # Cập nhật selected option
+            if self.algorithm in self.algorithm_options:
+                self.algorithm_selectbox.selected_option = self.algorithm_options.index(self.algorithm)
+            else:
+                self.algorithm_selectbox.selected_option = 0
+        
+        self.current_ai_mode = ai_mode
         
     def _setup_layout(self):
         """
@@ -188,7 +233,7 @@ class GameLayout(UIComponent):
       
         
         # AI Mode Selector
-        ai_selector_y = 50
+        ai_selector_y = 1200
         self.ai_mode_selector = AIModeSelector(
             selectbox_x, ai_selector_y, selectbox_width, selectbox_height
         )

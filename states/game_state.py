@@ -35,6 +35,18 @@ class GameState(State):
         
         self.game.set_ai_mode(True)  # Bắt đầu với AI mode
         
+        # Khởi tạo algorithm options dựa trên AI mode mặc định
+        if hasattr(self.layout, 'ai_mode_selector') and self.layout.ai_mode_selector:
+            default_ai_mode = self.layout.ai_mode_selector.get_current_mode()
+            self.layout.update_algorithm_options_for_ai_mode(default_ai_mode)
+            # Set ghost mode dựa trên AI mode mặc định
+            if default_ai_mode == "ONLINE":
+                self.layout.ghost_mode = True
+                self.game.set_ghost_mode(True)
+            else:  # OFFLINE
+                self.layout.ghost_mode = False
+                self.game.set_ghost_mode(False)
+        
         # Load few pellets mode configuration
         if hasattr(app, 'config'):
             few_pellets_mode = app.config.get('few_pellets_mode', False)
@@ -217,6 +229,8 @@ class GameState(State):
             # AI mode đã thay đổi, cập nhật Pacman
             new_ai_mode = self.layout.ai_mode_selector.get_current_mode()
             self._apply_ai_mode_change(new_ai_mode)
+            # Cập nhật algorithm options dựa trên AI mode mới
+            self.layout.update_algorithm_options_for_ai_mode(new_ai_mode)
         
         if few_pellets_changed:
             # Phát âm thanh khi thay đổi few pellets mode
@@ -272,24 +286,31 @@ class GameState(State):
         
         pacman = self.game.pacman
         
-        if new_ai_mode == "TRADITIONAL":
-            if hasattr(pacman, 'disable_hybrid_ai'):
-                pacman.disable_hybrid_ai()
-            
-        elif new_ai_mode == "HYBRID":
-            # Bật Hybrid AI (mặc định)
+        if new_ai_mode == "ONLINE":
+            # Bật hybrid AI và set mode ONLINE
             if hasattr(pacman, 'enable_hybrid_ai'):
                 pacman.enable_hybrid_ai()
-            
-        elif new_ai_mode == "ONLINE":
-            # Chỉ sử dụng online decision-making
             if hasattr(pacman, 'hybrid_ai'):
-                pacman.hybrid_ai.current_mode = "ONLINE"
+                pacman.hybrid_ai.set_mode("ONLINE")
+            # ONLINE mode: Bật ghost để test real-time decision making
+            self.layout.ghost_mode = True
+            self.game.set_ghost_mode(True)
+            # Cập nhật ghost mode selector UI
+            if hasattr(self.layout, 'ghost_mode_selectbox'):
+                self.layout.ghost_mode_selectbox.selected_option = 0  # Ghost ON
             
         elif new_ai_mode == "OFFLINE":
-            # Chỉ sử dụng offline planning
+            # Bật hybrid AI và set mode OFFLINE
+            if hasattr(pacman, 'enable_hybrid_ai'):
+                pacman.enable_hybrid_ai()
             if hasattr(pacman, 'hybrid_ai'):
-                pacman.hybrid_ai.current_mode = "OFFLINE"
+                pacman.hybrid_ai.set_mode("OFFLINE")
+            # OFFLINE mode: Tắt ghost để tập trung vào pathfinding
+            self.layout.ghost_mode = False
+            self.game.set_ghost_mode(False)
+            # Cập nhật ghost mode selector UI
+            if hasattr(self.layout, 'ghost_mode_selectbox'):
+                self.layout.ghost_mode_selectbox.selected_option = 1  # Ghost OFF
     
     def toggle_pause(self):
         """
@@ -331,6 +352,11 @@ class GameState(State):
         self.is_pause = True  # Bắt đầu ở trạng thái pause
         self.layout.is_playing = False  # Reset trạng thái play
         self.layout.set_game_info(self.score, self.lives, self.level, self.algorithm)
+        
+        # Cập nhật algorithm options dựa trên AI mode hiện tại
+        if hasattr(self.layout, 'ai_mode_selector') and self.layout.ai_mode_selector:
+            current_ai_mode = self.layout.ai_mode_selector.get_current_mode()
+            self.layout.update_algorithm_options_for_ai_mode(current_ai_mode)
     
     def game_over(self):
         """
