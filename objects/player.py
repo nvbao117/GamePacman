@@ -13,7 +13,7 @@ from objects.nodes import Node
 from collections import deque
 import sys
 from engine.algorithms_practical import (
-    bfs, dfs, a_star, ucs, iterative_deepening_dfs, greedy
+    bfs, dfs, astar, ucs, ids, greedy
 )
 from engine.compute_once_system import compute_once
 from engine.hybrid_ai_system import HybridAISystem

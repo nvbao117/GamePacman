@@ -12,6 +12,8 @@ class ComputeOnceSystem:
         self.is_computed = False
         self.algorithm_name = ""
         self.pellet_count_when_computed = 0
+        self.curent_level = 0 
+        self.last_level = -1 
         
     def get_direction(self, pacman, pelletGroup, pathfinder, pathfinder_name):
         """
@@ -30,13 +32,19 @@ class ComputeOnceSystem:
         # 1. Chưa từng tính toán lần nào
         # 2. Thuật toán AI đã thay đổi
         # 3. Số lượng pellets thay đổi (lên level mới)
-        current_pellet_count = len([p for p in pelletGroup.pelletList if p.visible])
+        print("---------------------")
+        print("self.curent_level", self.curent_level)
+        print("self.last_level", self.last_level)
+        print("---------------------")
+        pellet_count_now = len([p for p in pelletGroup.pelletList if p.visible])
+
         should_compute = (
-            not self.is_computed or                    # Lần đầu tiên chạy
-            self.algorithm_name != pathfinder_name or  # Đổi thuật toán
-            self.pellet_count_when_computed != current_pellet_count  # Pellets thay đổi
+            not self.is_computed or                 
+            self.algorithm_name != pathfinder_name or
+            self.curent_level != self.last_level or
+            abs(pellet_count_now - self.pellet_count_when_computed) >= 200
         )
-        
+        print("should_compute", should_compute)
         if should_compute:
             success = self._compute_master_path(pacman, pelletGroup, pathfinder, pathfinder_name)
             if not success:
@@ -63,7 +71,7 @@ class ComputeOnceSystem:
                 self.is_computed = True
                 self.algorithm_name = pathfinder_name
                 self.pellet_count_when_computed = len([p for p in pelletGroup.pelletList if p.visible])
-                
+                self.last_level = self.curent_level
                 for node in self.master_path:
                     print(f"{node.position.x//16, node.position.y//16}",end = " ")
                 print()
@@ -229,6 +237,8 @@ class ComputeOnceSystem:
         self.master_path = []
         self.current_index = 0
         self.is_computed = False
+        self.last_level = -1
+        self.curent_level = 0
         self.algorithm_name = ""
         self.pellet_count_when_computed = 0
         # System reset - sẽ tính lại path ở lần gọi tiếp theo
@@ -251,7 +261,6 @@ class ComputeOnceSystem:
             'progress_percent': progress_percent,
             'is_completed': current_step >= total_steps
         }
-
 # Global compute-once system
 compute_once = ComputeOnceSystem()
 

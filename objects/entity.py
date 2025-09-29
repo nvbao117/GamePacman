@@ -80,10 +80,11 @@ class Entity(object):
             self.setPosition()
     
     #kiểm tra hướng di chuyển hợp lệ     
-    def validDirection(self,direction) : 
+    def validDirection(self, direction):
         if direction is not STOP:
             # Kiểm tra entity có quyền truy cập hướng này không
-            if self.name in self.node.access[direction]:
+            access_list = self.node.access.get(direction)
+            if access_list and self.name in access_list:
                 if self.node.neighbors[direction] is not None:
                     return True
         return False

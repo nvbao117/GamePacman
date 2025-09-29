@@ -571,7 +571,7 @@ class GameLayout(UIComponent):
     
     def _draw_play_section(self):
         """Draw play/pause button section"""
-        y_start = 520  # Above algorithm section
+        y_start = 1100  # Above algorithm section
         try:
             font = pygame.font.Font(FONT_PATH, 14)
         except:
@@ -761,7 +761,7 @@ class GameLayout(UIComponent):
         
         # Section background with glow
         section_rect = pygame.Rect(self.control_panel_rect.x + 20, y_start - 5, 
-                                 self.control_panel_rect.width - 40, 100)
+                                 self.control_panel_rect.width - 40, 150)
         
         # Glow effect
         glow_rect = section_rect.inflate(4, 4)
@@ -784,19 +784,8 @@ class GameLayout(UIComponent):
         algo_text = font.render(f"Algorithm: {self.algorithm}", True, DOT_WHITE)
         self.surface.blit(algo_text, (self.control_panel_rect.x + 30, y_start + 45))
         
-        # Ghost Mode display
-        ghost_mode_text = "Ghost: ON" if self.ghost_mode else "Ghost: OFF"
-        ghost_color = GHOST_PINK if self.ghost_mode else (128, 128, 128)
-        mode_text = font.render(ghost_mode_text, True, ghost_color)
-        self.surface.blit(mode_text, (self.control_panel_rect.x + 30, y_start + 65))
-        
         # Steps display
         if hasattr(self, 'step_info'):
-            steps_text = f"Steps: {self.step_info['total_steps']}"
-            steps_color = GHOST_BLUE if self.step_info['total_steps'] > 0 else DOT_WHITE
-            steps_surface = font.render(steps_text, True, steps_color)
-            self.surface.blit(steps_surface, (self.control_panel_rect.x + 30, y_start + 85))
-            
             # AI/Player steps breakdown
             if self.step_info['ai_steps'] > 0 or self.step_info['player_steps'] > 0:
                 breakdown_text = f"AI: {self.step_info['ai_steps']} | Player: {self.step_info['player_steps']}"

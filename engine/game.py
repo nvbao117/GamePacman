@@ -17,6 +17,7 @@ from objects.ghosts import GhostGroup
 from objects.pellets import PelletGroup
 from ui.text import TextGroup
 import time
+from engine.compute_once_system import compute_once
 
 class Game(object):
     """
@@ -286,7 +287,7 @@ class Game(object):
         
         # Thiết lập thuật toán AI cho Pac-Man - sử dụng algorithms_practical
         from engine.algorithms_practical import (
-            bfs, dfs, a_star, ucs, iterative_deepening_dfs, greedy
+            bfs, dfs, astar, ucs, ids, greedy
         )
         
         algo = self.algorithm
@@ -294,14 +295,14 @@ class Game(object):
             self.pacman.pathfinder_name = 'DFS'
             self.pacman.pathfinder = dfs
         elif algo == 'IDS':
-            self.pacman.pathfinder_name = 'IDS'
-            self.pacman.pathfinder = iterative_deepening_dfs
+            self.pacman.pathfinder_name = 'IDS'     
+            self.pacman.pathfinder = ids
         elif algo == 'UCS':
             self.pacman.pathfinder_name = 'UCS'
             self.pacman.pathfinder = ucs
         elif algo == 'A*':
             self.pacman.pathfinder_name = 'A*'
-            self.pacman.pathfinder = a_star
+            self.pacman.pathfinder = astar
         elif algo == 'GREEDY':
             self.pacman.pathfinder_name = 'GREEDY'
             self.pacman.pathfinder = greedy
@@ -314,7 +315,6 @@ class Game(object):
         few_pellets_count = getattr(self, 'few_pellets_count', 20)
         self.pellets = PelletGroup("assets/maze/"+self.mazedata.obj.name+".txt", self.nodes, 
                                  few_pellets_mode, few_pellets_count)
-        
         # Tạo ghosts
         self.ghosts = GhostGroup(self.nodes.getStartTempNode(), self.pacman)
 
@@ -525,7 +525,9 @@ class Game(object):
         self.pause.paused = True
         self.startGame()
         self.textgroup.updateLevel(self.level)
-    
+        compute_once.curent_level = self.level
+        self.reset_steps()
+
     def restartGame(self):
         self.lives = 5 
         self.level = 0 
@@ -614,6 +616,7 @@ class Game(object):
             if event.key == pygame.K_SPACE:
                 self.pause.setPause(playerPaused=True)
             elif event.key == pygame.K_ESCAPE:
+                compute_once.reset()
                 self.pause.setPause(playerPaused=True)
     
     def render(self, surface):
@@ -667,27 +670,27 @@ class Game(object):
         self.algorithm = algorithm  # Cập nhật algorithm
         if hasattr(self, 'pacman') and self.pacman:
             from engine.algorithms_practical import (
-                bfs_practical, dfs_practical, astar_practical, ucs_practical, 
-                ids_practical, greedy_practical, heuristic_manhattan, heuristic_euclidean
-            )
+                bfs , dfs , astar , ucs , 
+                ids , greedy , heuristic_manhattan, heuristic_euclidean
+            )       
             if algorithm == 'DFS':
                 self.pacman.pathfinder_name = 'DFS'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(dfs_practical)
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(dfs )
             elif algorithm == 'IDS':
                 self.pacman.pathfinder_name = 'IDS'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(ids_practical)
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(ids )
             elif algorithm == 'UCS':
                 self.pacman.pathfinder_name = 'UCS'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(ucs_practical)
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(ucs )
             elif algorithm == 'A*':
                 self.pacman.pathfinder_name = 'A*'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar_practical)
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)
             elif algorithm == 'GREEDY':
                 self.pacman.pathfinder_name = 'GREEDY'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(greedy_practical)
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(greedy)
             else:  # BFS (mặc định)
                 self.pacman.pathfinder_name = 'BFS'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(bfs_practical)
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(bfs )
             
             # Reset path khi thay đổi thuật toán
             self.pacman.path = []
@@ -706,7 +709,6 @@ class Game(object):
             return lambda start, pellets: algorithm_func(start, pellets, heuristic_euclidean)
         else:  # NONE
             return lambda start, pellets: algorithm_func(start, pellets, None)
-    
     
     def set_algorithm_heuristic(self, heuristic):
         """Đặt heuristic cho tất cả thuật toán"""

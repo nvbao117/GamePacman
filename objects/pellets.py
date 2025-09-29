@@ -71,18 +71,16 @@ class PelletGroup(object):
         if self.few_pellets_mode:
             import random
             # Đảm bảo giữ lại tất cả power pellets
-            power_pellets = [p for p in all_pellets if p.name == POWERPELLET]
             regular_pellets = [p for p in all_pellets if p.name == PELLET]
             
             # Tính số pellets thường cần chọn
-            remaining_slots = self.few_pellets_count - len(power_pellets)
-            if remaining_slots > 0 and len(regular_pellets) > remaining_slots:
-                selected_regular = random.sample(regular_pellets, remaining_slots)
-            elif remaining_slots > 0:
-                selected_regular = regular_pellets
+            if len(regular_pellets) > self.few_pellets_count:
+                fixed_indices = [0, 10, 20, 30, 100, 150, 200]  # Vị trí cố định
+                selected_regular = [regular_pellets[i] for i in fixed_indices if i < len(regular_pellets)]
             else:
-                selected_regular = []
-            self.pelletList = power_pellets + selected_regular
+                selected_regular = regular_pellets
+            
+            self.pelletList = selected_regular
         else:
             self.pelletList = all_pellets
     def readPelletfile(self, textfile):
