@@ -233,14 +233,14 @@ class GameLayout(UIComponent):
       
         
         # AI Mode Selector
-        ai_selector_y = 1200
+        ai_selector_y = 920
         self.ai_mode_selector = AIModeSelector(
             selectbox_x, ai_selector_y, selectbox_width, selectbox_height
         )
 
         # Few Pellets Mode selectbox (trong section riêng)
         few_pellets_options = [mode["name"] for mode in self.preset_modes]
-        few_pellets_y = 1020  # Vị trí trong few pellets section
+        few_pellets_y = 340  # Vị trí trong few pellets section
         self.few_pellets_selectbox = SelectBox(
             selectbox_x, few_pellets_y, selectbox_width, selectbox_height,
             few_pellets_options, font_size=12
@@ -490,7 +490,6 @@ class GameLayout(UIComponent):
         # Draw panel sections with better spacing - reordered
         self._draw_score_section()
         self._draw_lives_section()
-        self._draw_controls_section()
         self._draw_stats_section()
         self._draw_few_pellets_section()  
         self._draw_play_section() 
@@ -755,46 +754,6 @@ class GameLayout(UIComponent):
         if self.heuristic_selectbox and "AI" in mode_text:
             heuristic_label = font.render("ALGORITHM HEURISTIC", True, (0, 200, 100))
             self.surface.blit(heuristic_label, (self.control_panel_rect.x + 30, y_start + 100))
-    
-    def _draw_controls_section(self):
-        """Draw controls section"""
-        y_start = 290  # Moved back up since play is now above algorithm
-        try:
-            font = pygame.font.Font(FONT_PATH, 12)
-        except:
-            font = pygame.font.Font(None, 12)
-        
-        # Section background with glow
-        section_rect = pygame.Rect(self.control_panel_rect.x + 20, y_start - 5, 
-                                 self.control_panel_rect.width - 40, 150)  # Standard height
-        
-        # Glow effect
-        glow_rect = section_rect.inflate(4, 4)
-        pygame.draw.rect(self.surface, (60, 60, 100), glow_rect, 2)
-        
-        # Main background
-        pygame.draw.rect(self.surface, (45, 45, 70), section_rect)
-        pygame.draw.rect(self.surface, GHOST_BLUE, section_rect, 2)
-        pygame.draw.rect(self.surface, (0, 150, 255), section_rect, 1)
-        
-        controls = [
-            "CONTROLS",
-            "↑↓←→ - Move",
-            "SPACE - Start Game",
-            "ESC - Menu",
-            "R - Restart",
-            "M - Toggle AI/Player",
-        ]
-        
-        for i, control in enumerate(controls):
-            color = PAC_YELLOW if i == 0 else DOT_WHITE
-            if i > 0:
-                alpha = int(200 + 30 * math.sin(self.animation_time * 2 + i))
-                alpha = max(0, min(255, alpha))
-                color = (alpha, alpha, alpha)
-            text_surface = font.render(control, True, color)
-            self.surface.blit(text_surface, 
-                            (self.control_panel_rect.x + 30, y_start + 15 + i * 20))  
                             
     def _draw_stats_section(self):
         """Draw additional stats section"""
@@ -863,7 +822,7 @@ class GameLayout(UIComponent):
     
     def _draw_few_pellets_section(self):
         """Draw few pellets mode section"""
-        y_start = 950  # Between stats and play sections
+        y_start = 290  # Between stats and play sections
         try:
             font = pygame.font.Font(FONT_PATH, 14)
             font_small = pygame.font.Font(FONT_PATH, 12)

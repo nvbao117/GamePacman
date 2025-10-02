@@ -65,7 +65,8 @@ class App:
         """
         Thiết lập màn hình dựa trên cấu hình
         - Lấy thông tin màn hình hiện tại
-        - Áp dụng cài đặt fullscreen và vsync
+        - Áp dụng cài đặt f
+        ullscreen và vsync
         - Tạo surface để vẽ
         """
         info = pygame.display.Info()

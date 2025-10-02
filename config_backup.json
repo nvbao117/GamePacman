@@ -22,5 +22,7 @@
   "animations_enabled": false,
   "particle_effects": false,
   "few_pellets_mode": false,
-  "few_pellets_count": 20
+  "few_pellets_count": 20,
+  "bfs_heuristic": "NONE",
+  "algorithm_heuristic": "MANHATTAN"
 }
