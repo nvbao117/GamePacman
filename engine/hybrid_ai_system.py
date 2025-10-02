@@ -14,11 +14,16 @@ class HybridAISystem:
     def __init__(self, pacman):
         self.pacman = pacman
         self.game_instance = None
-        self.last_online_decision = 0    # Thời gian quyết định cuối
+        self.last_online_decision = 0 
 
-        self.current_mode = "OFFLINE"    # OFFLINE, ONLINE
-        self.planning_interval = 60.0    # Khoảng thời gian lập kế hoạch lại (tối ưu cho 1 phút game)
-        self.last_planning_time = 0      # Thời gian lập kế hoạch cuối
+        self.current_mode = "ONLINE"  
+        self.planning_interval = 60.0   
+        self.last_planning_time = 0     
+
+        # Offline planning variables
+        self.offline_plan = []
+        self.offline_plan_index = 0
+        self.offline_plan_valid = False
 
         # Performance tracking
         self.mode_switch_count = 0
@@ -27,26 +32,20 @@ class HybridAISystem:
         self._evaluation_cache = {}
         self._cache_max_size = 1000
         
-        # Q-learning state tracking
         self.prev_q_state = None
         self.prev_q_action = None
         self._last_pacman_pos = None
         self.prev_pellet_count = 0
         self._portal_used = False
     def set_mode(self, mode):
-        """
-        Set AI mode từ bên ngoài (ONLINE hoặc OFFLINE)
-        """
         if mode in ["ONLINE", "OFFLINE"]:
             self.current_mode = mode
-            # Reset planning khi chuyển mode
             self.offline_plan = []
             self.offline_plan_index = 0
             self.offline_plan_valid = False
 
     def get_direction(self, pellet_group, ghost_group=None):
         direction = self._get_online_direction(pellet_group, ghost_group)
-
         return direction
 
 # ==========================================================
@@ -57,41 +56,233 @@ class HybridAISystem:
 # - Ghost là người chơi tối thiểu (Minimizing Player)
 # - Đệ quy tìm kiếm trạng thái tốt nhất cho Pac-Man
 # ==========================================================
-    def minimax(self, pacman, ghostgroup, pellet_group, depth, is_maximizing_player=True):
-        """
-        Thuật toán Minimax cho Pac-Man (dạng tổng quát)
-        """
-        if self.is_terminal_state(pacman, ghostgroup, pellet_group) or depth == 0:
+    def minimax(self, pacman, ghostgroup, pellet_group, depth, agent_index=0):
+        if depth == 0 or self.is_terminal_state(pacman, ghostgroup, pellet_group):
             return self.evaluate(pacman, ghostgroup, pellet_group), None
 
-        if is_maximizing_player:
+        num_agents = 3  
+        is_pacman = (agent_index == 0)
+        
+        actions = self.get_legal_actions_for_agent(pacman, ghostgroup, pellet_group, agent_index)
+        
+        if not actions:
+            eval_score = self.evaluate(pacman, ghostgroup, pellet_group)
+            return eval_score, None
+
+        # Tính toán agent tiếp theo và depth tiếp theo
+        next_agent = (agent_index + 1) % num_agents
+        next_depth = depth - 1 if next_agent == 0 else depth
+        
+        if is_pacman:
             max_eval = float('-inf')
-            best_action = None
-            for action in self.get_legal_actions(pacman, ghostgroup, pellet_group, True):
-                next_pacman, next_ghostgroup, next_pellet_group = self.apply_action(pacman, ghostgroup, pellet_group, action, True)
-                eval_score, _ = self.minimax(next_pacman, next_ghostgroup, next_pellet_group, depth - 1, False)
+            best_action = actions[0]
+            
+            action_scores = []
+            
+            for i, action in enumerate(actions):
+                next_state = self.apply_action_for_agent(
+                    pacman, ghostgroup, pellet_group, action, agent_index
+                )
+                next_pacman, next_ghostgroup, next_pellet_group = next_state
+                
+                eval_score, _ = self.minimax(
+                    next_pacman, next_ghostgroup, next_pellet_group, next_depth, next_agent
+                )
+                
+                
+                noise = i * 1.0  # Base noise để ưu tiên action đầu tiên
+                if hasattr(pacman, 'previous_direction'):
+                    prev_dir = getattr(pacman, 'previous_direction', None)
+                    if prev_dir:
+                        reverse_pairs = [(UP, DOWN), (DOWN, UP), (LEFT, RIGHT), (RIGHT, LEFT)]
+                        if (action, prev_dir) in reverse_pairs:
+                            noise = -10000  # PENALTY CỰC CỰC LỚN cho U-turn!
+                        else:
+                            noise += 100  # Bonus lớn cho non-U-turn
+                
+                eval_score += noise
+                action_scores.append((action, eval_score))
+                
                 if eval_score > max_eval:
                     max_eval = eval_score
                     best_action = action
+            
             return max_eval, best_action
         else:
+            
             min_eval = float('inf')
-            best_action = None
-            for action in self.get_legal_actions(pacman, ghostgroup, pellet_group, False):
-                next_pacman, next_ghostgroup, next_pellet_group = self.apply_action(pacman, ghostgroup, pellet_group, action, False)
-                eval_score, _ = self.minimax(next_pacman, next_ghostgroup, next_pellet_group, depth - 1, True)
+            best_action = actions[0]
+
+            if len(actions) > 3:
+                actions = self._get_best_ghost_actions(pacman, ghostgroup, actions, agent_index)[:3]
+            
+            for action in actions:
+                
+                next_state = self.apply_action_for_agent(
+                    pacman, ghostgroup, pellet_group, action, agent_index
+                )
+                next_pacman, next_ghostgroup, next_pellet_group = next_state
+                
+                # Đệ quy với Pacman
+                eval_score, _ = self.minimax(
+                    next_pacman, next_ghostgroup, next_pellet_group, next_depth, next_agent
+                )
+                
                 if eval_score < min_eval:
                     min_eval = eval_score
                     best_action = action
+            
             return min_eval, best_action
 
+    def get_legal_actions_for_agent(self, pacman, ghostgroup, pellet_group, agent_index):
+        actions = []
+        
+        if agent_index == 0:
+            for direction in [UP, DOWN, LEFT, RIGHT]:
+                if self._can_move_in_direction(pacman.node, direction):
+                    actions.append(direction)
+        else:            
+            closest_ghosts = self._get_n_closest_ghosts(pacman, ghostgroup, n=2)
+            ghost_idx = agent_index - 1  
+            if not ghostgroup.ghosts:
+                return []
+            if ghost_idx < len(closest_ghosts):
+                ghost = closest_ghosts[ghost_idx]
+                if ghost and hasattr(ghost, 'node') and ghost.node:
+                    for direction in [UP, DOWN, LEFT, RIGHT]:
+                        if self._can_move_in_direction(ghost.node, direction):
+                            actions.append(direction)    
+        return actions 
+
+    def _get_n_closest_ghosts(self, pacman, ghostgroup, n=2):
+        if not ghostgroup.ghosts:
+            return []
+        
+        ghost_distances = []
+        for ghost in ghostgroup.ghosts:
+            if ghost.node and pacman.node:
+                distance = self._calculate_distance(pacman.node, ghost.node)
+                ghost_distances.append((ghost, distance))
+        
+        ghost_distances.sort(key=lambda x: x[1])
+        return [ghost for ghost, _ in ghost_distances[:n]]
+    
+    def _get_closest_ghost_to_pacman(self, pacman, ghostgroup):
+        """Tìm ghost gần Pacman nhất (legacy - sử dụng _get_n_closest_ghosts)"""
+        closest_ghosts = self._get_n_closest_ghosts(pacman, ghostgroup, n=1)
+        return closest_ghosts[0] if closest_ghosts else None
+
+    def _get_best_ghost_actions(self, pacman, ghostgroup, actions, agent_index):
+        """Sắp xếp actions của ghost dựa trên mode (CHASE/SCATTER/FREIGHT)"""
+        if not pacman.node:
+            return actions
+        
+        closest_ghost = self._get_closest_ghost_to_pacman(pacman, ghostgroup)
+        if not closest_ghost or not hasattr(closest_ghost, 'node'):
+            return actions
+        
+        # Kiểm tra mode của ghost
+        ghost_mode = getattr(closest_ghost, 'mode', None)
+        current_mode = ghost_mode.current if ghost_mode and hasattr(ghost_mode, 'current') else CHASE
+        
+        action_scores = []
+        for action in actions:
+            if action in closest_ghost.node.neighbors and closest_ghost.node.neighbors[action]:
+                next_node = closest_ghost.node.neighbors[action]
+                distance = self._calculate_distance(next_node, pacman.node)
+                
+                if current_mode == FREIGHT:
+                    import random
+                    score = random.random()  # Random score
+                elif current_mode == SCATTER:
+                    score = -distance  # Âm để sort ngược → xa Pacman
+                else:
+                    score = distance  # Gần Pacman
+                
+                action_scores.append((action, score))
+        
+        action_scores.sort(key=lambda x: x[1])
+        return [action for action, _ in action_scores]
+
+    def apply_action_for_agent(self, pacman, ghostgroup, pellet_group, action, agent_index):
+
+        if agent_index == 0:
+            if action == STOP:
+                return pacman, ghostgroup, pellet_group
+            
+            if action not in pacman.node.neighbors or pacman.node.neighbors[action] is None:
+                return pacman, ghostgroup, pellet_group
+            
+            new_pacman_node = pacman.node.neighbors[action]
+            new_pacman = type('Pacman', (), {
+                'node': new_pacman_node,
+                'alive': getattr(pacman, 'alive', True),
+                'direction': action,  # Direction MỚI
+                'previous_direction': getattr(pacman, 'direction', None),
+                'previous': pacman.node  # LƯU node hiện tại làm previous (CRITICAL FIX)
+            })()
+            new_pellet_group = self._simulate_eat_pellets_fast(new_pacman, pellet_group)
+            
+            return new_pacman, ghostgroup, new_pellet_group
+        else:
+            # ===== DI CHUYỂN 2 GHOST GẦN NHẤT =====
+            closest_ghosts = self._get_n_closest_ghosts(pacman, ghostgroup, n=2)
+            ghost_idx = agent_index - 1
+            
+            if ghost_idx >= len(closest_ghosts):
+                return pacman, ghostgroup, pellet_group
+                
+            target_ghost = closest_ghosts[ghost_idx]
+            
+            if not target_ghost or not hasattr(target_ghost, 'node') or action == STOP:
+                return pacman, ghostgroup, pellet_group
+            
+            # Kiểm tra có thể di chuyển
+            if action not in target_ghost.node.neighbors or target_ghost.node.neighbors[action] is None:
+                return pacman, ghostgroup, pellet_group
+            
+            # TỐI ƯU: Chỉ cập nhật ghost này, các ghost khác giữ nguyên reference
+            new_ghost_node = target_ghost.node.neighbors[action]
+            new_ghost = type('Ghost', (), {
+                'node': new_ghost_node,
+                'alive': getattr(target_ghost, 'alive', True),
+                'mode': getattr(target_ghost, 'mode', None)
+            })()
+            
+            # Tạo ghost group mới với ghost đã di chuyển
+            new_ghosts = []
+            for g in ghostgroup.ghosts:
+                if g == target_ghost:
+                    new_ghosts.append(new_ghost)
+                else:
+                    new_ghosts.append(g)  # Giữ nguyên reference (không copy)
+            
+            new_ghostgroup = type('GhostGroup', (), {'ghosts': new_ghosts})()
+            return pacman, new_ghostgroup, pellet_group
+
+    def _simulate_eat_pellets_fast(self, pacman, pellet_group):
+        pacman_node = getattr(pacman, 'node', None)
+        if not pacman_node:
+            return pellet_group
+        
+        pellets_left = []
+        if hasattr(pellet_group, 'pelletList'):
+            for pellet in pellet_group.pelletList:
+                pellet_node = getattr(pellet, 'node', None)
+                if pellet_node and pellet_node != pacman_node and getattr(pellet, 'visible', True):
+                    pellets_left.append(pellet) 
+        
+        new_pellet_group = type('PelletGroup', (), {
+            'pelletList': pellets_left
+        })()
+        
+        return new_pellet_group
+
     def is_terminal_state(self, pacman, ghostgroup, pellet_group):
-        # Pacman bị ghost bắt
         for ghost in ghostgroup.ghosts:
             if ghost.node == pacman.node:
                 return True
 
-        # Tất cả pellets đã ăn hết
         pellets_left = any(pellet.visible for pellet in pellet_group.pelletList)
         if not pellets_left:
             return True
@@ -99,71 +290,157 @@ class HybridAISystem:
         return False
 
     def evaluate(self, pacman, ghostgroup, pellet_group):
-        """Đánh giá trạng thái game"""
-        # Giá trị càng cao càng tốt cho Pacman, càng thấp càng tốt cho Ghost
         pacman_node = getattr(pacman, 'node', None)
         if pacman_node is None:
             return -10000
             
-        ghost_nodes = [getattr(ghost, 'node', None) for ghost in getattr(ghostgroup, 'ghosts', []) if getattr(ghost, 'alive', True)]
-        ghost_nodes = [node for node in ghost_nodes if node is not None]
+        revisit_penalty = 0
         
-        pellet_nodes = [getattr(pellet, 'node', None) for pellet in getattr(pellet_group, 'pelletList', []) if getattr(pellet, 'visible', True)]
-        pellet_nodes = [node for node in pellet_nodes if node is not None]
+        freight_ghosts = []
+        normal_ghosts = []
+        spawn_ghosts = [] 
+        
+        for ghost in getattr(ghostgroup, 'ghosts', []):
+            if not getattr(ghost, 'alive', True):
+                continue
+            ghost_node = getattr(ghost, 'node', None)
+            if ghost_node is None:
+                continue
+                
+            ghost_mode = getattr(ghost, 'mode', None)
+            if ghost_mode and hasattr(ghost_mode, 'current'):
+                if ghost_mode.current == FREIGHT:
+                    freight_ghosts.append(ghost_node)
+                elif ghost_mode.current == SPAWN:
+                    spawn_ghosts.append(ghost_node)  
+                else:
+                    normal_ghosts.append(ghost_node)
+            else:
+                normal_ghosts.append(ghost_node)
+        
+        power_pellet_nodes = []
+        normal_pellet_nodes = []
+        
+        for pellet in getattr(pellet_group, 'pelletList', []):
+            if not getattr(pellet, 'visible', True):
+                continue
+            pellet_node = getattr(pellet, 'node', None)
+            if pellet_node is None:
+                continue
+            
+            pellet_name = getattr(pellet, 'name', None)
+            if pellet_name == POWERPELLET:
+                power_pellet_nodes.append(pellet_node)
+            else:
+                normal_pellet_nodes.append(pellet_node)
+        
+        pellet_nodes = power_pellet_nodes + normal_pellet_nodes  
 
-        # Kiểm tra trạng thái kết thúc
-        for ghost_node in ghost_nodes:
+        for ghost_node in normal_ghosts:
             if ghost_node == pacman_node:
-                return -10000
+                return -10000  
+        
+        for ghost_node in freight_ghosts:
+            if ghost_node == pacman_node:
+                return 5000  
 
         if len(pellet_nodes) == 0:
             return 10000
 
-        # 1. Đánh giá khoảng cách đến pellets
+
+        power_pellet_dist = 100
+        if power_pellet_nodes:
+            power_distances = [self._calculate_distance(pacman_node, p) for p in power_pellet_nodes]
+            power_pellet_dist = min(power_distances)
+        
         pellet_distances = [self._calculate_distance(pacman_node, p) for p in pellet_nodes]
-        min_pellet_dist = min(pellet_distances) if pellet_distances else float('inf')
-        avg_pellet_dist = sum(pellet_distances) / len(pellet_distances) if pellet_distances else float('inf')
+        min_pellet_dist = min(pellet_distances) if pellet_distances else 100
+        avg_pellet_dist = sum(pellet_distances) / len(pellet_distances) if pellet_distances else 100
         
-        # 2. Đánh giá khoảng cách đến ghosts
-        ghost_distances = [self._calculate_distance(pacman_node, g) for g in ghost_nodes]
-        min_ghost_dist = min(ghost_distances) if ghost_distances else float('inf')
-        avg_ghost_dist = sum(ghost_distances) / len(ghost_distances) if ghost_distances else float('inf')
+        normal_ghost_dist = 100 
+        if normal_ghosts:
+            ghost_distances = [self._calculate_distance(pacman_node, g) for g in normal_ghosts]
+            normal_ghost_dist = min(ghost_distances)
         
-        # 3. Đánh giá số lượng pellets còn lại
+
+        freight_ghost_dist = 100  
+        if freight_ghosts:
+            freight_distances = [self._calculate_distance(pacman_node, g) for g in freight_ghosts]
+            freight_ghost_dist = min(freight_distances)
+        
+        
+        # Penalty quay đầu
+        reverse_penalty = 0
+        if hasattr(pacman, 'direction') and hasattr(pacman, 'previous_direction'):
+            current_dir = getattr(pacman, 'direction', None)
+            prev_dir = getattr(pacman, 'previous_direction', None)
+            
+            if current_dir and prev_dir and current_dir != prev_dir:
+                reverse_pairs = [(UP, DOWN), (DOWN, UP), (LEFT, RIGHT), (RIGHT, LEFT)]
+                if (current_dir, prev_dir) in reverse_pairs:
+                    
+                    should_penalize = True
+                    if normal_ghosts:
+                        min_normal_dist = min([self._calculate_distance(pacman_node, g) for g in normal_ghosts])
+                        if min_normal_dist < 4:  # Cho phép U-turn khi ghost gần < 4 tiles
+                            should_penalize = False
+                    
+                    if should_penalize:
+                        reverse_penalty = 0
+        
         pellets_left = len(pellet_nodes)
         total_pellets = getattr(pellet_group, 'total_pellets', pellets_left)
         pellet_progress = (total_pellets - pellets_left) / total_pellets if total_pellets > 0 else 0
         
-        # 4. Đánh giá vị trí chiến lược (tránh góc, đường cụt)
-        position_score = self._evaluate_position_strategy(pacman_node, ghost_nodes)
+        position_score = self._evaluate_position_strategy(pacman_node, normal_ghosts + freight_ghosts)
         
-        # 5. Đánh giá mật độ pellets xung quanh
         density_score = self._evaluate_pellet_density(pacman_node, pellet_nodes)
         
-        # 6. Đánh giá an toàn dựa trên vị trí ghosts
-        safety_score = self._evaluate_safety(pacman_node, ghost_nodes)
+        safety_score = self._evaluate_safety(pacman_node, normal_ghosts)
         
-        # 7. Đánh giá power pellets (nếu có)
-        power_pellet_score = self._evaluate_power_pellets(pacman_node, pellet_group)
+        ghost_avoidance_score = 0
+        if normal_ghosts:
+            if normal_ghost_dist < 2:
+                ghost_avoidance_score = -3000 / (normal_ghost_dist + 0.1)
+            elif normal_ghost_dist < 4:
+                ghost_avoidance_score = -500 / (normal_ghost_dist + 0.1) 
+            else:
+                ghost_avoidance_score = 20.0 * normal_ghost_dist  
         
-        # 8. Đánh giá hiệu quả di chuyển
-        efficiency_score = self._evaluate_movement_efficiency(pacman_node, pellet_nodes, ghost_nodes)
+        freight_bonus = 0
+        if freight_ghosts:
+            freight_bonus = 10000 / (freight_ghost_dist + 0.5) 
+            if normal_ghosts and normal_ghost_dist < 3:
+                freight_bonus *= 0.3 
+
+
+        power_pellet_bonus = 0
+        if power_pellet_nodes:
+            if normal_ghosts:
+                if normal_ghost_dist < 3:
+                    power_pellet_bonus = 1000 / (power_pellet_dist + 0.5)
+                elif normal_ghost_dist < 5:
+                    power_pellet_bonus = 400 / (power_pellet_dist + 0.5)
+                elif normal_ghost_dist < 8:
+                    power_pellet_bonus = 200 / (power_pellet_dist + 1)
+            else:
+                power_pellet_bonus = -1.0 * power_pellet_dist
         
-        # Tính điểm tổng hợp với trọng số được tối ưu
         score = (
-            -1.5 * min_pellet_dist +           # Ưu tiên pellet gần nhất (giảm từ -2.0)
-            -0.3 * avg_pellet_dist +           # Ưu tiên trung bình khoảng cách pellets (giảm từ -0.5)
-            2.5 * min_ghost_dist +             # Tránh xa ghost gần nhất (giảm từ 3.0)
-            0.8 * avg_ghost_dist +             # Tránh xa trung bình các ghosts (giảm từ 1.0)
-            -25.0 * pellets_left +             # Ăn nhiều pellets (tăng từ -20.0)
-            60.0 * pellet_progress +           # Thưởng tiến độ ăn pellets (tăng từ 50.0)
-            position_score +                   # Điểm vị trí chiến lược
-            density_score +                    # Điểm mật độ pellets
-            safety_score +                     # Điểm an toàn
-            power_pellet_score +               # Điểm power pellets
-            efficiency_score                   # Điểm hiệu quả di chuyển
+            power_pellet_bonus +             # BONUS ĐỘNG dựa trên ghost
+            -10.0 * min_pellet_dist +         # Ưu tiên pellet gần
+            -0.3 * avg_pellet_dist +         # Xét cả trung bình
+            ghost_avoidance_score +          # Tránh ghost nguy hiểm
+            freight_bonus +                  # ĂN GHOST FREIGHT
+            -5.0 * pellets_left +            # Ưu tiên ăn pellets
+            50.0 * pellet_progress +         # Tiến độ 
+            reverse_penalty +                
+            revisit_penalty +                
+            position_score +                 
+            density_score +                  
+            safety_score                     
         )
-        
+        print(score)
         return score
 
     def get_legal_actions(self, pacman, ghostgroup, pellet_group, is_pacman):
@@ -183,12 +460,10 @@ class HybridAISystem:
     def apply_action(self, pacman, ghostgroup, pellet_group, action, is_maximizing_player):
         """Áp dụng hành động và trả về trạng thái mới"""
         if is_maximizing_player:
-        # Di chuyển Pac-Man
             new_pacman_node = pacman.node.neighbors[action]
             new_pacman = type('Pacman', (), {'node': new_pacman_node})()
             return new_pacman, ghostgroup, pellet_group
         else:
-            # Di chuyển TẤT CẢ Ghosts theo cùng 1 action
             new_ghosts = []
             for ghost in ghostgroup.ghosts:
                 if hasattr(ghost, 'node') and ghost.node:
@@ -217,41 +492,72 @@ class HybridAISystem:
 # - Nếu tìm được nhánh tệ hơn giá trị hiện tại của Max hoặc Min, dừng duyệt nhánh đó (cắt tỉa)
 # - Đệ quy tìm kiếm trạng thái tốt nhất cho Pac-Man với hiệu suất cao hơn Minimax thường
 # ==========================================================
-    def alpha_beta_pruning(self, pacman, ghostgroup, pellet_group, depth, alpha=-float('inf'), beta=float('inf'), is_maximizing_player=True):
-        """
-        Thuật toán Alpha-Beta Pruning cho game Pac-Man.
-        - alpha: giá trị tốt nhất hiện tại cho người chơi tối đa (Max)
-        - beta: giá trị tốt nhất hiện tại cho người chơi tối thiểu (Min)
-        """
-        if self.is_terminal_state(pacman, ghostgroup, pellet_group) or depth == 0:
+    def alpha_beta_pruning(self, pacman, ghostgroup, pellet_group, depth, alpha=-float('inf'), beta=float('inf'), agent_index=0):
+        if depth == 0 or self.is_terminal_state(pacman, ghostgroup, pellet_group):
             return self.evaluate(pacman, ghostgroup, pellet_group), None
 
-        if is_maximizing_player:
-            # Phần Maximizing Player (Pacman)
+        num_agents = 3
+        is_pacman = (agent_index == 0)
+        
+        actions = self.get_legal_actions_for_agent(pacman, ghostgroup, pellet_group, agent_index)
+        
+        if not actions:
+            eval_score = self.evaluate(pacman, ghostgroup, pellet_group)
+            return eval_score, None
+
+        next_agent = (agent_index + 1) % num_agents
+        next_depth = depth - 1 if next_agent == 0 else depth
+        
+        if is_pacman:
             max_eval = float('-inf')
-            best_action = None
-            for action in self.get_legal_actions(pacman, ghostgroup, pellet_group, True):
-                next_pacman, next_ghostgroup, next_pellet_group = self.apply_action(pacman, ghostgroup, pellet_group, action, True)
-                eval_score, _ = self.alpha_beta_pruning(next_pacman, next_ghostgroup, next_pellet_group, depth - 1, alpha, beta, False)
+            best_action = actions[0]
+            
+            for action in actions:
+                next_state = self.apply_action_for_agent(
+                    pacman, ghostgroup, pellet_group, action, agent_index
+                )
+                next_pacman, next_ghostgroup, next_pellet_group = next_state
+                
+                eval_score, _ = self.alpha_beta_pruning(
+                    next_pacman, next_ghostgroup, next_pellet_group, 
+                    next_depth, alpha, beta, next_agent
+                )
+                
                 if eval_score > max_eval:
-                    max_eval ,best_action = eval_score, action
+                    max_eval = eval_score
+                    best_action = action
+                
                 alpha = max(alpha, max_eval)
-                if alpha >= beta :
-                    break 
+                if alpha >= beta:
+                    break  
+            
             return max_eval, best_action
         else:
-            # Phần Minimizing Player (Ghost)
             min_eval = float('inf')
-            best_action = None
-            for action in self.get_legal_actions(pacman, ghostgroup, pellet_group, False):
-                next_pacman, next_ghostgroup, next_pellet_group = self.apply_action(pacman, ghostgroup, pellet_group, action, False)
-                eval_score, _ = self.alpha_beta_pruning(next_pacman, next_ghostgroup, next_pellet_group, depth - 1, alpha, beta, True)
+            best_action = actions[0]
+
+            if len(actions) > 3:
+                actions = self._get_best_ghost_actions(pacman, ghostgroup, actions, agent_index)[:3]
+            
+            for action in actions:
+                next_state = self.apply_action_for_agent(
+                    pacman, ghostgroup, pellet_group, action, agent_index
+                )
+                next_pacman, next_ghostgroup, next_pellet_group = next_state
+                
+                eval_score, _ = self.alpha_beta_pruning(
+                    next_pacman, next_ghostgroup, next_pellet_group,
+                    next_depth, alpha, beta, next_agent
+                )
+                
                 if eval_score < min_eval:
                     min_eval = eval_score
                     best_action = action
+                
                 beta = min(beta, min_eval)
                 if beta <= alpha:
                     break  
+            
             return min_eval, best_action
 
 # ==========================================================
@@ -735,107 +1041,130 @@ class HybridAISystem:
 # ==========================================================
     def astar_pacman_direction(self, pacman, ghostgroup, pellet_group):
         """
-        Thuật toán A* cải tiến cho Pac-Man online:
-        - Tìm đường ngắn nhất đến pellet gần nhất
-        - Tránh các node có ghost với penalty thay vì cấm hoàn toàn
-        - Có fallback strategy khi không tìm được đường an toàn
-        - Tối ưu cho real-time decision making
+        Thuật toán A* Online cho Pac-Man:
+        - Heuristic: Manhattan distance
+        - Cost: có penalty khi gần ghost
+        - Ưu tiên ăn nhiều pellet trên đường đi
         """
         import heapq
-        import time
-
-        start_time = time.time()
-        max_search_time = 0.01  # Giới hạn thời gian tìm kiếm (10ms)
-
+        
         start_node = getattr(pacman, 'node', None)
-        if start_node is None:
-            return None
-
-        # Lấy danh sách node của ghost còn sống với thông tin khoảng cách
-        ghost_info = []
+        if not start_node:
+            return STOP
+        
+        # Thu thập ghost nodes (chỉ ghost bình thường, không phải FREIGHT)
+        dangerous_ghost_nodes = []
         for ghost in getattr(ghostgroup, 'ghosts', []):
-            if getattr(ghost, 'alive', True) and getattr(ghost, 'node', None):
-                ghost_node = ghost.node
-                dist = self._calculate_distance(start_node, ghost_node)
-                ghost_info.append((ghost_node, dist))
-
-        # Lấy danh sách pellet còn lại
-        pellet_nodes = [getattr(pellet, 'node', None) for pellet in getattr(pellet_group, 'pelletList', []) if getattr(pellet, 'visible', True)]
-        pellet_nodes = [node for node in pellet_nodes if node is not None]
+            if getattr(ghost, 'alive', True):
+                ghost_mode = getattr(ghost, 'mode', None)
+                current_mode = ghost_mode.current if ghost_mode and hasattr(ghost_mode, 'current') else CHASE
+                # Chỉ coi ghost là nguy hiểm nếu không ở chế độ FREIGHT
+                if current_mode != FREIGHT:
+                    ghost_node = getattr(ghost, 'node', None)
+                    if ghost_node:
+                        dangerous_ghost_nodes.append(ghost_node)
+        
+        # Thu thập pellet nodes
+        pellet_nodes = []
+        pellet_nodes_set = set()
+        for pellet in getattr(pellet_group, 'pelletList', []):
+            if getattr(pellet, 'visible', True):
+                pellet_node = getattr(pellet, 'node', None)
+                if pellet_node:
+                    pellet_nodes.append(pellet_node)
+                    pellet_nodes_set.add(pellet_node)
+        
         if not pellet_nodes:
-            return None
-
-        # Hàm heuristic: khoảng cách Manhattan
-        def heuristic(n1, n2):
-            return abs(n1.position.x - n2.position.x) + abs(n1.position.y - n2.position.y)
-
-        # Hàm tính cost với penalty cho ghost
-        def get_node_cost(node):
-            cost = 1  # Base cost
-            for ghost_node, dist in ghost_info:
-                ghost_dist = self._calculate_distance(node, ghost_node)
-                if ghost_dist <= 1:
-                    cost += 50  # Rất nguy hiểm
-                elif ghost_dist <= 2:
-                    cost += 20  # Nguy hiểm
-                elif ghost_dist <= 3:
-                    cost += 5   # Cảnh giác
-            return cost
-
-        # Tìm pellet gần nhất (theo heuristic)
-        pellet_nodes = sorted(pellet_nodes, key=lambda n: heuristic(start_node, n))
+            return STOP
         
-        # Thử tìm đường đến 3 pellets gần nhất
-        for target_node in pellet_nodes[:3]:
-            if time.time() - start_time > max_search_time:
-                break
-                
-            # A* search từ start_node đến target_node
-            open_set = []
-            heapq.heappush(open_set, (0 + heuristic(start_node, target_node), 0, start_node, None))
-            came_from = {}
-            g_score = {start_node: 0}
-            closed_set = set()
-
-            found = False
-            while open_set and time.time() - start_time < max_search_time:
-                _, cost, current, prev = heapq.heappop(open_set)
-                
-                if current in closed_set:
-                    continue
-                closed_set.add(current)
-                
-                if current == target_node:
-                    found = True
-                    break
-                    
-                for direction, neighbor in getattr(current, 'neighbors', {}).items():
-                    if neighbor is None or neighbor in closed_set:
-                        continue
-                    
-                    # Tính cost với penalty cho ghost
-                    node_cost = get_node_cost(neighbor)
-                    tentative_g = g_score[current] + node_cost
-                    
-                    if neighbor not in g_score or tentative_g < g_score[neighbor]:
-                        g_score[neighbor] = tentative_g
-                        priority = tentative_g + heuristic(neighbor, target_node)
-                        heapq.heappush(open_set, (priority, tentative_g, neighbor, current))
-                        came_from[neighbor] = (current, direction)
+        # Hàm tính cost của node
+        def calculate_node_cost(node):
+            BASE_COST = 1
             
-            if found:
-                # Truy vết lại hướng đi đầu tiên từ start_node
-                node = target_node
-                while node != start_node:
-                    if node not in came_from:
-                        break
-                    prev, direction = came_from[node]
-                    if prev == start_node:
-                        return direction
-                    node = prev
+            # Bonus nếu node có pellet (ưu tiên ăn nhiều pellet)
+            pellet_bonus = -0.5 if node in pellet_nodes_set else 0
+            
+            if not dangerous_ghost_nodes:
+                return BASE_COST + pellet_bonus
+            
+            # Tìm ghost gần nhất
+            min_ghost_dist = min(
+                self._calculate_distance(node, ghost_node) 
+                for ghost_node in dangerous_ghost_nodes
+            )
+            
+            # Penalty theo khoảng cách ghost (né ghost)
+            if min_ghost_dist == 0:
+                return 100  # Node có ghost - tránh tuyệt đối
+            elif min_ghost_dist <= 2:
+                return BASE_COST + 50 + pellet_bonus
+            elif min_ghost_dist <= 4:
+                return BASE_COST + 20 + pellet_bonus
+            elif min_ghost_dist <= 6:
+                return BASE_COST + 5 + pellet_bonus
+            else:
+                return BASE_COST + pellet_bonus
         
-        # Fallback: Nếu không tìm được đường an toàn, chọn hướng ít nguy hiểm nhất
-        return self._get_safest_direction(start_node, ghost_info)
+        # Tìm pellet gần nhất làm target
+        target_pellet = min(
+            pellet_nodes, 
+            key=lambda p: self._calculate_distance(start_node, p)
+        )
+        
+        # Khởi tạo A* search
+        open_set = []
+        h_start = self._calculate_distance(start_node, target_pellet)
+        heapq.heappush(open_set, (h_start, 0, start_node))
+        
+        came_from = {}
+        g_score = {start_node: 0}
+        closed_set = set()
+        
+        # A* main loop
+        while open_set:
+            f_score, g_current, current_node = heapq.heappop(open_set)
+            
+            # Skip nếu đã xét
+            if current_node in closed_set:
+                continue
+            
+            closed_set.add(current_node)
+            
+            # Kiểm tra đích
+            if current_node == target_pellet:
+                # Reconstruct path
+                node = target_pellet
+                while node in came_from:
+                    prev_node, direction = came_from[node]
+                    if prev_node == start_node:
+                        return direction
+                    node = prev_node
+                return STOP
+            
+            # Duyệt các neighbor
+            for direction in [UP, DOWN, LEFT, RIGHT, PORTAL]:
+                neighbor = current_node.neighbors.get(direction)
+                
+                if neighbor is None or neighbor in closed_set:
+                    continue
+                
+                # Tính cost với penalty ghost và bonus pellet
+                edge_cost = calculate_node_cost(neighbor)
+                tentative_g = g_score[current_node] + edge_cost
+                
+                # Cập nhật nếu tìm được đường tốt hơn
+                if neighbor not in g_score or tentative_g < g_score[neighbor]:
+                    came_from[neighbor] = (current_node, direction)
+                    g_score[neighbor] = tentative_g
+                    
+                    # f(n) = g(n) + h(n)
+                    h_score = self._calculate_distance(neighbor, target_pellet)
+                    f_score = tentative_g + h_score
+                    
+                    heapq.heappush(open_set, (f_score, tentative_g, neighbor))
+        
+        # Không tìm thấy path
+        return STOP
 
 # ==========================================================
 #                END OF A* ALGORITHM
@@ -853,61 +1182,58 @@ class HybridAISystem:
 #                END OF GREEDY ALGORITHM
 # ==========================================================
     def _get_online_direction(self, pellet_group, ghost_group):
-        """Lấy direction từ thuật toán đã chọn"""
+        """Lấy direction từ thuật toán ONLINE đã chọn"""
         
         current_node = self.pacman.node
-        algorithm_name = getattr(self.pacman, 'pathfinder_name', 'A*')
-        
+        algorithm_name = getattr(self.pacman, 'pathfinder_name', 'A*')        
         try:
             if algorithm_name == 'Minimax':
-                # Sử dụng Minimax với depth tối ưu
-                print("Using Minimax algorithm")
-                eval_score, action = self.minimax(self.pacman, ghost_group, pellet_group, 3 , True)
-                if action is not None:
-                    return action
-                else:
-                    return self._get_random_direction(current_node)
+                current_direction = getattr(self.pacman, 'direction', None)
+                pacman_with_dir = type('Pacman', (), {
+                    'node': self.pacman.node,
+                    'alive': getattr(self.pacman, 'alive', True),
+                    'direction': current_direction,
+                    'previous_direction': current_direction  
+                })()
+                eval_score, action = self.minimax(pacman_with_dir, ghost_group, pellet_group, depth=2, agent_index=0)
+                return action
+
             
             elif algorithm_name == 'Alpha-Beta':
-                # Sử dụng Alpha-Beta Pruning với depth tối ưu
-                print("Using Alpha-Beta Pruning algorithm")
-                eval_score, action = self.alpha_beta_pruning(self.pacman, ghost_group, pellet_group, 4, -float('inf'), float('inf'), True)
-                if action is not None:
-                    return action
-                else:
-                    return self._get_random_direction(current_node)
+                # Tạo Pacman object với direction
+                current_direction = getattr(self.pacman, 'direction', None)
+                pacman_with_dir = type('Pacman', (), {
+                    'node': self.pacman.node,
+                    'alive': getattr(self.pacman, 'alive', True),
+                    'direction': current_direction,
+                    'previous_direction': current_direction
+                })()
+                
+                # Gọi Alpha-Beta với multi-agent (agent_index=0 cho Pacman)
+                eval_score, action = self.alpha_beta_pruning(
+                    pacman_with_dir, ghost_group, pellet_group, 
+                    depth=2, alpha=-float('inf'), beta=float('inf'), agent_index=0
+                )
+                
+                return action
+
             elif algorithm_name == 'Hill Climbing':
-                print("Using Hill Climbing algorithm")
                 action = self.hill_climbing(self.pacman, ghost_group, pellet_group, 50)
-                if action is not None:
-                    return action
-                else:
-                    return self._get_random_direction(current_node)
+                return action
+
             elif algorithm_name == 'Q-Learning':
-                print("Using Q-Learning algorithm")
                 action,_ = self.q_learning_get_direction(pellet_group, ghost_group)
                 return action
             elif algorithm_name == 'A* Online':
-                print("Using A* algorithm")
+                print("A* Online")
                 action = self.astar_pacman_direction(self.pacman, ghost_group, pellet_group)
-                if action is not None:
-                    return action
-                else:
-                    return self._get_random_direction(current_node)
+                return action
+
             else:
-                # Sử dụng thuật toán pathfinding đã chọn
-                algorithm_func = getattr(self.pacman, 'pathfinder', astar_practical)
-                
-                # Tìm đường đi đến pellet gần nhất
-                path = algorithm_func(current_node, pellet_group)
-                if path and len(path) > 1:
-                    next_node = path[1]
-                    return self._get_direction_from_nodes(current_node, next_node)
-                else:
-                    return self._get_random_direction(current_node)
+                return self._get_random_direction(current_node)
                     
         except Exception as e:
-            print(f"Algorithm {algorithm_name} error: {e}")
+            print(f"[ONLINE] Algorithm {algorithm_name} error: {e}")
             return self._get_random_direction(current_node)
 
     def _can_move_in_direction(self, current_node, direction):
@@ -918,19 +1244,6 @@ class HybridAISystem:
         else:
             return (current_node.neighbors[direction] is not None and
                     PACMAN in current_node.access[direction])
-
-    def _get_direction_between_nodes(self, from_node, to_node):
-        """Lấy direction giữa hai nodes"""
-
-        for direction in [UP, DOWN, LEFT, RIGHT, PORTAL]:
-            if from_node.neighbors[direction] == to_node:
-                return direction
-
-        return STOP
-
-    def _get_direction_from_nodes(self, from_node, to_node):
-        """Lấy direction từ from_node đến to_node"""
-        return self._get_direction_between_nodes(from_node, to_node)
 
     def _get_random_direction(self, current_node):
         """Lấy direction ngẫu nhiên từ current_node"""
@@ -945,14 +1258,12 @@ class HybridAISystem:
         return STOP
 
     def _calculate_distance(self, node1, node2):
-        """Tính khoảng cách Manhattan giữa hai nodes"""
-
         if node1 is None or node2 is None:
             return float('inf')
 
         dx = abs(node1.position.x - node2.position.x)
         dy = abs(node1.position.y - node2.position.y)
-        return dx + dy
+        return (dx + dy) // 16
 
     def _evaluate_position_strategy(self, pacman_node, ghost_nodes):
         """Đánh giá vị trí chiến lược của Pacman"""
@@ -985,16 +1296,13 @@ class HybridAISystem:
         if not pacman_node or not pellet_nodes:
             return 0
             
-        # Đếm pellets trong bán kính 3
         nearby_pellets = 0
         for pellet_node in pellet_nodes:
             if self._calculate_distance(pacman_node, pellet_node) <= 3:
                 nearby_pellets += 1
         
-        # Thưởng khi có nhiều pellets gần
         density_bonus = nearby_pellets * 8
         
-        # Thưởng thêm nếu có cluster pellets
         if nearby_pellets >= 3:
             density_bonus += 15
             
@@ -1010,22 +1318,22 @@ class HybridAISystem:
             default=float('inf')
         )
         
-        # Hệ thống đánh giá an toàn nhiều cấp
+
         if min_ghost_dist <= 1:
-            return -1000  # Rất nguy hiểm
+            return -1000  
         elif min_ghost_dist <= 2:
-            return -250   # Nguy hiểm
+            return -250  
         elif min_ghost_dist <= 3:
-            return -50   # Cảnh giác
+            return -50  
         elif min_ghost_dist <= 5:
-            return 0     # Bình thường
+            return 0    
         elif min_ghost_dist <= 8:
-            return 40    # An toàn
+            return 40   
         else:
-            return 80    # Rất an toàn
+            return 80   
 
     def _evaluate_power_pellets(self, pacman_node, pellet_group):
-        """Đánh giá power pellets (nếu có trong game)"""
+        """Đánh giá power pellets (nếu có trong game)"""    
         if not pacman_node or not hasattr(pellet_group, 'powerPellets'):
             return 0
             
@@ -1043,13 +1351,12 @@ class HybridAISystem:
             default=float('inf')
         )
         
-        # Thưởng khi gần power pellet (có thể ăn ghosts)
         if min_power_dist <= 3:
-            return 30  # Thưởng cao cho power pellet
+            return 30  
         elif min_power_dist <= 6:
-            return 15  # Thưởng vừa
+            return 15 
         else:
-            return 0   # Không thưởng
+            return 0  
 
     def _evaluate_movement_efficiency(self, pacman_node, pellet_nodes, ghost_nodes):
         """Đánh giá hiệu quả di chuyển dựa trên hướng tối ưu"""

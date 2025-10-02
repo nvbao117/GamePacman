@@ -44,6 +44,7 @@ class Pacman(Entity):
         self.path = []  # Đường đi đã tính toán
         self.locked_target_node = None  # Node mục tiêu đã khóa
         self.previous_node = None  # Node trước đó (để tránh backtracking)
+        self.previous_direction = None  # Direction trước đó (để tránh U-turn trong Minimax)
         
         # Thuật toán AI pathfinding (có thể thay đổi)
         self.pathfinder_name = 'BFS'  # Tên thuật toán hiện tại
@@ -165,11 +166,6 @@ class Pacman(Entity):
             
             if self.node.neighbors[PORTAL] is not None: 
                 self.node = self.node.neighbors[PORTAL] 
-                
-            # Log position when Pacman arrives at a new node
-            if auto and pelletGroup is not None and pelletGroup.pelletList:
-                print(f"({int(self.position.x//16)}, {int(self.position.y//16)})", end=" ")
-
            
             if auto and pelletGroup is not None and pelletGroup.pelletList:
                 if hasattr(self, 'use_q_learning') and self.use_q_learning:
