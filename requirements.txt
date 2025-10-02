@@ -1,0 +1,20 @@
+# =============================================================================
+# REQUIREMENTS.TXT - Dependencies cho Pacman Q-Learning Training
+# =============================================================================
+
+# Core Dependencies (REQUIRED)
+pygame==2.5.2
+numpy==1.24.3
+matplotlib==3.7.2
+
+# Optional: Enhanced features
+# pandas==2.0.3          # Data analysis
+# seaborn==0.12.2        # Better plots
+# tqdm==4.66.1           # Progress bars
+# plotly==5.17.0         # Interactive plots
+
+# Development Tools (Optional)
+# pytest==7.4.0          # Testing
+# black==23.7.0          # Code formatting
+# flake8==6.1.0          # Linting
+

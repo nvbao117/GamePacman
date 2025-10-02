@@ -8,12 +8,20 @@ DEATH = 5
 
 class Spritesheet(object):
     def __init__(self):
-        self.sheet = pygame.image.load("assets/images/spritesheet_mspacman.png").convert()        
-        transcolor = self.sheet.get_at((0,0))
-        self.sheet.set_colorkey(transcolor)
-        width = int(self.sheet.get_width()/BASETILEWIDTH * TILEWIDTH) 
-        height = int(self.sheet.get_height()/BASETILEHEIGHT * TILEHEIGHT)
-        self.sheet = pygame.transform.scale(self.sheet,(width,height)) 
+        try:
+            self.sheet = pygame.image.load("assets/images/spritesheet_mspacman.png").convert()        
+            transcolor = self.sheet.get_at((0,0))
+            self.sheet.set_colorkey(transcolor)
+            width = int(self.sheet.get_width()/BASETILEWIDTH * TILEWIDTH) 
+            height = int(self.sheet.get_height()/BASETILEHEIGHT * TILEHEIGHT)
+            self.sheet = pygame.transform.scale(self.sheet,(width,height))
+        except (pygame.error, FileNotFoundError, Exception) as e:
+            # Headless mode - create dummy surface
+            width = BASETILEWIDTH * TILEWIDTH * 20
+            height = BASETILEHEIGHT * TILEHEIGHT * 20
+            self.sheet = pygame.Surface((width, height))
+            self.sheet.fill((0, 0, 0))
+            self.sheet.set_colorkey((0, 0, 0)) 
                               
     def getImage(self,x,y,width,height):
         x *= TILEWIDTH

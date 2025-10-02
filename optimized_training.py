@@ -14,13 +14,22 @@ Script training tối ưu với:
 Author: AI Assistant
 Date: 2024
 """
-import os 
-import pygame
+import os
 import sys
+
+# CRITICAL: Set environment variables BEFORE importing pygame
+# This must be done FIRST for headless mode to work
+if '--headless' in sys.argv or os.environ.get('SDL_VIDEODRIVER') == 'dummy':
+    os.environ['SDL_VIDEODRIVER'] = 'dummy'
+    os.environ['SDL_AUDIODRIVER'] = 'dummy'
+
+import pygame
 import time
 import csv
 import json
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for headless
 import matplotlib.pyplot as plt
 from datetime import datetime
 from collections import deque
@@ -82,18 +91,19 @@ class OptimizedQLearningTrainer:
         # Reward plotting
         self.reward_plotter = SimpleRewardPlotter(window_size=100)
 
-        # Setup cho headless mode trên Ubuntu CLI
+        # Setup pygame display
+        pygame.init()
+        
         if self.render:
-            pygame.init()
+            # Normal mode with display
             self.screen = pygame.display.set_mode(SCREENSIZE)
             pygame.display.set_caption("Optimized Q-Learning Training")
             self.clock = pygame.time.Clock()
         else:
-            # Headless mode - không cần display
-            os.environ['SDL_VIDEODRIVER'] = 'dummy'  # Use dummy video driver
-            pygame.init()
-            self.screen = pygame.Surface(SCREENSIZE)  # Virtual surface
+            # Headless mode - use virtual surface
+            self.screen = pygame.Surface(SCREENSIZE)
             self.clock = None
+            print("✓ Headless mode activated")
 
     def print_config(self):
         """In cấu hình training"""
