@@ -468,9 +468,9 @@ if __name__ == "__main__":
     }
     
     ultra_long_training_config = {
-        'max_episodes': 30000,           # 30,000 episodes
-        'save_interval': 200,            # Lưu mỗi 200 episodes
-        'max_steps_per_episode': 3000,   # 3000 steps mỗi episode
+        'max_episodes': 20000,           # 30,000 episodes
+        'save_interval': 1,            # Lưu mỗi 200 episodes
+        'max_steps_per_episode': 2500,   # 3000 steps mỗi episode
         'render': False,                 # Tắt render
         'few_pellets_mode': False,       # Full maze
         'few_pellets_count': 30,         # Không dùng
@@ -490,7 +490,7 @@ if __name__ == "__main__":
         'performance_window': 100        # Cửa sổ bình thường
     }
     
-    config = quick_test_config 
+    config = ultra_long_training_config 
     
     print("TRAINING CONFIGURATION:")
     for key, value in config.items():
