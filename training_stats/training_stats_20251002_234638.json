@@ -1,0 +1,41 @@
+{
+  "episode": 5,
+  "total_episodes": 5,
+  "best_score": 270,
+  "best_reward": 119.0,
+  "win_rate": 0.0,
+  "death_rate": 1.0,
+  "timeout_rate": 0.0,
+  "average_reward": -44.6,
+  "average_score": 148.0,
+  "average_steps": 639.6,
+  "episode_rewards": [
+    -121.0,
+    -82.0,
+    119.0,
+    -50.0,
+    -89.0
+  ],
+  "episode_scores": [
+    140,
+    110,
+    270,
+    130,
+    90
+  ],
+  "episode_steps": [
+    552,
+    713,
+    652,
+    721,
+    560
+  ],
+  "episode_epsilons": [
+    0.9995,
+    0.9990002500000001,
+    0.9985007498750001,
+    0.9980014995000627,
+    0.9975024987503127
+  ],
+  "learning_rate_history": []
+}

@@ -82,10 +82,18 @@ class OptimizedQLearningTrainer:
         # Reward plotting
         self.reward_plotter = SimpleRewardPlotter(window_size=100)
 
-        pygame.init()
-        self.screen = pygame.display.set_mode(SCREENSIZE)
-        pygame.display.set_caption("Optimized Q-Learning Training" + (" [Headless]" if not self.render else ""))
-        self.clock = pygame.time.Clock() if self.render else None
+        # Setup cho headless mode trên Ubuntu CLI
+        if self.render:
+            pygame.init()
+            self.screen = pygame.display.set_mode(SCREENSIZE)
+            pygame.display.set_caption("Optimized Q-Learning Training")
+            self.clock = pygame.time.Clock()
+        else:
+            # Headless mode - không cần display
+            os.environ['SDL_VIDEODRIVER'] = 'dummy'  # Use dummy video driver
+            pygame.init()
+            self.screen = pygame.Surface(SCREENSIZE)  # Virtual surface
+            self.clock = None
 
     def print_config(self):
         """In cấu hình training"""
@@ -440,10 +448,10 @@ if __name__ == "__main__":
     # QUICK TEST (5-10 phút) - Tối ưu cho episodes nhỏ
     quick_test_config = {
         'max_episodes': 100,             # Tăng episodes để có nhiều states
-        'save_interval': 10,             # Lưu mỗi 10 episodes
+        'save_interval': 5,             # Lưu mỗi 10 episodes
         'max_steps_per_episode': 800,    # Tăng steps để explore nhiều hơn
         'render': True,                  # Hiển thị game
-        'few_pellets_mode': True,        # Dùng ít pellets để test nhanh
+        'few_pellets_mode': False,        # Dùng ít pellets để test nhanh
         'few_pellets_count': 20,         # Tăng pellets để có nhiều states
         'adaptive_learning': True,       # Bật adaptive cho episodes nhỏ
         'performance_window': 20         # Cửa sổ nhỏ
@@ -472,7 +480,7 @@ if __name__ == "__main__":
         'performance_window': 100        # Cửa sổ bình thường
     }
     
-    config = dev_config 
+    config = quick_test_config 
     
     print("TRAINING CONFIGURATION:")
     for key, value in config.items():

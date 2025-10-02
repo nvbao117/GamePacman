@@ -398,49 +398,62 @@ class HybridAISystem:
         
         safety_score = self._evaluate_safety(pacman_node, normal_ghosts)
         
+
         ghost_avoidance_score = 0
         if normal_ghosts:
             if normal_ghost_dist < 2:
-                ghost_avoidance_score = -3000 / (normal_ghost_dist + 0.1)
+                ghost_avoidance_score = -50000 / (normal_ghost_dist + 0.1)  
             elif normal_ghost_dist < 4:
-                ghost_avoidance_score = -500 / (normal_ghost_dist + 0.1) 
+                ghost_avoidance_score = -15000 / (normal_ghost_dist + 0.1)
+            elif normal_ghost_dist < 7:
+                ghost_avoidance_score = -3000 / (normal_ghost_dist + 0.1)  
+                ghost_avoidance_score = -500 / (normal_ghost_dist + 0.1)    
             else:
-                ghost_avoidance_score = 20.0 * normal_ghost_dist  
+                ghost_avoidance_score = 5.0 * normal_ghost_dist            
         
         freight_bonus = 0
-        if freight_ghosts:
-            freight_bonus = 10000 / (freight_ghost_dist + 0.5) 
-            if normal_ghosts and normal_ghost_dist < 3:
-                freight_bonus *= 0.3 
+        if freight_ghosts and len(freight_ghosts) > 0:
+            # Chỉ ưu tiên ăn freight ghost khi RẤT an toàn và gần
+            if freight_ghost_dist < 5:  # Giảm từ < 8, chỉ đuổi khi RẤT GẦN
+                freight_bonus = 2000 / (freight_ghost_dist + 0.5)  # Giảm mạnh từ 3000
+                if normal_ghosts and normal_ghost_dist < 8:  # Tăng từ < 7
+                    freight_bonus = 0  # Bỏ qua hoàn toàn nếu có ghost nguy hiểm gần
+                # Thêm penalty nếu freight ghost quá xa so với pellet gần nhất
+                if freight_ghost_dist > min_pellet_dist * 2:
+                    freight_bonus = 0  # Ưu tiên pellet hơn freight ghost xa
+            else:
+                freight_bonus = 0  # Không đuổi theo freight ghost xa
+        else:
+            # Không có freight ghost → KHÔNG được đuổi ghost bình thường
+            freight_bonus = 0
 
 
         power_pellet_bonus = 0
         if power_pellet_nodes:
             if normal_ghosts:
                 if normal_ghost_dist < 3:
-                    power_pellet_bonus = 1000 / (power_pellet_dist + 0.5)
+                    power_pellet_bonus = 2000 / (power_pellet_dist + 0.5)  # Tăng từ 1000
                 elif normal_ghost_dist < 5:
-                    power_pellet_bonus = 400 / (power_pellet_dist + 0.5)
+                    power_pellet_bonus = 800 / (power_pellet_dist + 0.5)   # Tăng từ 400
                 elif normal_ghost_dist < 8:
-                    power_pellet_bonus = 200 / (power_pellet_dist + 1)
+                    power_pellet_bonus = 300 / (power_pellet_dist + 1)     # Tăng từ 200
             else:
-                power_pellet_bonus = -1.0 * power_pellet_dist
+                power_pellet_bonus = -0.5 * power_pellet_dist  # Giảm từ -1.0
         
         score = (
+            15.0 * ghost_avoidance_score +   # Tăng trọng số từ 2.0 → 10.0 (QUAN TRỌNG NHẤT)
             power_pellet_bonus +             # BONUS ĐỘNG dựa trên ghost
-            -10.0 * min_pellet_dist +         # Ưu tiên pellet gần
-            -0.3 * avg_pellet_dist +         # Xét cả trung bình
-            ghost_avoidance_score +          # Tránh ghost nguy hiểm
-            freight_bonus +                  # ĂN GHOST FREIGHT
-            -5.0 * pellets_left +            # Ưu tiên ăn pellets
-            50.0 * pellet_progress +         # Tiến độ 
+            freight_bonus +                  # ĂN GHOST FREIGHT (khi an toàn)
+            -1.0 * min_pellet_dist +         # Giảm từ -0.5 (ít ưu tiên hơn)
+            -0.5 * avg_pellet_dist +         # Giảm từ -0.3
+            -8.0 * pellets_left +            # Giảm từ -8.0
+            40.0 * pellet_progress +         # Giảm từ 50.0
             reverse_penalty +                
             revisit_penalty +                
-            position_score +                 
-            density_score +                  
-            safety_score                     
+            position_score * 0.3 +           # Giảm trọng số
+            density_score * 0.5 +            # Giảm trọng số
+            safety_score * 0.8               # Giảm trọng số
         )
-        print(score)
         return score
 
     def get_legal_actions(self, pacman, ghostgroup, pellet_group, is_pacman):

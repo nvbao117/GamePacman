@@ -47,7 +47,7 @@ class MainMode(object):
         - Thời gian: 20 giây
         """
         self.mode = CHASE
-        self.time = 20 
+        self.time = 15
         self.timer = 0 
     
 class ModeController(object):

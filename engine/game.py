@@ -73,7 +73,7 @@ class Game(object):
         
         # Thông tin game
         self.level = 0                  # Level hiện tại
-        self.lives = 2                  # Số mạng còn lại
+        self.lives = 4                  # Số mạng còn lại
         self.score = 0                  # Điểm số hiện tại
         
         # UI components
