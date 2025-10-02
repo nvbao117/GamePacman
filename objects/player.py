@@ -17,6 +17,7 @@ from engine.algorithms_practical import (
 )
 from engine.compute_once_system import compute_once
 from engine.hybrid_ai_system import HybridAISystem
+from engine.q_learning import QLearningAgent
 
 class Pacman(Entity):
     """
@@ -64,6 +65,11 @@ class Pacman(Entity):
         # Hybrid AI System
         self.hybrid_ai = HybridAISystem(self)
         self.use_hybrid_ai = False  # Flag để bật/tắt hybrid AI
+
+        # Q-learning agent support
+        self.q_agent = QLearningAgent()
+        self.use_q_learning = False  # Flag to toggle Q-learning control
+        self.q_step_penalty = -0.04  # Small step penalty applied per move
         
         # Stuck detection
         self.stuck_counter = 0
@@ -101,6 +107,9 @@ class Pacman(Entity):
         # Reset precomputed path
         self.precomputed_path = []
         self.path_index = 0
+        # Reset Q-learning episode
+        self.q_agent.start_episode()
+
         
         # Không reset thuật toán - giữ nguyên thuật toán đã chọn
         # self.pathfinder_name = self.original_pathfinder_name
@@ -157,21 +166,23 @@ class Pacman(Entity):
             if self.node.neighbors[PORTAL] is not None: 
                 self.node = self.node.neighbors[PORTAL] 
                 
-            # In vị trí khi Pacman đến node mới
+            # Log position when Pacman arrives at a new node
             if auto and pelletGroup is not None and pelletGroup.pelletList:
-                print(f"({int(self.position.x//16)}, {int(self.position.y//16)})",end=" ")
-                
-            # AI logic: Chọn giữa traditional và hybrid AI
+                print(f"({int(self.position.x//16)}, {int(self.position.y//16)})", end=" ")
+
+           
             if auto and pelletGroup is not None and pelletGroup.pelletList:
-                if self.use_hybrid_ai:
+                if hasattr(self, 'use_q_learning') and self.use_q_learning:
+                    direction,_ = self.hybrid_ai.q_learning_get_direction(pelletGroup, ghostGroup)
+                elif self.use_hybrid_ai:
                     direction = self.hybrid_ai.get_direction(pelletGroup, ghostGroup)
                 else:
                     print(self.pathfinder_name)
-                    print(self.pathfinder)
+                    if self.pathfinder is not None:
+                        print(self.pathfinder)
                     direction = compute_once.get_direction(
                         self, pelletGroup, self.pathfinder, self.pathfinder_name
                     )
-                        
             self.target = self.getNewTarget(direction)              
             if self.target is not self.node: 
                 self.direction = direction
@@ -182,7 +193,6 @@ class Pacman(Entity):
             self.setPosition()
 
         else:
-            # Xử lý đảo ngược hướng khi không auto
             if not auto and self.oppositeDirection(direction):
                 self.reverseDirection()
                 
@@ -225,10 +235,22 @@ class Pacman(Entity):
         self.use_hybrid_ai = False
     
     def toggle_hybrid_ai(self):
-        """Chuyển đổi Hybrid AI on/off"""
+        """Toggle Hybrid AI on/off."""
         self.use_hybrid_ai = not self.use_hybrid_ai
-        status = "enabled" if self.use_hybrid_ai else "disabled"
-    
+        if self.use_hybrid_ai:
+            self.use_q_learning = False
+
+    def set_q_learning(self, enabled: bool, reset_episode: bool = True):
+        """Enable or disable Q-learning control for Pacman."""
+        self.use_q_learning = enabled
+        if enabled:
+            self.use_hybrid_ai = False
+        if reset_episode:
+            self.q_agent.start_episode()
+
+    def is_q_learning_active(self) -> bool:
+        return self.use_q_learning
+
     def set_algorithm(self, algorithm_name, algorithm_func):
         """Cập nhật thuật toán AI và lưu trữ để không bị reset"""
         self.pathfinder_name = algorithm_name

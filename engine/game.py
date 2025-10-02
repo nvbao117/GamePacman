@@ -289,7 +289,7 @@ class Game(object):
         # Bắt đầu analytics nếu chưa bắt đầu
         if not self.analytics_started:
             self.analytics_started = True
-            print(f"🎮 Bắt đầu analytics cho thuật toán: {self.algorithm}")
+            print(f"GAME: Bat dau analytics cho thuat toan: {self.algorithm}")
         
         # Khởi tạo Hybrid AI Display
         
@@ -317,48 +317,7 @@ class Game(object):
         elif algo == 'BFS':  # BFS (mặc định)
             self.pacman.pathfinder_name = 'BFS'
             self.pacman.pathfinder = bfs
-        elif algo == 'Hill Climbing':
-            self.pacman.pathfinder_name = 'Hill Climbing'
-            self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dùng A* cho Hill Climbing
-        elif algo == 'Genetic Algorithm':
-            self.pacman.pathfinder_name = 'Genetic Algorithm'
-            self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dùng A* cho GA
-        elif algo == 'Minimax':
-            self.pacman.pathfinder_name = 'Minimax'
-            self.pacman.pathfinder = None
-        else:
-            self.pacman.pathfinder_name = 'Simulated Annealing'
-            self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dùng A* cho SA
-        
 
-        # Tạo pellets với cấu hình few pellets mode
-        few_pellets_mode = getattr(self, 'few_pellets_mode', False)
-        few_pellets_count = getattr(self, 'few_pellets_count', 20)
-        self.pellets = PelletGroup("assets/maze/"+self.mazedata.obj.name+".txt", self.nodes, 
-                                 few_pellets_mode, few_pellets_count)
-        # Tạo ghosts
-        self.ghosts = GhostGroup(self.nodes.getStartTempNode(), self.pacman)
-
-        # Thiết lập vị trí bắt đầu cho từng ghost
-        self.ghosts.pinky.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(2, 3)))
-        self.ghosts.inky.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(0, 3)))
-        self.ghosts.clyde.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(4, 3)))
-        self.ghosts.setSpawnNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(2, 3)))
-        self.ghosts.blinky.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(2, 0)))
-
-        self.nodes.denyHomeAccess(self.pacman)                    
-        if self.ghost_mode:
-            self.nodes.denyHomeAccessList(self.ghosts)                
-            self.ghosts.inky.startNode.denyAccess(RIGHT, self.ghosts.inky)
-            self.ghosts.clyde.startNode.denyAccess(LEFT, self.ghosts.clyde)
-            self.ghosts.blinky.startNode.denyAccess(LEFT, self.ghosts.clyde)
-            self.ghosts.pinky.startNode.denyAccess(LEFT, self.ghosts.clyde)
-            self.mazedata.obj.denyGhostsAccess(self.ghosts, self.nodes)
-        
-    def startGame_old(self) : 
-        self.mazedata.loadMaze(self.level)
-        self.mazesprites = MazeSprites("assets/maze/maze1.txt","assets/maze/maze1_rotation.txt")
-        self.setBackground()
         self.nodes = NodeGroup("assets/maze/maze1.txt")
         self.nodes.setPortalPair((0,17),(27,17))
         homekey = self.nodes.createHomeNodes(11.5,14)
@@ -406,7 +365,7 @@ class Game(object):
                 self._track_step()
                 if hasattr(self, 'ai_mode') and self.ai_mode:
                     ghost_group = self.ghosts if self.ghost_mode else None
-                    self.pacman.update_ai(dt, self.pellets, True, ghostGroup=ghost_group)  # AI mode
+                    self.pacman.update_ai(dt, self.pellets, True, ghostGroup=ghost_group)
                 else:
                     self.pacman.update(dt)  # Player mode
         else:
@@ -467,9 +426,6 @@ class Game(object):
         if pellet:
             self.pellets.numEaten += 1 
             self.updateScore(pellet.points)
-            
-            # Ghi nhận ăn pellet trong analytics
-            
             if self.ghost_mode:
                 if self.pellets.numEaten == 30 :
                     self.ghosts.inky.startNode.allowAccess(RIGHT,self.ghosts.inky)
@@ -502,10 +458,7 @@ class Game(object):
                         if self.pacman.alive : 
                             self.lives -= 1 
                             self.lifesprites.removeImage()
-                            self.pacman.die()
-                            
-                            # Ghi nhận chết trong analytics
-                            
+                            self.pacman.die()                            
                             self.ghosts.hide()
                             if self.lives <= 0 : 
                                 # Kết thúc game hoàn toàn
@@ -554,9 +507,6 @@ class Game(object):
         self.reset_steps()
 
     def restartGame(self):
-        # Kết thúc game hiện tại trong analytics
-        total_pellets = len(self.pellets.pelletList) if hasattr(self, 'pellets') else 0
-        
         self.lives = 5 
         self.level = 0 
         self.pause.paused = True
@@ -704,6 +654,7 @@ class Game(object):
                 bfs , dfs , astar , ucs , 
                 ids , greedy , heuristic_manhattan, heuristic_euclidean
             )       
+            q_enabled = False
             if algorithm == 'DFS':
                 self.pacman.pathfinder_name = 'DFS'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(dfs )
@@ -721,20 +672,33 @@ class Game(object):
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(greedy)
             elif algorithm == 'Hill Climbing':
                 self.pacman.pathfinder_name = 'Hill Climbing'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dùng A* cho Hill Climbing
+                self.pacman.pathfinder = None
             elif algorithm == 'Genetic Algorithm':
                 self.pacman.pathfinder_name = 'Genetic Algorithm'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dùng A* cho GA
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dạng A* cho GA
             elif algorithm == 'Simulated Annealing':
                 self.pacman.pathfinder_name = 'Simulated Annealing'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dùng A* cho SA
+                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dạng A* cho SA
             elif algorithm == 'Minimax':
                 self.pacman.pathfinder_name = 'Minimax'
                 self.pacman.pathfinder = None
+            elif algorithm == 'Alpha-Beta':
+                self.pacman.pathfinder_name = 'Alpha-Beta'
+                self.pacman.pathfinder = None
+            elif algorithm == 'A* Online':
+                self.pacman.pathfinder_name = 'A* Online'
+                self.pacman.pathfinder = None
+            elif algorithm == 'Q-Learning':
+                self.pacman.pathfinder_name = 'Q-Learning'
+                self.pacman.pathfinder = None
+                q_enabled = True
             else:  # BFS (mặc định)
                 self.pacman.pathfinder_name = 'BFS'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(bfs )
-            
+
+            if hasattr(self.pacman, 'set_q_learning'):
+                self.pacman.set_q_learning(q_enabled)
+
             # Reset path khi thay đổi thuật toán
             self.pacman.path = []
             self.pacman.locked_target_node = None

@@ -48,12 +48,12 @@ class GameLayout(UIComponent):
             "BFS", "DFS", "A*", 
             "UCS", "IDS", "GREEDY",
             "Hill Climbing", "Genetic Algorithm", "Minimax",
-            "Simulated Annealing"
+            "Simulated Annealing", "Alpha-Beta", "A* Online", "Q-Learning"
         ] 
 
         self.online_algorithms = [
-            "A*", "GREEDY", "Hill Climbing", "Minimax",
-            "Genetic Algorithm", "Simulated Annealing"
+            "GREEDY", "Hill Climbing", "Minimax",
+            "Genetic Algorithm", "Simulated Annealing", "Alpha-Beta", "A* Online", "Q-Learning"
         ]
 
         self.offline_algorithms = ["BFS", "DFS", "A*", "UCS", "IDS"]  
