@@ -112,11 +112,19 @@ class Game(object):
         - Áp dụng maze sprites lên background
         """
         # Tạo surface cho background bình thường
-        self.background_norm = pygame.surface.Surface(SCREENSIZE).convert()
+        try:
+            self.background_norm = pygame.surface.Surface(SCREENSIZE).convert()
+        except pygame.error:
+            # Headless mode - không cần convert()
+            self.background_norm = pygame.surface.Surface(SCREENSIZE)
         self.background_norm.fill(BLACK)
         
         # Tạo surface cho background flash (khi level complete)
-        self.background_flash = pygame.surface.Surface(SCREENSIZE).convert()
+        try:
+            self.background_flash = pygame.surface.Surface(SCREENSIZE).convert()
+        except pygame.error:
+            # Headless mode - không cần convert()
+            self.background_flash = pygame.surface.Surface(SCREENSIZE)
         self.background_flash.fill(BLACK)
         
         # Tạo background nâng cao với gradient và hiệu ứng
