@@ -268,20 +268,43 @@ class OptimizedQLearningTrainer:
 
         q_agent = game.pacman.hybrid_ai.q_agent
 
-        # Cấu hình cho training dài
-        eps_start = 1.0
-        eps_min = 0.05      # Epsilon min thấp hơn cho exploitation
-        decay_rate = 0.9995  # Decay chậm hơn cho training dài
-
-        epsilon = max(eps_min, eps_start * (decay_rate ** episode_num))
-
-        if self.adaptive_learning and len(self.recent_performance) >= 50:
-            recent_avg = np.mean(list(self.recent_performance)[-50:])
-            if recent_avg < -10:   # Threshold thấp hơn
-                epsilon = min(0.8, epsilon + 0.05)  # Tăng exploration ít hơn
-            elif recent_avg > 20:  # Threshold cao hơn
-                epsilon = max(0.02, epsilon - 0.02)  # Giảm exploration ít hơn
+        # EPSILON FIXED THEO PHASES - KHÔNG DECAY DẦN DẦN
+        max_ep = self.max_episodes
         
+        if max_ep <= 100:
+            # Quick test (50-100 episodes): 3 phases rõ ràng
+            if episode_num < int(max_ep * 0.3):
+                epsilon = 0.9    # 30% đầu: Explore mạnh
+            elif episode_num < int(max_ep * 0.7):
+                epsilon = 0.5    # 40% giữa: Balanced
+            else:
+                epsilon = 0.1    # 30% cuối: Exploit mạnh
+                
+        elif max_ep <= 1500:
+            # Curriculum stage 1 & 2 (1000-1500): Learn fast
+            if episode_num < int(max_ep * 0.25):
+                epsilon = 0.7    # 25% đầu: Explore
+            elif episode_num < int(max_ep * 0.6):
+                epsilon = 0.3    # 35% giữa: Balanced
+            elif episode_num < int(max_ep * 0.85):
+                epsilon = 0.12   # 25% sau: Exploit
+            else:
+                epsilon = 0.05   # 15% cuối: Exploit max
+                
+        else:
+            # Long training (20k): 5 phases cho smooth learning
+            if episode_num < int(max_ep * 0.15):
+                epsilon = 0.8    # 15% đầu (0-3k): Explore mạnh
+            elif episode_num < int(max_ep * 0.35):
+                epsilon = 0.5    # 20% giữa (3k-7k): Balanced
+            elif episode_num < int(max_ep * 0.6):
+                epsilon = 0.25   # 25% (7k-12k): Exploit nhiều
+            elif episode_num < int(max_ep * 0.85):
+                epsilon = 0.1    # 25% (12k-17k): Exploit mạnh
+            else:
+                epsilon = 0.03   # 15% cuối (17k-20k): Exploit max
+        
+        # Set epsilon
         q_agent.epsilon = epsilon
 
     def _adjust_learning_rate(self, episode):
