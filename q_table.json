@@ -2,7 +2,7 @@
   "config": {
     "alpha": 0.2,
     "gamma": 0.8,
-    "epsilon": 0.9930114920025623,
+    "epsilon": 0.3,
     "epsilon_min": 0.02,
     "epsilon_decay": 0.995,
     "default_actions": [

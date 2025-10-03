@@ -12,11 +12,11 @@ DEFAULT_ACTIONS : Tuple[Action, ...] = (UP,DOWN,LEFT,RIGHT,STOP)
 State = Tuple[int, ...]
 @dataclass
 class QLearningConfig:
-    alpha : float = 0.2
-    gamma : float = 0.8
-    epsilon : float = 0.7
-    epsilon_min : float = 0.02
-    epsilon_decay : float = 0.995
+    alpha : float = 0.3  # Learning rate cao hơn cho ultra long training
+    gamma : float = 0.85  # Discount factor cao hơn để ưu tiên long-term reward
+    epsilon : float = 1.0  # Bắt đầu với full exploration
+    epsilon_min : float = 0.01  # Epsilon min thấp hơn cho exploitation tốt hơn
+    epsilon_decay : float = 0.9995  # Decay rất chậm cho 20k episodes
     default_actions : Tuple[Action, ...] = DEFAULT_ACTIONS
 
 
@@ -78,7 +78,8 @@ class QLearningAgent:
         if done:
             self._last_state = None
             self._last_action = None
-            self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+            # KHÔNG tự động decay epsilon ở đây vì optimized_training.py đã handle
+            # self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
     def save(self,path:str) -> None : 
         payload = {
@@ -109,7 +110,7 @@ class QLearningAgent:
         self.epsilon_min = cfg.get("epsilon_min", self.epsilon_min)
         self.epsilon_decay = cfg.get("epsilon_decay", self.epsilon_decay)
         actions = tuple(cfg.get("default_actions", self.actions))
-
+        
         if actions:
             self.actions = actions
 

@@ -129,10 +129,7 @@ class OptimizedQLearningTrainer:
         print("✓ Convergence detection")
         print("=" * 80)
     
-    def train(self):
-        """Main training loop với adaptive learning"""
-        self.print_config()
-        
+    def train(self):        
         for episode in range(1, self.max_episodes + 1):
             print(f"\n{'='*80}")
             print(f"EPISODE {episode}/{self.max_episodes}")
@@ -151,31 +148,21 @@ class OptimizedQLearningTrainer:
             # Add to reward plotter
             self.reward_plotter.add_episode(episode, episode_reward, final_score)
             
-            # Print episode summary
-            self._print_episode_summary(episode, episode_reward, episode_step, final_score, episode_result)
             
-            # Plot rewards periodically
             if episode % self.save_interval == 0:
                 img_dir = "reward_images"
                 os.makedirs(img_dir, exist_ok=True)
                 img_path = os.path.join(img_dir, f'reward_curves_ep{episode}.png')
                 self.reward_plotter.plot_rewards(save_path=img_path, show_plot=False)
-                print(f"   📊 Reward curves saved: {img_path}")
             
             # Save model periodically
             if episode % self.save_interval == 0:
                 self.save_model(episode)
     
-            # Check for convergence
-            if self._check_convergence():
-                print(f"\n🎯 CONVERGENCE DETECTED at episode {episode}!")
-                print("Training completed early due to convergence.")
-                break
         
         print("\n" + "=" * 80)
         print("TRAINING COMPLETED!")
         print("=" * 80)
-        self._print_final_statistics()
         self.save_model(self.max_episodes, final=True)
         
         # Final reward plots
@@ -188,8 +175,6 @@ class OptimizedQLearningTrainer:
         pygame.quit()
 
     def run_episode(self, episode_num):
-        """Chạy một episode với adaptive parameters"""
-        print(f"Creating new game for episode {episode_num}")
         game = Game(algorithm='Q-Learning')
         game.screen = self.screen if self.render else None
 
@@ -255,7 +240,6 @@ class OptimizedQLearningTrainer:
                 episode_result = 'win'
                 break
         
-        print(total_reward)
         if steps >= self.max_steps_per_episode:
             episode_result = 'timeout'
             
@@ -269,6 +253,7 @@ class OptimizedQLearningTrainer:
         q_agent = game.pacman.hybrid_ai.q_agent
 
         # EPSILON FIXED THEO PHASES - KHÔNG DECAY DẦN DẦN
+        # Học nhanh bằng cách nhảy phases rõ ràng
         max_ep = self.max_episodes
         
         if max_ep <= 100:
@@ -304,18 +289,39 @@ class OptimizedQLearningTrainer:
             else:
                 epsilon = 0.03   # 15% cuối (17k-20k): Exploit max
         
-        # Set epsilon
+        # Set epsilon (no adaptive adjustment for fast learning)
+        print(epsilon)
         q_agent.epsilon = epsilon
 
     def _adjust_learning_rate(self, episode):
+        """Adaptive learning rate cho ultra long training"""
+        if not hasattr(self, 'last_game') or not hasattr(self.last_game.pacman, 'hybrid_ai'):
+            return
+        
+        q_agent = self.last_game.pacman.hybrid_ai.q_agent
+        
+        # Phân phases cho 10k episodes
         if episode < 1000:
-            alpha = 0.3      # Cao cho exploration
-        elif episode < 5000:
-            alpha = 0.2      # Trung bình
-        elif episode < 10000:
-            alpha = 0.1      # Thấp hơn
+            alpha = 0.3      # Phase 1: Học nhanh, khám phá nhiều
+        elif episode < 3000:
+            alpha = 0.2      # Phase 2: Học vừa, bắt đầu exploit
+        elif episode < 6000:
+            alpha = 0.1      # Phase 3: Học chậm, focus vào exploitation
+        elif episode < 9000:
+            alpha = 0.05     # Phase 4: Fine-tuning
         else:
-            alpha = 0.05     # Rất thấp cho fine-tuning
+            alpha = 0.02     # Phase 5: Polish final policy
+        
+        # Adaptive adjustment dựa trên convergence
+        if len(self.recent_performance) >= 200:
+            recent_std = np.std(list(self.recent_performance)[-200:])
+            if recent_std > 20:  # High variance = chưa converge
+                alpha *= 1.2  # Tăng learning rate
+            elif recent_std < 5:  # Low variance = converged
+                alpha *= 0.8  # Giảm learning rate
+        
+        q_agent.alpha = alpha
+        self.learning_rate_history.append(alpha)
 
     def _track_performance(self, reward, steps, score, result, epsilon, episode):
         """Track performance metrics"""
@@ -345,49 +351,7 @@ class OptimizedQLearningTrainer:
         elif result == 'timeout':
             self.total_timeouts += 1
 
-    def _print_episode_summary(self, episode, reward, steps, score, result):
-        """In tóm tắt episode"""
-        print(f"\nEPISODE {episode} SUMMARY:")
-        print(f"   Total Reward: {reward:.2f}")
-        print(f"   Steps Taken: {steps}")
-        print(f"   Final Score: {score}")
-        print(f"   Result: {result.upper()}")
-        print(f"   Best Score Ever: {self.best_score}")
-        
-        if len(self.recent_performance) >= 10:
-            recent_avg = np.mean(list(self.recent_performance)[-10:])
-            print(f"   Recent Avg Reward: {recent_avg:.2f}")
-
-    def _check_convergence(self):
-        """Kiểm tra convergence"""
-        if len(self.recent_performance) < self.performance_window:
-            return False
-            
-        recent_rewards = list(self.recent_performance)[-self.performance_window:]
-        std_dev = np.std(recent_rewards)
-        mean_reward = np.mean(recent_rewards)
-        
-        # Convergence nếu std dev thấp và mean reward cao
-        return std_dev < self.convergence_threshold and mean_reward > 10
-
-    def _print_final_statistics(self):
-        """In thống kê cuối"""
-        total_episodes = len(self.episode_rewards)
-        total_time = time.time() - self.start_time
-        
-        print(f"Total Episodes: {total_episodes}")
-        print(f"Total Time: {total_time:.2f} seconds")
-        print(f"Average Time per Episode: {total_time/total_episodes:.2f} seconds")
-        print(f"Best Score: {self.best_score} (Episode {self.best_episode})")
-        print(f"Best Reward: {self.best_reward:.2f}")
-        print(f"Win Rate: {self.total_wins/total_episodes*100:.1f}%")
-        print(f"Death Rate: {self.total_deaths/total_episodes*100:.1f}%")
-        print(f"Timeout Rate: {self.total_timeouts/total_episodes*100:.1f}%")
-        
-        if len(self.episode_rewards) > 0:
-            print(f"Average Reward: {np.mean(self.episode_rewards):.2f}")
-            print(f"Average Score: {np.mean(self.episode_scores):.2f}")
-            print(f"Average Steps: {np.mean(self.episode_steps):.2f}")
+  
 
     def save_model(self, episode, final=False):
         """Lưu model và training data"""
@@ -421,84 +385,98 @@ class OptimizedQLearningTrainer:
         
         with open(stats_filename, 'w') as f:
             json.dump(stats, f, indent=2)
-        
-        print(f"Saved Q-table to {filename}")
-        print(f"Saved training stats to {stats_filename}")
 
     def _plot_training_results(self):
         """Vẽ biểu đồ kết quả training"""
-        try:
-            fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-            fig.suptitle('Q-Learning Training Results', fontsize=16)
+        fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+        fig.suptitle('Q-Learning Training Results', fontsize=16)
+        
+        # Plot 1: Episode Rewards
+        axes[0, 0].plot(self.episode_rewards, alpha=0.6)
+        axes[0, 0].set_title('Episode Rewards')
+        axes[0, 0].set_xlabel('Episode')
+        axes[0, 0].set_ylabel('Reward')
+        
+        # Plot 2: Episode Scores
+        axes[0, 1].plot(self.episode_scores, alpha=0.6)
+        axes[0, 1].set_title('Episode Scores')
+        axes[0, 1].set_xlabel('Episode')
+        axes[0, 1].set_ylabel('Score')
+        
+        # Plot 3: Epsilon Decay
+        axes[1, 0].plot(self.episode_epsilons, alpha=0.6)
+        axes[1, 0].set_title('Epsilon Decay')
+        axes[1, 0].set_xlabel('Episode')
+        axes[1, 0].set_ylabel('Epsilon')
+        
+        # Plot 4: Win/Death/Timeout Rates
+        episodes = range(1, len(self.episode_wins) + 1)
+        win_rates = np.cumsum(self.episode_wins) / episodes
+        death_rates = np.cumsum(self.episode_deaths) / episodes
+        timeout_rates = np.cumsum(self.episode_timeouts) / episodes
+        
+        axes[1, 1].plot(episodes, win_rates, label='Win Rate', alpha=0.8)
+        axes[1, 1].plot(episodes, death_rates, label='Death Rate', alpha=0.8)
+        axes[1, 1].plot(episodes, timeout_rates, label='Timeout Rate', alpha=0.8)
+        axes[1, 1].set_title('Success Rates Over Time')
+        axes[1, 1].set_xlabel('Episode')
+        axes[1, 1].set_ylabel('Rate')
+        axes[1, 1].legend()
+        
+        plt.tight_layout()
+        plt.savefig('training_results.png', dpi=300, bbox_inches='tight')
             
-            # Plot 1: Episode Rewards
-            axes[0, 0].plot(self.episode_rewards, alpha=0.6)
-            axes[0, 0].set_title('Episode Rewards')
-            axes[0, 0].set_xlabel('Episode')
-            axes[0, 0].set_ylabel('Reward')
-            
-            # Plot 2: Episode Scores
-            axes[0, 1].plot(self.episode_scores, alpha=0.6)
-            axes[0, 1].set_title('Episode Scores')
-            axes[0, 1].set_xlabel('Episode')
-            axes[0, 1].set_ylabel('Score')
-            
-            # Plot 3: Epsilon Decay
-            axes[1, 0].plot(self.episode_epsilons, alpha=0.6)
-            axes[1, 0].set_title('Epsilon Decay')
-            axes[1, 0].set_xlabel('Episode')
-            axes[1, 0].set_ylabel('Epsilon')
-            
-            # Plot 4: Win/Death/Timeout Rates
-            episodes = range(1, len(self.episode_wins) + 1)
-            win_rates = np.cumsum(self.episode_wins) / episodes
-            death_rates = np.cumsum(self.episode_deaths) / episodes
-            timeout_rates = np.cumsum(self.episode_timeouts) / episodes
-            
-            axes[1, 1].plot(episodes, win_rates, label='Win Rate', alpha=0.8)
-            axes[1, 1].plot(episodes, death_rates, label='Death Rate', alpha=0.8)
-            axes[1, 1].plot(episodes, timeout_rates, label='Timeout Rate', alpha=0.8)
-            axes[1, 1].set_title('Success Rates Over Time')
-            axes[1, 1].set_xlabel('Episode')
-            axes[1, 1].set_ylabel('Rate')
-            axes[1, 1].legend()
-            
-            plt.tight_layout()
-            plt.savefig('training_results.png', dpi=300, bbox_inches='tight')
-            print("Training results plot saved as 'training_results.png'")
-            
-        except Exception as e:
-            print(f"Could not create plot: {e}")
 
 if __name__ == "__main__":
-    print("\nOPTIMIZED Q-LEARNING TRAINING FOR PACMAN")
-    print("=" * 80)
-    
     # ==========================================================
     # CẤU HÌNH TRAINING - CHỌN PHÙ HỢP VỚI MỤC ĐÍCH
     # ==========================================================
     
-    # QUICK TEST (5-10 phút) - Tối ưu cho episodes nhỏ
+    # QUICK TEST (5-10 phút) - Test fix Q-learning
     quick_test_config = {
-        'max_episodes': 100,             # Tăng episodes để có nhiều states
-        'save_interval': 5,             # Lưu mỗi 10 episodes
-        'max_steps_per_episode': 800,    # Tăng steps để explore nhiều hơn
-        'render': True,                  # Hiển thị game
-        'few_pellets_mode': False,        # Dùng ít pellets để test nhanh
-        'few_pellets_count': 20,         # Tăng pellets để có nhiều states
-        'adaptive_learning': True,       # Bật adaptive cho episodes nhỏ
+        'max_episodes': 50,              # 50 episodes để test nhanh
+        'save_interval': 5,              # Lưu mỗi 5 episodes
+        'max_steps_per_episode': 1000,   # 1000 steps
+        'render': False,                 # TẮT RENDER để tăng tốc 10-20x
+        'few_pellets_mode': False,       # Full maze
+        'few_pellets_count': 20,         # 20 pellets
+        'adaptive_learning': False,      # TẮT adaptive
         'performance_window': 20         # Cửa sổ nhỏ
     }
     
-    ultra_long_training_config = {
-        'max_episodes': 20000,           # 30,000 episodes
-        'save_interval': 1,            # Lưu mỗi 200 episodes
-        'max_steps_per_episode': 2500,   # 3000 steps mỗi episode
+    # FAST LEARNING (30-60 phút) - 500 episodes học nhanh
+    fast_learning_config = {
+        'max_episodes': 500,             # 500 episodes
+        'save_interval': 50,             # Lưu mỗi 50 episodes
+        'max_steps_per_episode': 1500,   # 1500 steps
+        'render': False,                 # Tắt render để nhanh
+        'few_pellets_mode': False,       # Full maze
+        'few_pellets_count': 30,         
+        'adaptive_learning': False,      # TẮT adaptive, dùng epsilon fixed
+        'performance_window': 100
+    }
+    
+    # MEDIUM LEARNING (1-2 giờ) - 1000 episodes
+    medium_learning_config = {
+        'max_episodes': 1000,            # 1000 episodes
+        'save_interval': 100,            # Lưu mỗi 100 episodes
+        'max_steps_per_episode': 2000,   # 2000 steps
         'render': False,                 # Tắt render
         'few_pellets_mode': False,       # Full maze
+        'few_pellets_count': 30,
+        'adaptive_learning': False,      # TẮT adaptive
+        'performance_window': 200
+    }
+    
+    ultra_long_training_config = {
+        'max_episodes': 10000,           # 10,000 episodes (5-8 giờ)
+        'save_interval': 100,            # Lưu mỗi 100 episodes
+        'max_steps_per_episode': 3000,   # 3000 steps cho phép explore đầy đủ
+        'render': False,                 # Tắt render cho tốc độ tối đa
+        'few_pellets_mode': False,       # Full maze để học đầy đủ
         'few_pellets_count': 30,         # Không dùng
-        'adaptive_learning': True,       # Bật adaptive
-        'performance_window': 500        # Cửa sổ rất lớn
+        'adaptive_learning': True,       # Bật adaptive learning rate & epsilon
+        'performance_window': 300        # Cửa sổ vừa phải cho 10k episodes
     }
     
     # PRODUCTION (2-4 giờ)
@@ -513,12 +491,35 @@ if __name__ == "__main__":
         'performance_window': 100        # Cửa sổ bình thường
     }
     
-    config = ultra_long_training_config 
+    # ==========================================================
+    # DIRECT TRAINING - 20,000 EPISODES (NO CURRICULUM)
+    # ==========================================================
     
-    print("TRAINING CONFIGURATION:")
-    for key, value in config.items():
-        print(f"   {key}: {value}")
+    training_config = {
+        'max_episodes': 20000,           # 20,000 episodes trực tiếp
+        'save_interval': 500,            # Lưu mỗi 500 episodes
+        'max_steps_per_episode': 2500,   # 2500 steps mỗi episode
+        'render': False,                 # Tắt render để tăng tốc
+        'few_pellets_mode': False,       # Full maze ngay từ đầu
+        'few_pellets_count': 30,
+        'adaptive_learning': False,      # Epsilon fixed theo phases
+        'performance_window': 1000       # Cửa sổ lớn
+    }
+    
+    print("\n" + "=" * 80)
+    print("🚀 DIRECT TRAINING - 20,000 EPISODES (FULL MAZE)")
+    print("=" * 80)
+    print(f"Max episodes: {training_config['max_episodes']}")
+    print(f"Max steps per episode: {training_config['max_steps_per_episode']}")
+    print(f"Save interval: {training_config['save_interval']}")
+    print(f"Full maze: ~240 pellets")
+    print(f"Estimated time: ~8-10 hours")
     print("=" * 80)
     
-    trainer = OptimizedQLearningTrainer(**config)
+    trainer = OptimizedQLearningTrainer(**training_config)
     trainer.train()
+    
+    print("\n" + "=" * 80)
+    print("🎉 TRAINING COMPLETED - 20,000 EPISODES!")
+    print("=" * 80)
+    print(f"Total training time: {(time.time() - trainer.start_time)/3600:.1f} hours")

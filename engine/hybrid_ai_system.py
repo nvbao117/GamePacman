@@ -693,10 +693,6 @@ class HybridAISystem:
                 print("TESTING: Testing mode: ON (no Q-table updates)")
 
     def get_q_state(self, pacman, pellet_group, ghost_group):
-        """
-        State representation với 8 features cân bằng:
-        - Tổng state space: 5×6×4×5×3×3×2×9 = 19,440 states (vẫn reasonable)
-        """
         pellet_dir = self._get_pellet_direction(pacman.node, pellet_group)
         pellet_dist = self._get_pellet_distance_bin(pacman.node, pellet_group)
         ghost_status = self._get_ghost_status(pacman.node, ghost_group)
@@ -904,39 +900,42 @@ class HybridAISystem:
     def _calculate_step_reward(self, pacman, pellet_group, ghost_group, action, 
                                 prev_pellet_count, current_pellet_count):
         """
-        Hệ thống reward theo công thức toán học:
-        R(s, a, s') = +10 (pellet) + 50 (capsule) + 500 (scared ghost) 
-                     - 500 (death) + 500 (win) - 1 (step) + 0 (other)
+        REWARD ĐƯỢC TĂNG để học nhanh hơn trong 500-1000 episodes:
+        - Pellet: 10 → 50 (động viên ăn pellets)
+        - Capsule: 50 → 150 (khuyến khích dùng power-ups)
+        - Ghost: 500 → 1000 (ưu tiên ăn ghosts khi scared)
+        - Death: -500 → -1000 (penalty mạnh hơn)
+        - Win: 500 → 2000 (động viên hoàn thành)
+        - Step: -1 → -0.5 (giảm penalty để không sợ di chuyển)
         """
         reward = 0.0
 
         if current_pellet_count < prev_pellet_count:
             pellets_eaten = prev_pellet_count - current_pellet_count
-            pellet_reward = 10.0 * pellets_eaten
+            pellet_reward = 50.0 * pellets_eaten  # TĂNG x5
             reward += pellet_reward
         
         capsule_reward = self._check_capsule_eaten(pacman, pellet_group)
         if capsule_reward > 0:
-            reward += capsule_reward
+            reward += capsule_reward * 3  # 50 → 150
         
         scared_ghost_reward = self._check_scared_ghost_eaten(pacman, ghost_group)
         if scared_ghost_reward > 0:
-            reward += scared_ghost_reward
+            reward += scared_ghost_reward * 2  # 500 → 1000
         
         if not pacman.alive:
-            death_penalty = -500.0
+            death_penalty = -1000.0  # TĂNG penalty
             reward += death_penalty
             return reward
         
         if current_pellet_count == 0:
-            win_reward = 500.0
+            win_reward = 2000.0  # TĂNG x4
             reward += win_reward
             return reward
         
-        step_penalty = -1.0
+        step_penalty = -0.5  # GIẢM penalty
         reward += step_penalty
         
-
         return reward
     
     def _check_capsule_eaten(self, pacman, pellet_group):
@@ -957,76 +956,74 @@ class HybridAISystem:
     
     def q_learning_get_direction(self, pellet_group, ghost_group):
         """
-        Hàm này trả về hướng di chuyển cho Pac-Man sử dụng Q-learning.
-        Trả về: (action, episode_reward)
-        episode_reward: tổng reward đã cộng dồn trong episode này
-
-        Đoạn mã cơ bản là đúng, nhưng có một số điểm cần chú ý để training hiệu quả:
-        - Đảm bảo self.training_mode = True khi muốn train (tức là cho phép agent học).
-        - Gọi hàm này mỗi bước di chuyển của Pac-Man.
-        - Khi Pac-Man chết hoặc ăn hết pellets, cần reset trạng thái Q-learning (done=True).
-        - Nên lưu Q-table sau mỗi episode để không mất dữ liệu học.
-        - Đảm bảo reward được tính hợp lý (xem lại hàm _calculate_step_reward).
+        Hàm Q-learning với flow đúng chuẩn:
+        1. Chọn action từ state hiện tại
+        2. Tính reward từ action trước đó
+        3. Update Q-table với (prev_state, prev_action, reward, current_state)
+        
+        Trả về: (action, step_reward)
         """
+        # Khởi tạo Q-agent nếu chưa có
         if not hasattr(self, 'q_agent'):
             self.init_q_learning()
             self.prev_q_state = None
             self.prev_q_action = None
             self.prev_pellet_count = len([p for p in pellet_group.pelletList if p.visible])
         
+        # Lấy state và legal actions hiện tại
         current_state = self.get_q_state(self.pacman, pellet_group, ghost_group)
         legal_actions = self.get_legal_actions(self.pacman)
         if not legal_actions:
             return STOP, 0.0
 
-        # Luôn tính reward nếu đang trong training mode
-        episode_reward = 0.0
-        if self.training_mode:
+        step_reward = 0.0
+        
+        # Training mode: Tính reward và update Q-table
+        if self.training_mode and self.prev_q_state is not None:
             current_pellet_count = len([p for p in pellet_group.pelletList if p.visible])
-
-            # Chỉ tính reward nếu có thay đổi trạng thái quan trọng
-            should_calculate_reward = self.training_mode
-
-            if should_calculate_reward:
-                reward = self._calculate_step_reward(
-                    self.pacman,
-                    pellet_group,
-                    ghost_group,
-                    self.prev_q_action,
-                    self.prev_pellet_count,
-                    current_pellet_count
-                )
-                done = not self.pacman.alive or current_pellet_count == 0
-
-                self.q_agent.add_reward(reward)
-                episode_reward = self.q_agent._pending_reward
-
-
-                self.q_agent.observe(current_state, legal_actions, done)
-
-                if done:
-                    self.prev_q_state = None
-                    self.prev_q_action = None
-                    self.q_agent.start_episode()
-                    return STOP, episode_reward
-
+            
+            # Tính reward cho transition (prev_state, prev_action) -> current_state
+            step_reward = self._calculate_step_reward(
+                self.pacman,
+                pellet_group,
+                ghost_group,
+                self.prev_q_action,
+                self.prev_pellet_count,
+                current_pellet_count
+            )
+            
+            # Check terminal state
+            done = not self.pacman.alive or current_pellet_count == 0
+            
+            # Update Q-table
+            self.q_agent.add_reward(step_reward)
+            self.q_agent.observe(current_state, legal_actions, done)
+            
+            # Update pellet count
             self.prev_pellet_count = current_pellet_count
+            
+            # Nếu done, reset và return STOP
+            if done:
+                self.prev_q_state = None
+                self.prev_q_action = None
+                self.q_agent.start_episode()
+                return STOP, step_reward
 
+        # Chọn action mới từ current_state
         if self._last_pacman_pos is not None and self._last_pacman_pos != self.pacman.node:
             if (self._last_pacman_pos.neighbors[PORTAL] is not None and 
                 self._last_pacman_pos.neighbors[PORTAL] == self.pacman.node):
                 self._portal_used = True
             else:
                 self._portal_used = False
+        
         action = self.q_agent.selection_action(current_state, legal_actions)
+        
+        # Lưu state và action cho lần sau
         self.prev_q_state = current_state
         self.prev_q_action = action
-
-        # Nếu không phải training mode, episode_reward = 0
-        if not self.training_mode:
-            episode_reward = 0.0
         
-        return action, episode_reward
+        return action, step_reward
 
 # ==========================================================
 #                    END OF Q-LEARNING
