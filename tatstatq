@@ -1,0 +1,285 @@
+[33mcommit ecba961b2e42ab552e448d061ed103c35a24c010[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Oct 3 07:45:26 2025 +0700
+
+    test train
+
+[33mcommit 452be96f624cd3b82630b2bb73599082098aa893[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Oct 3 07:51:30 2025 +0700
+
+    fix epsilon phases for 20k training
+
+[33mcommit da3f0aff14e226c64cab96a713a5e127bd28e8d1[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Oct 3 07:49:40 2025 +0700
+
+    update training config 20k episodes
+
+[33mcommit a9c0b4a1fe59200e012b83052346e4cbca9dbef6[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Oct 3 07:47:07 2025 +0700
+
+    push test
+
+[33mcommit ff620e0108838d807ae760be7f3d3458d8321bec[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Oct 3 01:20:52 2025 +0700
+
+    push test train
+
+[33mcommit 24fe3790bc634c46dbe978d6968da96b2bda6a0d[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Oct 3 01:18:23 2025 +0700
+
+    push test train
+
+[33mcommit ff54c22baf22b01bd034ded99ccdf456f6bc9a75[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Oct 3 00:53:52 2025 +0700
+
+    tesst ubuntu
+
+[33mcommit 68b4e0b4e43ab101d819c216e7e06e40231e7961[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Oct 3 00:26:51 2025 +0700
+
+    push
+
+[33mcommit 3ce36f6f19e5efea29137e9347c044049cab9d20[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Thu Oct 2 23:39:21 2025 +0700
+
+    minima ab
+
+[33mcommit cc2852737a28441726d8a2b69ef9d53ef0b4874b[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Thu Oct 2 14:39:06 2025 +0700
+
+    push
+
+[33mcommit 8802cec951ca7a4ae53e6941d0b7c01a1b66b43d[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Thu Oct 2 11:42:20 2025 +0700
+
+    push code
+
+[33mcommit affebe9f6b1e2b4f3b6614d6068b2477115ef4a1[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Mon Sep 29 21:04:14 2025 +0700
+
+    thêm onl
+
+[33mcommit ee03ec1bad8966cf987bf676ec984ff96e2c8e90[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Mon Sep 29 11:48:44 2025 +0700
+
+    offline al
+
+[33mcommit e9ec8e788a8c761d4c70d9afcd07682391a72d2d[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 28 22:08:27 2025 +0700
+
+    fix alg
+    :
+
+[33mcommit 3d58e22c65380cb6dd68cd9f0eb3f8e1b8110b29[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Thu Sep 25 08:02:08 2025 +0700
+
+    fix switch mode
+
+[33mcommit 13ae150f9c474f34506af5c1581f186a1c7288a9[m[33m ([m[1;32mbackup-ok[m[33m)[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Thu Sep 25 07:15:49 2025 +0700
+
+    ok
+
+[33mcommit 7f26f36c0097540443bdca9ec3c3e4e41952b440[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 21 08:59:43 2025 +0700
+
+    update layout
+
+[33mcommit 404642dad5f213786b17efa4a8c43a7425eb81f4[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 21 08:59:18 2025 +0700
+
+    update layout
+
+[33mcommit 44aa5101b5e0b80f09d6ded73defa7196bc7267a[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 21 08:51:40 2025 +0700
+
+    delete readme
+
+[33mcommit 6c380cf394db0ac9dcb146a97627cb5b2a46fc20[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 21 08:50:59 2025 +0700
+
+    Add comparison state
+
+[33mcommit 8dc787e3e6d34f268eaee8a93729beb353abe9ea[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 21 00:14:15 2025 +0700
+
+    Comment code
+
+[33mcommit 413bf51161c700ea6adab9df55e427ec80f4e766[m[33m ([m[1;31morigin/feature-bao[m[33m, [m[1;32mfeature-bao[m[33m, [m[1;32mbao[m[33m)[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 21 00:11:37 2025 +0700
+
+    comment giai thich code
+
+[33mcommit 8fa1580d07184a7ffb04781c07ddb7c094e2462d[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sat Sep 20 22:42:53 2025 +0700
+
+    delete pygame_input
+
+[33mcommit bc7c193c63846b6779ddd303336891efc3c5ba9d[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sat Sep 20 22:41:47 2025 +0700
+
+    edit gitignore
+
+[33mcommit 60795f1d38e21074ecd9484751c68628a22d0f67[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sat Sep 20 22:40:49 2025 +0700
+
+    add git ignore and remove fiel cache
+
+[33mcommit f1d7f8bb116293bc2ca98d6c95cf4d7767b38b43[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sat Sep 20 22:40:30 2025 +0700
+
+    add gitignore and remove file cache
+
+[33mcommit 6d3e0d74b0d389ab0176927fdc941fbc9855093b[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sat Sep 20 22:32:46 2025 +0700
+
+    ui ai mode
+
+[33mcommit 2c6bf78713284d58a0ca9e2c6a15e5565301bc4c[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sat Sep 20 22:31:38 2025 +0700
+
+    delete alll
+
+[33mcommit b08b4dc72f4f4d56530c50af6e7f4c5323a5b1cc[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Sep 19 15:40:31 2025 +0700
+
+    Delete choigame.py
+
+[33mcommit e4d80a209302a5a112917f017d3edd2697ccdb04[m[33m ([m[1;32mbackup-aaaa[m[33m)[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Sep 19 15:38:53 2025 +0700
+
+    aaaa
+
+[33mcommit c313075f891d164bd2918aa2bf73d234d85821a1[m
+Merge: 61327e7 5a65b4b
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Sep 19 15:36:16 2025 +0700
+
+    Merge branch 'feature-bao' of https://github.com/nvbao117/GamePacman into feature-bao
+
+[33mcommit 61327e72a3e0b033fcd85cf0e2f5b9454aa4a81f[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Sep 19 15:34:05 2025 +0700
+
+    pushcode
+
+[33mcommit 3eed4bdfa13ddad6e46a0d27c5e3fc6a8ebbc83f[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Sep 19 14:02:52 2025 +0700
+
+    merge
+
+[33mcommit ee4cc6732b29984cd970e6f68f60743f972ec11e[m
+Merge: b29d3a5 8e7f61c
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Sep 19 14:02:41 2025 +0700
+
+    Merge remote-tracking branch 'origin' into feature-bao
+
+[33mcommit 5a65b4b191c644699958cc6902ce577c014cf947[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Sep 19 13:42:11 2025 +0700
+
+    aaa
+
+[33mcommit 8e7f61cb9588436dee4337717addcb3c9dff26af[m[33m ([m[1;31morigin/pq-ui[m[33m, [m[1;32mpquan[m[33m, [m[1;32mpq-ui[m[33m)[m
+Author: phucquan <quan610ll@gmail.com>
+Date:   Fri Sep 19 13:37:22 2025 +0700
+
+    updatecode
+
+[33mcommit b29d3a5f435579719af9a72deed49bb5baac0a54[m
+Merge: 64069db f89f360
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Fri Sep 19 09:38:41 2025 +0700
+
+    add 4alg
+
+[33mcommit 64069dbce71e2b9b5a477b29c615b54dc119cf0d[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Mon Sep 15 22:10:19 2025 +0700
+
+    Bỏ theo dõi các file bytecode .pyc
+
+[33mcommit f89f360d4b72789e014f719640006aa2bd0a1d90[m
+Author: phucquan <quan610ll@gmail.com>
+Date:   Mon Sep 15 22:02:12 2025 +0700
+
+    cap nhat code
+
+[33mcommit 310098f1d384409afeaf2ddc63404210f453d726[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Mon Sep 15 19:18:28 2025 +0700
+
+    merge
+
+[33mcommit 0756cdfe5daec779b536d2439415084a39a4b460[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Mon Sep 15 18:44:02 2025 +0700
+
+    fix main
+
+[33mcommit 91839428c27430c5b826f96f5b2a47f7c290bf76[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Mon Sep 15 18:33:52 2025 +0700
+
+    ok
+
+[33mcommit 546f10f23d6d02d6ff2254ac932c8d9fcb3e8aa6[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 14 12:07:08 2025 +0700
+
+    add ai
+
+[33mcommit 2a0cccbc9ec95109be40cafcec899df8b8c578fc[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 14 10:42:03 2025 +0700
+
+    init game
+
+[33mcommit 875c5803cbb7c5ff265e4f77fc6d1ce8e9010383[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 14 10:00:41 2025 +0700
+
+    test
+
+[33mcommit be665a6d91072fc604bc529184601c8165a10f58[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 14 09:40:42 2025 +0700
+
+    add file
+
+[33mcommit b7210df62b33aea368f1baf646e0d94f7b3c53fb[m
+Author: nvbao117 <baocute056@gmail.com>
+Date:   Sun Sep 14 09:26:59 2025 +0700
+
+    Initial commit

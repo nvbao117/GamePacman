@@ -134,20 +134,19 @@ def dfs_find_nearest_pellet(start_node, pellet_nodes):
 # =============================================================================
 # A*
 # =============================================================================
-def astar(startNode, pellet_group, heuristic_func=None):
-    """
-    Thuật toán A* (A-star) để tìm đường đi qua tất cả các pellet, 
-    sử dụng heuristic để chọn pellet tiếp theo cần đến.
-    heuristic_func: hàm heuristic nhận vào 2 node, trả về giá trị ước lượng chi phí.
-    Nếu không truyền heuristic_func, mặc định dùng manhattan_distance.
-    Trả về đường đi (list các node) ghé qua tất cả pellet.
-    """
+def astar(startNode, pellet_group, ghost_group=None, heuristic_func=None, ghost_avoid_dist=2):
     if not pellet_group or not pellet_group.pelletList:
         return None
 
     pellet_nodes = get_visible_pellet_nodes(pellet_group)
     if not pellet_nodes:
         return None
+
+    ghost_nodes = set()
+    if ghost_group is not None and hasattr(ghost_group, 'ghosts'):
+        for ghost in ghost_group.ghosts:
+            if hasattr(ghost, 'node') and getattr(ghost, 'visible', True):
+                ghost_nodes.add(ghost.node)
 
     remaining_pellets = set(pellet_nodes)
     path = []
@@ -157,16 +156,13 @@ def astar(startNode, pellet_group, heuristic_func=None):
         path.append(current_node)
 
     while remaining_pellets:
-        # Sử dụng heuristic để chọn pellet gần nhất (theo heuristic_func)
         if heuristic_func is not None:
             next_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
         else:
             next_pellet = min(remaining_pellets, key=lambda p: heuristic_manhattan(current_node, p))
-        # Tìm đường đi ngắn nhất từ current_node đến next_pellet bằng A*
-        sub_path = astar_single(current_node, next_pellet, heuristic_func)
+        sub_path = astar_single(current_node, next_pellet, ghost_nodes, heuristic_func, ghost_avoid_dist)
         if sub_path is None:
             break
-        # Nối đường đi vào path (tránh lặp node)
         if path and sub_path[0] == path[-1]:
             path.extend(sub_path[1:])
         else:
@@ -176,7 +172,7 @@ def astar(startNode, pellet_group, heuristic_func=None):
 
     return path if path else None
 
-def astar_single(start, goal, heuristic_func=None):
+def astar_single(start, goal, ghost_nodes=None, heuristic_func=None, ghost_avoid_dist=2):
     from queue import PriorityQueue
 
     if start == goal:
@@ -186,6 +182,24 @@ def astar_single(start, goal, heuristic_func=None):
     open_set.put((0, start))
     came_from = {start: None}
     g_score = {start: 0}
+
+    # Để né ghost: tạo set các node nguy hiểm (gần ghost trong ghost_avoid_dist)
+    danger_nodes = set()
+    if ghost_nodes:
+        for ghost_node in ghost_nodes:
+            # BFS nhỏ để lấy các node trong bán kính ghost_avoid_dist quanh ghost
+            queue = [(ghost_node, 0)]
+            visited = set([ghost_node])
+            while queue:
+                node, dist = queue.pop(0)
+                if dist > ghost_avoid_dist:
+                    continue
+                danger_nodes.add(node)
+                for direction in get_all_directions():
+                    neighbor = node.neighbors.get(direction)
+                    if neighbor and neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append((neighbor, dist + 1))
 
     while not open_set.empty():
         _, current = open_set.get()
@@ -200,6 +214,9 @@ def astar_single(start, goal, heuristic_func=None):
         for direction in get_all_directions():
             neighbor = current.neighbors.get(direction)
             if neighbor and can_move_to(current, direction):
+                # Né ghost: bỏ qua node nguy hiểm (trừ khi là goal)
+                if neighbor in danger_nodes and neighbor != goal:
+                    continue
                 tentative_g = g_score[current] + 1
                 if neighbor not in g_score or tentative_g < g_score[neighbor]:
                     g_score[neighbor] = tentative_g
@@ -207,6 +224,11 @@ def astar_single(start, goal, heuristic_func=None):
                         h = heuristic_func(neighbor, goal)
                     else:
                         h = heuristic_manhattan(neighbor, goal)
+                    # Có thể cộng thêm penalty nếu neighbor gần ghost (tăng heuristic)
+                    if ghost_nodes:
+                        min_ghost_dist = min(heuristic_manhattan(neighbor, g) for g in ghost_nodes)
+                        if min_ghost_dist <= ghost_avoid_dist:
+                            h += 100 * (ghost_avoid_dist + 1 - min_ghost_dist)  # penalty mạnh khi gần ghost
                     f = tentative_g + h
                     open_set.put((f, neighbor))
                     came_from[neighbor] = current

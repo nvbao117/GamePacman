@@ -310,48 +310,91 @@ class Game(object):
         if algo == 'DFS':
             self.pacman.pathfinder_name = 'DFS'
             self.pacman.pathfinder = dfs
+            # Tắt hybrid AI cho DFS
+            self.pacman.use_hybrid_ai = False
         elif algo == 'IDS':
             self.pacman.pathfinder_name = 'IDS'     
             self.pacman.pathfinder = ids
+            # Tắt hybrid AI cho IDS
+            self.pacman.use_hybrid_ai = False
         elif algo == 'UCS':
             self.pacman.pathfinder_name = 'UCS'
             self.pacman.pathfinder = ucs
+            # Tắt hybrid AI cho UCS
+            self.pacman.use_hybrid_ai = False
         elif algo == 'A*':
             self.pacman.pathfinder_name = 'A*'
             self.pacman.pathfinder = astar
+            # Tắt hybrid AI cho A*
+            self.pacman.use_hybrid_ai = False
+        elif algo == 'A* Online':
+            self.pacman.pathfinder_name = 'A* Online'
+            self.pacman.pathfinder = None
+            # Bật hybrid AI cho A* Online
+            self.pacman.use_hybrid_ai = True
         elif algo == 'GREEDY':
             self.pacman.pathfinder_name = 'GREEDY'
             self.pacman.pathfinder = greedy
+            # Tắt hybrid AI cho GREEDY
+            self.pacman.use_hybrid_ai = False
         elif algo == 'BFS':  # BFS (mặc định)
             self.pacman.pathfinder_name = 'BFS'
             self.pacman.pathfinder = bfs
+            # Tắt hybrid AI cho BFS
+            self.pacman.use_hybrid_ai = False
 
-        self.nodes = NodeGroup("assets/maze/maze1.txt")
-        self.nodes.setPortalPair((0,17),(27,17))
-        homekey = self.nodes.createHomeNodes(11.5,14)
-        self.nodes.connectHomeNodes(homekey,(12,14),LEFT)
-        self.nodes.connectHomeNodes(homekey,(15,14),RIGHT)
-        self.pacman = Pacman(self.nodes.getNodeFromTiles(15,26))
+        # Sử dụng maze data đã load cho level hiện tại
+        maze_file = "assets/maze/"+self.mazedata.obj.name+".txt"
+        
+        # Tạo pellets dựa trên maze của level hiện tại
         few_pellets_mode = getattr(self, 'few_pellets_mode', False)
         few_pellets_count = getattr(self, 'few_pellets_count', 20)
-        self.pellets = PelletGroup("assets/maze/maze1.txt", self.nodes, few_pellets_mode, few_pellets_count)
-        self.ghosts = GhostGroup(self.nodes.getStartTempNode(),self.pacman)
-        self.ghosts.blinky.setStartNode(self.nodes.getNodeFromTiles(2+11.5, 0+14))
-        self.ghosts.pinky.setStartNode(self.nodes.getNodeFromTiles(2+11.5, 3+14))
-        self.ghosts.inky.setStartNode(self.nodes.getNodeFromTiles(0+11.5, 3+14))
-        self.ghosts.clyde.setStartNode(self.nodes.getNodeFromTiles(4+11.5, 3+14))
-        self.ghosts.setSpawnNode(self.nodes.getNodeFromTiles(2+11.5, 3+14))
+        self.pellets = PelletGroup(maze_file, self.nodes, few_pellets_mode, few_pellets_count)
+        
+        # Tạo ghosts với vị trí bắt đầu từ maze data
+        self.ghosts = GhostGroup(self.nodes.getStartTempNode(), self.pacman)
+        
+        # Thiết lập vị trí bắt đầu cho từng ghost dựa trên maze data
+        if hasattr(self.mazedata.obj, 'ghostStart'):
+            ghost_starts = self.mazedata.obj.ghostStart
+            if len(ghost_starts) >= 4:
+                self.ghosts.blinky.setStartNode(self.nodes.getNodeFromTiles(*ghost_starts[0]))
+                self.ghosts.pinky.setStartNode(self.nodes.getNodeFromTiles(*ghost_starts[1]))
+                self.ghosts.inky.setStartNode(self.nodes.getNodeFromTiles(*ghost_starts[2]))
+                self.ghosts.clyde.setStartNode(self.nodes.getNodeFromTiles(*ghost_starts[3]))
+        else:
+            # Fallback cho maze cũ không có ghostStart
+            self.ghosts.blinky.setStartNode(self.nodes.getNodeFromTiles(2+11.5, 0+14))
+            self.ghosts.pinky.setStartNode(self.nodes.getNodeFromTiles(2+11.5, 3+14))
+            self.ghosts.inky.setStartNode(self.nodes.getNodeFromTiles(0+11.5, 3+14))
+            self.ghosts.clyde.setStartNode(self.nodes.getNodeFromTiles(4+11.5, 3+14))
+        
+        # Thiết lập spawn node
+        if hasattr(self.mazedata.obj, 'ghostSpawn'):
+            self.ghosts.setSpawnNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.ghostSpawn))
+        else:
+            self.ghosts.setSpawnNode(self.nodes.getNodeFromTiles(2+11.5, 3+14))
     
+        # Thiết lập access rules dựa trên maze data
         self.nodes.denyHomeAccess(self.pacman)
         self.nodes.denyHomeAccessList(self.ghosts)
-        self.nodes.denyAccessList(2+11.5, 3+14, LEFT, self.ghosts)
-        self.nodes.denyAccessList(2+11.5, 3+14, RIGHT, self.ghosts)
-        self.ghosts.inky.startNode.denyAccess(RIGHT, self.ghosts.inky)
-        self.ghosts.clyde.startNode.denyAccess(LEFT, self.ghosts.clyde)
-        self.nodes.denyAccessList(12, 14, UP, self.ghosts)
-        self.nodes.denyAccessList(15, 14, UP, self.ghosts)
-        self.nodes.denyAccessList(12, 26, UP, self.ghosts)
-        self.nodes.denyAccessList(15, 26, UP, self.ghosts)
+        
+        # Sử dụng access rules từ maze data nếu có
+        if hasattr(self.mazedata.obj, 'accessRules'):
+            for rule in self.mazedata.obj.accessRules:
+                if len(rule) >= 3:
+                    x, y, direction, target = rule[0], rule[1], rule[2], rule[3] if len(rule) > 3 else self.ghosts
+                    self.nodes.denyAccessList(x, y, direction, target)
+        else:
+            # Fallback cho maze cũ
+            self.nodes.denyAccessList(2+11.5, 3+14, LEFT, self.ghosts)
+            self.nodes.denyAccessList(2+11.5, 3+14, RIGHT, self.ghosts)
+            self.ghosts.inky.startNode.denyAccess(RIGHT, self.ghosts.inky)
+            self.ghosts.clyde.startNode.denyAccess(LEFT, self.ghosts.clyde)
+            self.nodes.denyAccessList(12, 14, UP, self.ghosts)
+            self.nodes.denyAccessList(15, 14, UP, self.ghosts)
+            self.nodes.denyAccessList(12, 26, UP, self.ghosts)
+            self.nodes.denyAccessList(15, 26, UP, self.ghosts)
     
     def update(self) : 
         dt = self.clock.tick(60) / 1000.0
@@ -509,25 +552,45 @@ class Game(object):
         self.showEntities()
         self.level += 1 
         self.pause.paused = True
+        
+        # Reset fruit khi chuyển level
+        self.fruit = None
+        
+        # Khởi tạo lại game với level mới
         self.startGame()
+        
+        # Cập nhật UI
         self.textgroup.updateLevel(self.level)
         compute_once.curent_level = self.level
         self.reset_steps()
+        
+        # Reset pellet count để đảm bảo đếm đúng
+        if hasattr(self, 'pellets'):
+            self.pellets.numEaten = 0
 
     def restartGame(self):
         self.lives = 5 
         self.level = 0 
         self.pause.paused = True
         self.fruit = None 
+        
+        # Khởi tạo lại game từ level 0
         self.startGame()
+        
+        # Reset tất cả thông tin game
         self.score = 0  
         self.textgroup.updateScore(self.score)
         self.textgroup.updateLevel(self.level)
         self.textgroup.showText(READYTXT)
         self.lifesprites.resetLives(self.lives)
         self.fruitCaptured = []
+        
         # Reset timer khi restart game hoàn toàn
         self.reset_timer()
+        
+        # Reset pellet count
+        if hasattr(self, 'pellets'):
+            self.pellets.numEaten = 0
         
         # Bắt đầu game mới trong analytics
         
@@ -538,6 +601,10 @@ class Game(object):
             self.ghosts.reset()
         self.fruit = None
         self.textgroup.showText(READYTXT)
+        
+        # Reset pellet count khi reset level
+        if hasattr(self, 'pellets'):
+            self.pellets.numEaten = 0
         # Không reset timer khi Pacman chết nhưng còn mạng
         
     def updateScore(self,points) : 
@@ -666,18 +733,28 @@ class Game(object):
             if algorithm == 'DFS':
                 self.pacman.pathfinder_name = 'DFS'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(dfs )
+                # Tắt hybrid AI cho DFS
+                self.pacman.use_hybrid_ai = False
             elif algorithm == 'IDS':
                 self.pacman.pathfinder_name = 'IDS'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(ids )
+                # Tắt hybrid AI cho IDS
+                self.pacman.use_hybrid_ai = False
             elif algorithm == 'UCS':
                 self.pacman.pathfinder_name = 'UCS'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(ucs )
+                # Tắt hybrid AI cho UCS
+                self.pacman.use_hybrid_ai = False
             elif algorithm == 'A*':
                 self.pacman.pathfinder_name = 'A*'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)
+                # Tắt hybrid AI cho A*
+                self.pacman.use_hybrid_ai = False
             elif algorithm == 'GREEDY':
                 self.pacman.pathfinder_name = 'GREEDY'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(greedy)
+                # Tắt hybrid AI cho GREEDY
+                self.pacman.use_hybrid_ai = False
             elif algorithm == 'Hill Climbing':
                 self.pacman.pathfinder_name = 'Hill Climbing'
                 self.pacman.pathfinder = None
@@ -690,12 +767,18 @@ class Game(object):
             elif algorithm == 'Minimax':
                 self.pacman.pathfinder_name = 'Minimax'
                 self.pacman.pathfinder = None
+                # Bật hybrid AI cho Minimax
+                self.pacman.use_hybrid_ai = True
             elif algorithm == 'Alpha-Beta':
                 self.pacman.pathfinder_name = 'Alpha-Beta'
                 self.pacman.pathfinder = None
+                # Bật hybrid AI cho Alpha-Beta
+                self.pacman.use_hybrid_ai = True
             elif algorithm == 'A* Online':
                 self.pacman.pathfinder_name = 'A* Online'
                 self.pacman.pathfinder = None
+                # Bật hybrid AI cho A* Online
+                self.pacman.use_hybrid_ai = True
             elif algorithm == 'Q-Learning':
                 self.pacman.pathfinder_name = 'Q-Learning'
                 self.pacman.pathfinder = None
@@ -703,6 +786,8 @@ class Game(object):
             else:  # BFS (mặc định)
                 self.pacman.pathfinder_name = 'BFS'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(bfs )
+                # Tắt hybrid AI cho BFS
+                self.pacman.use_hybrid_ai = False
 
             if hasattr(self.pacman, 'set_q_learning'):
                 self.pacman.set_q_learning(q_enabled)
