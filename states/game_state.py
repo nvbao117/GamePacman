@@ -265,25 +265,15 @@ class GameState(State):
         pacman = self.game.pacman
         
         if new_ai_mode == "ONLINE":
-            # Bật hybrid AI và set mode ONLINE
-            if hasattr(pacman, 'enable_hybrid_ai'):
-                pacman.enable_hybrid_ai()
-            if hasattr(pacman, 'hybrid_ai'):
-                pacman.hybrid_ai.set_mode("ONLINE")
-            # ONLINE mode: Bật ghost để test real-time decision making
+            pacman.enable_hybrid_ai()
             self.layout.ghost_mode = True
             self.game.set_ghost_mode(True)
-            # Cập nhật ghost mode selector UI
             if hasattr(self.layout, 'ghost_mode_selectbox'):
                 self.layout.ghost_mode_selectbox.selected_option = 0  # Ghost ON
             
         elif new_ai_mode == "OFFLINE":
             # Bật hybrid AI và set mode OFFLINE
-            if hasattr(pacman, 'enable_hybrid_ai'):
-                pacman.enable_hybrid_ai()
-            if hasattr(pacman, 'hybrid_ai'):
-                pacman.hybrid_ai.set_mode("OFFLINE")
-            # OFFLINE mode: Tắt ghost để tập trung vào pathfinding
+            pacman.disable_hybrid_ai()
             self.layout.ghost_mode = False
             self.game.set_ghost_mode(False)
             # Cập nhật ghost mode selector UI

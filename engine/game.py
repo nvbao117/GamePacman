@@ -291,44 +291,7 @@ class Game(object):
         if not self.analytics_started:
             self.analytics_started = True
         
-        # Khởi tạo Hybrid AI Display
-        
-        # Thiết lập thuật toán AI cho Pac-Man - sử dụng algorithms_practical
-        from engine.algorithms_practical import (
-            bfs, dfs, astar, ucs, ids, greedy
-        )
-        
-        algo = self.algorithm
-        if algo == 'DFS':
-            self.pacman.pathfinder_name = 'DFS'
-            self.pacman.pathfinder = dfs
-            self.pacman.use_hybrid_ai = False
-        elif algo == 'IDS':
-            self.pacman.pathfinder_name = 'IDS'     
-            self.pacman.pathfinder = ids
-            self.pacman.use_hybrid_ai = False
-        elif algo == 'UCS':
-            self.pacman.pathfinder_name = 'UCS'
-            self.pacman.pathfinder = ucs
-            self.pacman.use_hybrid_ai = False
-        elif algo == 'A*':
-            self.pacman.pathfinder_name = 'A*'
-            self.pacman.pathfinder = astar
-            self.pacman.use_hybrid_ai = False
-        elif algo == 'A* Online':
-            self.pacman.pathfinder_name = 'A* Online'
-            self.pacman.pathfinder = None
-            self.pacman.use_hybrid_ai = True
-        elif algo == 'GREEDY':
-            self.pacman.pathfinder_name = 'GREEDY'
-            self.pacman.pathfinder = greedy
-            self.pacman.use_hybrid_ai = False
-        elif algo == 'BFS':  # BFS (mặc định)
-            self.pacman.pathfinder_name = 'BFS'
-            self.pacman.pathfinder = bfs
-            self.pacman.use_hybrid_ai = False
 
-        # Sử dụng maze data đã load cho level hiện tại
         maze_file = "assets/maze/"+self.mazedata.obj.name+".txt"
         
         # Tạo pellets dựa trên maze của level hiện tại
@@ -716,67 +679,39 @@ class Game(object):
                 bfs , dfs , astar , ucs , 
                 ids , greedy , heuristic_manhattan, heuristic_euclidean
             )       
-            q_enabled = False
             if algorithm == 'DFS':
                 self.pacman.pathfinder_name = 'DFS'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(dfs )
-                # Tắt hybrid AI cho DFS
-                self.pacman.use_hybrid_ai = False
             elif algorithm == 'IDS':
                 self.pacman.pathfinder_name = 'IDS'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(ids )
-                # Tắt hybrid AI cho IDS
-                self.pacman.use_hybrid_ai = False
             elif algorithm == 'UCS':
                 self.pacman.pathfinder_name = 'UCS'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(ucs )
-                # Tắt hybrid AI cho UCS
-                self.pacman.use_hybrid_ai = False
             elif algorithm == 'A*':
                 self.pacman.pathfinder_name = 'A*'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)
-                # Tắt hybrid AI cho A*
-                self.pacman.use_hybrid_ai = False
             elif algorithm == 'GREEDY':
                 self.pacman.pathfinder_name = 'GREEDY'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(greedy)
-                # Tắt hybrid AI cho GREEDY
-                self.pacman.use_hybrid_ai = False
             elif algorithm == 'Hill Climbing':
                 self.pacman.pathfinder_name = 'Hill Climbing'
-                self.pacman.pathfinder = None
             elif algorithm == 'Genetic Algorithm':
                 self.pacman.pathfinder_name = 'Genetic Algorithm'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dạng A* cho GA
             elif algorithm == 'Minimax':
                 self.pacman.pathfinder_name = 'Minimax'
                 self.pacman.pathfinder = None
-                # Bật hybrid AI cho Minimax
-                self.pacman.use_hybrid_ai = True
             elif algorithm == 'Alpha-Beta':
                 self.pacman.pathfinder_name = 'Alpha-Beta'
                 self.pacman.pathfinder = None
-                # Bật hybrid AI cho Alpha-Beta
-                self.pacman.use_hybrid_ai = True
             elif algorithm == 'A* Online':
                 self.pacman.pathfinder_name = 'A* Online'
                 self.pacman.pathfinder = None
-                # Bật hybrid AI cho A* Online
-                self.pacman.use_hybrid_ai = True
-            elif algorithm == 'Q-Learning':
-                self.pacman.pathfinder_name = 'Q-Learning'
-                self.pacman.pathfinder = None
-                q_enabled = True
-            else:  # BFS (mặc định)
+            elif algorithm == 'BFS':  
                 self.pacman.pathfinder_name = 'BFS'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(bfs )
-                # Tắt hybrid AI cho BFS
-                self.pacman.use_hybrid_ai = False
 
-            if hasattr(self.pacman, 'set_q_learning'):
-                self.pacman.set_q_learning(q_enabled)
-
-            # Reset path khi thay đổi thuật toán
             self.pacman.path = []
             self.pacman.locked_target_node = None
             self.pacman.previous_node = None
