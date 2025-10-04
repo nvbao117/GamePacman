@@ -44,10 +44,9 @@ class MainMode(object):
     def chase(self):
         """
         Chuyển sang chế độ Chase (ghost đuổi theo Pac-Man)
-        - Thời gian: 20 giây
         """
         self.mode = CHASE
-        self.time = 15
+        self.time = 10
         self.timer = 0 
     
 class ModeController(object):

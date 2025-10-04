@@ -73,11 +73,9 @@ class MenuState(State):
                          onclick=[self.show_game_modes], primary=True),
             PacManButton(self.app, pos=(center_x, start_y + button_spacing), text="📊 HIGH SCORES", 
                          onclick=[self.show_scores]),
-            PacManButton(self.app, pos=(center_x, start_y + button_spacing * 2), text="🔧 SETTINGS", 
-                         onclick=[self.show_settings]),
-            PacManButton(self.app, pos=(center_x, start_y + button_spacing * 3), text="ℹ️ STATES", 
+            PacManButton(self.app, pos=(center_x, start_y + button_spacing * 2), text="ℹ️ STATES", 
                          onclick=[self.show_states]),
-            PacManButton(self.app, pos=(center_x, start_y + button_spacing * 4), text="X EXIT", 
+            PacManButton(self.app, pos=(center_x, start_y + button_spacing * 3), text="X EXIT", 
                          onclick=[self.quit]),
         ]
 
@@ -144,6 +142,7 @@ class MenuState(State):
         from states.game_state import GameState
         game_state = GameState(self.app, self.machine)
         game_state.game.set_ai_mode(False)
+        game_state.game.set_ghost_mode(True)
         self.replace_state(game_state)
 
     def start_comparison_game(self):
@@ -174,11 +173,6 @@ class MenuState(State):
         self.current_button_index = 0
         self._last_button_index = -1  # Reset để không phát hover sound
         self._update_scene_focus()
-
-    def show_settings(self):
-        """Hiển thị setting modal"""
-        self.app.sound_system.play_sound('button_click')
-        self.app.setting_modal.show()
     
     def back_to_home(self):
         self.app.sound_system.play_sound('button_click')
@@ -207,6 +201,59 @@ class MenuState(State):
         for comp in self.UIComponents[self.scene]:
             if hasattr(comp, 'render'):
                 comp.render()  
+        
+        # Vẽ banner sinh viên
+        self._draw_student_banner(screen)
+        
+    def _draw_student_banner(self, screen):
+        """Vẽ banner thông tin sinh viên ở góc trái màn hình"""
+        # Font cho banner - sử dụng Times New Roman hoặc font hệ thống
+        try:
+            font = pygame.font.SysFont("Times New Roman", 18, bold=True)
+        except:
+            try:
+                font = pygame.font.SysFont("Arial", 18, bold=True)
+            except:
+                try:
+                    font = pygame.font.SysFont("Calibri", 18, bold=True)
+                except:
+                    try:
+                        font = pygame.font.SysFont("Tahoma", 18, bold=True)
+                    except:
+                        # Fallback cuối cùng - font mặc định với kích thước lớn
+                        font = pygame.font.Font(None, 20)
+        
+        # Màu sắc - tất cả màu trắng
+        name_color = (255, 255, 255)    # Trắng
+        mssv_color = (255, 255, 255)    # Trắng
+        border_color = (150, 150, 150)  # Xám sáng hơn
+        
+        # Vị trí góc trái
+        start_x = 10
+        start_y = 10
+        
+        # Thông tin sinh viên
+        student1_name = "Nguyễn Vũ Bảo"
+        student1_mssv = "MSSV: 23110079"
+        student2_name = "Trần Hoàng Phúc Quân"
+        student2_mssv = "MSSV: 23110146"
+        
+        # Vẽ background cho banner
+        banner_rect = pygame.Rect(start_x - 5, start_y - 5, 250, 95)
+        pygame.draw.rect(screen, (0, 0, 0, 180), banner_rect)  # Nền đen trong suốt
+        pygame.draw.rect(screen, border_color, banner_rect, 2)  # Viền
+        
+        # Vẽ text
+        texts = [
+            (student1_name, name_color, start_x, start_y),
+            (student1_mssv, mssv_color, start_x, start_y + 20),
+            (student2_name, name_color, start_x, start_y + 50),
+            (student2_mssv, mssv_color, start_x, start_y + 70)
+        ]
+        
+        for text, color, x, y in texts:
+            text_surface = font.render(text, True, color)
+            screen.blit(text_surface, (x, y))
         
     def _draw_pac_dots(self, screen):
         dot_colors = [DOT_WHITE, PAC_YELLOW, GHOST_PINK, GHOST_RED]

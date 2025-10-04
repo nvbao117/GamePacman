@@ -35,9 +35,9 @@ class Entity(object):
         }
         
         self.direction = STOP        # Hướng di chuyển hiện tại
-        self.setSpeed(100)          # Tốc độ di chuyển (pixel/second)
+        self.setSpeed(80)           # Tốc độ di chuyển (pixel/second) - giảm từ 100 xuống 80
         self.radius = 10            # Bán kính vẽ entity
-        self.collideRadius = 5      # Bán kính collision detection
+        self.collideRadius = 10      # Bán kính collision detection
         self.color = WHITE          # Màu vẽ entity
         self.visible = True         # Có hiển thị entity không
         self.disablePortal = False  # Có sử dụng portal không
@@ -107,7 +107,6 @@ class Entity(object):
             vec1 = self.target.position - self.node.position 
             vec2 = self.position - self.node.position 
             
-            # So sánh độ dài (dùng magnitudeSquared để tránh sqrt)
             node2Target = vec1.magnitudeSquared()
             node2Self = vec2.magnitudeSquared()
             return node2Self >= node2Target
@@ -204,7 +203,7 @@ class Entity(object):
         """
         self.setStartNode(self.startNode)
         self.direction = STOP
-        self.speed = 100 
+        self.speed = 80  # Giảm từ 100 xuống 80 
         self.visible = True 
     
     def setSpeed(self, speed):

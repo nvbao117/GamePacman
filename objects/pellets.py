@@ -11,7 +11,7 @@ class Pellet(object):
         self.node = node 
         self.color = WHITE
         self.radius = int(2*TILEWIDTH/16)
-        self.collideRadius = 2* TILEHEIGHT/16
+        self.collideRadius = 4
         self.points = 10 
         self.visible = True 
         
@@ -32,10 +32,11 @@ class PowerPellet(Pellet):
         self.timer = 0
         
     def update(self, dt):
-        self.timer += dt
-        if self.timer >= self.flashTime:
-            self.visible = not self.visible
-            self.timer = 0
+        pass
+        # self.timer += dt
+        # if self.timer >= self.flashTime:
+        #     self.visible = not self.visible
+        #     self.timer = 0
             
 class PelletGroup(object):
     def __init__(self, pelletfile, nodes: NodeGroup, few_pellets_mode=False, few_pellets_count=20):
@@ -44,6 +45,7 @@ class PelletGroup(object):
         self.numEaten = 0
         self.few_pellets_mode = few_pellets_mode
         self.few_pellets_count = few_pellets_count
+        self.total_pellets = 0
         self.createPelletList(pelletfile, nodes)
     
     def update(self, dt):
@@ -83,6 +85,9 @@ class PelletGroup(object):
             self.pelletList = selected_regular
         else:
             self.pelletList = all_pellets
+        
+        self.total_pellets = len(self.pelletList)
+        
     def readPelletfile(self, textfile):
         return np.loadtxt(textfile, dtype='<U1')
     

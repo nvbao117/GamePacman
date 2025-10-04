@@ -268,13 +268,6 @@ class Game(object):
         self.startGame()
     
     def startGame(self):
-        """
-        Khởi tạo và bắt đầu game mới
-        - Load maze data cho level hiện tại
-        - Tạo tất cả objects (Pac-Man, ghosts, pellets, nodes)
-        - Thiết lập thuật toán AI cho Pac-Man
-        - Cấu hình vị trí bắt đầu và access rules
-        """
         self.mazedata.loadMaze(self.level)
         
         # Tạo maze sprites
@@ -297,7 +290,6 @@ class Game(object):
         # Bắt đầu analytics nếu chưa bắt đầu
         if not self.analytics_started:
             self.analytics_started = True
-            print(f"GAME: Bat dau analytics cho thuat toan: {self.algorithm}")
         
         # Khởi tạo Hybrid AI Display
         
@@ -310,37 +302,30 @@ class Game(object):
         if algo == 'DFS':
             self.pacman.pathfinder_name = 'DFS'
             self.pacman.pathfinder = dfs
-            # Tắt hybrid AI cho DFS
             self.pacman.use_hybrid_ai = False
         elif algo == 'IDS':
             self.pacman.pathfinder_name = 'IDS'     
             self.pacman.pathfinder = ids
-            # Tắt hybrid AI cho IDS
             self.pacman.use_hybrid_ai = False
         elif algo == 'UCS':
             self.pacman.pathfinder_name = 'UCS'
             self.pacman.pathfinder = ucs
-            # Tắt hybrid AI cho UCS
             self.pacman.use_hybrid_ai = False
         elif algo == 'A*':
             self.pacman.pathfinder_name = 'A*'
             self.pacman.pathfinder = astar
-            # Tắt hybrid AI cho A*
             self.pacman.use_hybrid_ai = False
         elif algo == 'A* Online':
             self.pacman.pathfinder_name = 'A* Online'
             self.pacman.pathfinder = None
-            # Bật hybrid AI cho A* Online
             self.pacman.use_hybrid_ai = True
         elif algo == 'GREEDY':
             self.pacman.pathfinder_name = 'GREEDY'
             self.pacman.pathfinder = greedy
-            # Tắt hybrid AI cho GREEDY
             self.pacman.use_hybrid_ai = False
         elif algo == 'BFS':  # BFS (mặc định)
             self.pacman.pathfinder_name = 'BFS'
             self.pacman.pathfinder = bfs
-            # Tắt hybrid AI cho BFS
             self.pacman.use_hybrid_ai = False
 
         # Sử dụng maze data đã load cho level hiện tại
@@ -416,12 +401,14 @@ class Game(object):
                 self._track_step()
                 if hasattr(self, 'ai_mode') and self.ai_mode:
                     ghost_group = self.ghosts if self.ghost_mode else None
-                    self.pacman.update_ai(dt, self.pellets, True, ghostGroup=ghost_group)
+                    self.pacman.update_ai(dt, self.pellets, True, ghostGroup=ghost_group, fruit=self.fruit)
                 else:
-                    self.pacman.update(dt)  # Player mode
+                    self.pacman.update(dt)
+            self.pacman.score = self.score
         else:
             self.pacman.update(dt)
-        
+            self.pacman.score = self.score
+
         if self.flashBG:
             self.flashTimer += dt
             if self.flashTimer >= self.flashTime:
@@ -761,9 +748,6 @@ class Game(object):
             elif algorithm == 'Genetic Algorithm':
                 self.pacman.pathfinder_name = 'Genetic Algorithm'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dạng A* cho GA
-            elif algorithm == 'Simulated Annealing':
-                self.pacman.pathfinder_name = 'Simulated Annealing'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dạng A* cho SA
             elif algorithm == 'Minimax':
                 self.pacman.pathfinder_name = 'Minimax'
                 self.pacman.pathfinder = None

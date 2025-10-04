@@ -359,6 +359,28 @@ class SettingModal:
             18,
             self.vsync
         )
+        
+        # FPS Limit slider
+        self.fps_slider = Slider(
+            self.dialog_x + 30,
+            checkbox_y + 80,
+            200,
+            30,
+            min_value=15,
+            max_value=120,
+            initial_value=self.app.config.get('fps_limit', 60)
+        )
+        
+        # FPS label
+        self.fps_label = NeonText(
+            self.app,
+            f"FPS Limit: {int(self.app.config.get('fps_limit', 60))}",
+            DOT_WHITE,
+            self.dialog_x + 250,
+            checkbox_y + 90,
+            14,
+            outline=True
+        )
     
     def _setup_gameplay_section(self):
         """Thiết lập phần Gameplay"""
@@ -600,6 +622,10 @@ class SettingModal:
         self.vsync = self.vsync_checkbox.is_checked()
         self.few_pellets_mode = self.few_pellets_checkbox.is_checked()
         self.few_pellets_count = int(self.few_pellets_slider.get_value())
+        
+        # FPS limit
+        fps_limit = int(self.fps_slider.get_value())
+        self.app.config.set('fps_limit', fps_limit)
         
         # Validate settings
         self._validate_settings()

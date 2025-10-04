@@ -23,23 +23,20 @@ class GameState(State):
         self.layout = GameLayout(app)
         self.game = Game(algorithm)  
         
-        # Khởi tạo game nếu có method initialize_game
         if hasattr(self.game, 'initialize_game'):
             self.game.initialize_game()
         
         self.score = getattr(self.game, 'score', 0)  
-        self.lives = getattr(self.game, 'lives', 5)  # Số mạng (bắt đầu với 5)
-        self.level = getattr(self.game, 'level', 0)  # Level hiện tại (bắt đầu với 0)
+        self.lives = getattr(self.game, 'lives', 4)     
+        self.level = getattr(self.game, 'level', 0)     
 
         self.layout.set_game_info(self.score, self.lives, self.level, self.algorithm)
         
-        self.game.set_ai_mode(True)  # Bắt đầu với AI mode
+        self.game.set_ai_mode(True)  
         
-        # Khởi tạo algorithm options dựa trên AI mode mặc định
         if hasattr(self.layout, 'ai_mode_selector') and self.layout.ai_mode_selector:
             default_ai_mode = self.layout.ai_mode_selector.get_current_mode()
             self.layout.update_algorithm_options_for_ai_mode(default_ai_mode)
-            # Set ghost mode dựa trên AI mode mặc định
             if default_ai_mode == "ONLINE":
                 self.layout.ghost_mode = True
                 self.game.set_ghost_mode(True)
@@ -47,7 +44,7 @@ class GameState(State):
                 self.layout.ghost_mode = False
                 self.game.set_ghost_mode(False)
         
-        # Load few pellets mode configuration
+            # Load few pellets mode configuration
         if hasattr(app, 'config'):
             few_pellets_mode = app.config.get('few_pellets_mode', False)
             few_pellets_count = app.config.get('few_pellets_count', 20)
@@ -150,33 +147,28 @@ class GameState(State):
             if hasattr(self.game, 'update'):
                 self.game.update()
             
-            # Cập nhật giá trị game từ game engine thực tế
             self.score = getattr(self.game, 'score', self.score)
             self.lives = getattr(self.game, 'lives', self.lives)
             self.level = getattr(self.game, 'level', self.level)
             
-            # Phát âm thanh khi score thay đổi (ăn pellet)
             if self.score > old_score:
                 score_diff = self.score - old_score
-                if score_diff == 10:  # Ăn pellet thường
+                if score_diff == 10:  
                     self.app.sound_system.play_sound('pellet')
-                elif score_diff == 50:  # Ăn power pellet
+                elif score_diff == 50:  
                     self.app.sound_system.play_sound('power_pellet')
-                elif score_diff >= 100:  # Ăn fruit
+                elif score_diff >= 100:
                     self.app.sound_system.play_sound('fruit')
             
-            # Kiểm tra game over hoặc level complete
             if hasattr(self.game, 'game_over') and self.game.game_over:
                 self.app.sound_system.play_sound('game_over')
                 self.app.sound_system.stop_music()
             elif hasattr(self.game, 'level_complete') and self.game.level_complete:
                 self.app.sound_system.play_sound('level_complete')
             
-            # Cập nhật layout với giá trị game hiện tại
             game_time = getattr(self.game, 'get_formatted_time', lambda: "00:00")()
             self.layout.set_game_info(self.score, self.lives, self.level, self.algorithm, self.layout.ghost_mode, game_time, self.game)
             
-            # Cập nhật step info liên tục
             if hasattr(self.game, 'get_step_info'):
                 self.layout.step_info = self.game.get_step_info()
         else:
@@ -191,16 +183,7 @@ class GameState(State):
             self.game_over()
     
     def handle_events(self, event):
-        """
-        Xử lý sự kiện input cho GameState
-        - Xử lý click play/pause button
-        - Xử lý thay đổi algorithm
-        - Xử lý keyboard shortcuts
-        - Chuyển tiếp events cho game engine
-        """
-        # Xử lý click play button trước
         if self.layout.handle_play_button_click(event):
-            # Trạng thái play đã thay đổi, cập nhật game pause state
             self.is_pause = not self.layout.is_playing
             if hasattr(self.game, 'pause'):
                 if self.layout.is_playing:
@@ -208,15 +191,12 @@ class GameState(State):
                 else:
                     self.game.pause.setPause(playerPaused=True)  
         
-        # Xử lý sự kiện selectbox (thay đổi algorithm, ghost mode, AI mode và few pellets)
         algorithm_changed, ghost_mode_changed, ai_mode_changed, few_pellets_changed, heuristic_changed = self.layout.handle_selectbox_event(event)
         
         if algorithm_changed:
-            # Phát âm thanh khi thay đổi algorithm
             self.app.sound_system.play_sound('button_click')
             # Algorithm đã thay đổi, cập nhật game
             self.algorithm = self.layout.algorithm
-            # Chỉ thay đổi algorithm, không tạo game mới
             self.game.set_algorithm(self.algorithm)
         
         if ghost_mode_changed:
@@ -224,7 +204,6 @@ class GameState(State):
             self.game.set_ghost_mode(self.layout.ghost_mode)
         
         if ai_mode_changed:
-            # Phát âm thanh khi thay đổi AI mode
             self.app.sound_system.play_sound('button_click')
             # AI mode đã thay đổi, cập nhật Pacman
             new_ai_mode = self.layout.ai_mode_selector.get_current_mode()
@@ -244,7 +223,6 @@ class GameState(State):
             self.restart_game()
         
         if heuristic_changed:
-            # Phát âm thanh khi thay đổi heuristic
             self.app.sound_system.play_sound('button_click')
             # Heuristic đã thay đổi, cập nhật game
             new_heuristic = self.layout.heuristic_options[self.layout.current_heuristic]
@@ -346,7 +324,7 @@ class GameState(State):
             self.game.initialize_game()
         # Reset tất cả giá trị game về ban đầu
         self.score = getattr(self.game, 'score', 0)
-        self.lives = getattr(self.game, 'lives', 5)  # Game bắt đầu với 5 mạng
+        self.lives = getattr(self.game, 'lives', 4)  # Game bắt đầu với 5 mạng
         self.level = getattr(self.game, 'level', 0)  # Game bắt đầu với level 0
         self.game_running = True
         self.is_pause = True  # Bắt đầu ở trạng thái pause
@@ -399,17 +377,11 @@ class GameState(State):
             self.app.screen = pygame.display.set_mode((self.app.WIDTH, self.app.HEIGHT))
     
     def start_game(self):
-        """
-        Bắt đầu game
-        - Unpause game nếu đang pause
-        - Phát âm thanh start
-        - Bắt đầu timer khi user thực sự start
-        """
         if self.is_pause:
             self.is_pause = False
             self.layout.is_playing = True
             if hasattr(self.game, 'pause'):
-                self.game.pause.setPause(pauseTime=0)  # Unpause game
+                self.game.pause.setPause(pauseTime=0)  
             
             # Bắt đầu timer ngay khi user nhấn SPACE
             if hasattr(self.game, 'start_timer'):

@@ -48,10 +48,7 @@ class App:
         
         # Tạo hệ thống âm thanh sau khi config được tạo
         self.sound_system = SoundSystem(self)
-        
-        # Tạo modal cài đặt
-        self.setting_modal = SettingModal(self)
-        
+                
         # Backward compatibility for sfx_volume
         self.sfx_volume = self.config.get('sfx_volume', 0.8)
 
@@ -85,7 +82,6 @@ class App:
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT), flags)
         pygame.display.set_caption("Pac-Man Arcade - Professional Edition")
         
-
     def _setup_config_listeners(self):
         """
         Thiết lập các listener cho thay đổi cấu hình
@@ -127,14 +123,7 @@ class App:
         self.settings[key] = new_value
     
     def run(self): 
-        """
-        Vòng lặp chính của game
-        - Xử lý events (input từ người dùng)
-        - Cập nhật logic game
-        - Render lên màn hình
-        - Kiểm soát FPS
-        """
-        fps_limit = self.config.get('fps_limit', 60)
+        fps_limit = self.config.get('fps_limit', 30)
         
         while self.running:
             dt = self.clock.tick(fps_limit) / 1000
@@ -143,10 +132,7 @@ class App:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
-                
-                # Xử lý setting modal trước (ưu tiên cao nhất)
-                if self.setting_modal.handle_events(event):
-                    continue
+
                 
                 # Xử lý events của state hiện tại
                 if self.state_machine.current_state:
@@ -154,7 +140,6 @@ class App:
 
             # Cập nhật các hệ thống
             self.state_machine.update()  # Cập nhật state machine
-            self.setting_modal.update(dt)  # Cập nhật setting modal
             
             # Cập nhật logic game
             if self.state_machine.current_state:
@@ -166,9 +151,6 @@ class App:
             else:
                 # Nếu không có state nào, vẽ màn hình đen
                 self.screen.fill((0, 0, 0))
-
-            # Vẽ setting modal lên trên cùng (nếu đang hiển thị)
-            self.setting_modal.draw(self.screen)
 
             # Cập nhật màn hình
             pygame.display.flip()

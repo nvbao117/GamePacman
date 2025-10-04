@@ -17,7 +17,6 @@ from engine.algorithms_practical import (
 )
 from engine.compute_once_system import compute_once
 from engine.hybrid_ai_system import HybridAISystem
-from engine.q_learning import QLearningAgent
 
 class Pacman(Entity):
     """
@@ -38,7 +37,10 @@ class Pacman(Entity):
         self.direction = LEFT 
         self.setBetweenNodes(LEFT)
         self.alive = True
-        self.sprites = PacmanScriptes(self)  
+        self.sprites = PacmanScriptes(self)
+        self.score = 0
+        # Set tốc độ Pac-Man nhanh hơn ghost
+        self.setSpeed(120)  # Pac-Man nhanh hơn ghost (ghost: 50-100, Pac-Man: 120)  
         
         # Hệ thống AI pathfinding
         self.path = []  # Đường đi đã tính toán
@@ -67,11 +69,6 @@ class Pacman(Entity):
         self.hybrid_ai = HybridAISystem(self)
         self.use_hybrid_ai = False  # Flag để bật/tắt hybrid AI
 
-        # Q-learning agent support
-        self.q_agent = QLearningAgent()
-        self.use_q_learning = False  # Flag to toggle Q-learning control
-        self.q_step_penalty = -0.04  # Small step penalty applied per move
-        
         # Stuck detection
         self.stuck_counter = 0
         self.last_position = None
@@ -91,6 +88,10 @@ class Pacman(Entity):
         self.path = []
         self.locked_target_node = None
         self.previous_node = None
+        
+        # Giữ nguyên tốc độ Pac-Man sau khi reset
+        self.setSpeed(120)  # Pac-Man nhanh hơn ghost
+        
         # Không reset thuật toán - giữ nguyên thuật toán đã chọn
         # self.pathfinder_name = 'BFS'
         # self.pathfinder = bfs
@@ -102,19 +103,11 @@ class Pacman(Entity):
         self.stuck_counter = 0
         self.last_position = None
         
-        # Reset compute-once system
         compute_once.reset()
         
-        # Reset precomputed path
         self.precomputed_path = []
         self.path_index = 0
-        # Reset Q-learning episode
-        self.q_agent.start_episode()
 
-        
-        # Không reset thuật toán - giữ nguyên thuật toán đã chọn
-        # self.pathfinder_name = self.original_pathfinder_name
-        # self.pathfinder = self.original_pathfinder
         
     def _update_pathfind_interval(self):
         """
@@ -152,7 +145,7 @@ class Pacman(Entity):
         self.alive = False
         self.direction = STOP 
 
-    def update_ai(self, dt, pelletGroup=None, auto=False, ghostGroup=None):
+    def update_ai(self, dt, pelletGroup=None, auto=False, ghostGroup=None, fruit=None):
         """
         Cập nhật Pac-Man với AI pathfinding
         """
@@ -167,30 +160,46 @@ class Pacman(Entity):
             if self.node.neighbors[PORTAL] is not None: 
                 self.node = self.node.neighbors[PORTAL] 
            
+            # Chỉ gọi AI khi cần thiết và có dữ liệu hợp lệ
             if auto and pelletGroup is not None and pelletGroup.pelletList:
-                if hasattr(self, 'use_q_learning') and self.use_q_learning:
-                    direction,_ = self.hybrid_ai.q_learning_get_direction(pelletGroup, ghostGroup)
-                elif self.use_hybrid_ai:
-                    direction = self.hybrid_ai.get_direction(pelletGroup, ghostGroup)
-                else:
-                    print(self.pathfinder_name)
-                    if self.pathfinder is not None:
-                        print(self.pathfinder)
-                    direction = compute_once.get_direction(
-                        self, pelletGroup, self.pathfinder, self.pathfinder_name
-                    )
+                try:
+                    if self.use_hybrid_ai:
+                        direction = self.hybrid_ai.get_direction(pelletGroup, ghostGroup, fruit)
+                    else:
+                        direction = compute_once.get_direction(
+                            self, pelletGroup, self.pathfinder, self.pathfinder_name, fruit
+                        )
+                    
+                    # Kiểm tra tính hợp lệ của direction từ AI
+                    if not self._is_valid_direction(direction):
+                        print(f"Warning: AI returned invalid direction {direction}, using current direction")
+                        direction = self.direction
+                        
+                except Exception as e:
+                    print(f"Error in AI system: {e}, using current direction")
+                    direction = self.direction
+            
+            # Cập nhật target và direction một cách rõ ràng
             self.target = self.getNewTarget(direction)              
+            
             if self.target is not self.node: 
                 self.direction = direction
             else: 
+                # Nếu không thể di chuyển theo hướng AI, thử hướng hiện tại
                 self.target = self.getNewTarget(self.direction)
-            if self.target is self.node: 
-                self.direction = STOP             
+                if self.target is self.node: 
+                    self.direction = STOP             
             self.setPosition()
-
         else:
             if not auto and self.oppositeDirection(direction):
                 self.reverseDirection()
+    
+    def _is_valid_direction(self, direction):
+        """
+        Kiểm tra xem direction có hợp lệ không
+        """
+        valid_directions = [UP, DOWN, LEFT, RIGHT, STOP, PORTAL]
+        return direction in valid_directions
                 
     def update(self, dt):
         """
@@ -233,19 +242,6 @@ class Pacman(Entity):
     def toggle_hybrid_ai(self):
         """Toggle Hybrid AI on/off."""
         self.use_hybrid_ai = not self.use_hybrid_ai
-        if self.use_hybrid_ai:
-            self.use_q_learning = False
-
-    def set_q_learning(self, enabled: bool, reset_episode: bool = True):
-        """Enable or disable Q-learning control for Pacman."""
-        self.use_q_learning = enabled
-        if enabled:
-            self.use_hybrid_ai = False
-        if reset_episode:
-            self.q_agent.start_episode()
-
-    def is_q_learning_active(self) -> bool:
-        return self.use_q_learning
 
     def set_algorithm(self, algorithm_name, algorithm_func):
         """Cập nhật thuật toán AI và lưu trữ để không bị reset"""

@@ -47,18 +47,18 @@ class Ghost(Entity):
     def startSpawn(self):
         self.mode.setSpawnMode() 
         if self.mode.current == SPAWN : 
-            self.setSpeed(150) 
+            self.setSpeed(100)  # Giảm từ 150 xuống 100
             self.directionMethod = self.goalDirection
             self.spawn()
     
     def startFreight(self) : 
         self.mode.setFreightMode()
         if self.mode.current == FREIGHT:
-            self.setSpeed(50)
+            self.setSpeed(30)  # Giảm từ 50 xuống 30
             self.directionMethod = self.randomDirection
     
     def normalMode(self):
-        self.setSpeed(70) 
+        self.setSpeed(50)  # Giảm từ 70 xuống 50
         self.directionMethod = self.goalDirection
         self.homeNode.denyAccess(DOWN,self) 
     

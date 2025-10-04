@@ -9,7 +9,7 @@
   "fullscreen": false,
   "vsync": true,
   "resolution": "auto",
-  "fps_limit": 60,
+  "fps_limit": 30,
   "quality": "high",
   "difficulty": "normal",
   "ai_speed": 1.7800000000000002,

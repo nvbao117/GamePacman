@@ -177,6 +177,59 @@ class ComparisonLayout(UIComponent):
         
         # Vẽ control panel
         self._draw_control_panel()
+        
+        # Vẽ banner sinh viên
+        self._draw_student_banner()
+    
+    def _draw_student_banner(self):
+        """Vẽ banner thông tin sinh viên ở góc trái màn hình"""
+        # Font cho banner - sử dụng Times New Roman hoặc font hệ thống
+        try:
+            font = pygame.font.SysFont("Times New Roman", 18, bold=True)
+        except:
+            try:
+                font = pygame.font.SysFont("Arial", 18, bold=True)
+            except:
+                try:
+                    font = pygame.font.SysFont("Calibri", 18, bold=True)
+                except:
+                    try:
+                        font = pygame.font.SysFont("Tahoma", 18, bold=True)
+                    except:
+                        # Fallback cuối cùng - font mặc định với kích thước lớn
+                        font = pygame.font.Font(None, 20)
+        
+        # Màu sắc - tất cả màu trắng
+        name_color = (255, 255, 255)    # Trắng
+        mssv_color = (255, 255, 255)    # Trắng
+        border_color = (150, 150, 150)  # Xám sáng hơn
+        
+        # Vị trí góc trái
+        start_x = 10
+        start_y = 10
+        
+        # Thông tin sinh viên
+        student1_name = "Nguyễn Vũ Bảo"
+        student1_mssv = "MSSV: 23110079"
+        student2_name = "Trần Hoàng Phúc Quân"
+        student2_mssv = "MSSV: 23110146"
+        
+        # Vẽ background cho banner
+        banner_rect = pygame.Rect(start_x - 5, start_y - 5, 250, 95)
+        pygame.draw.rect(self.surface, (0, 0, 0, 180), banner_rect)  # Nền đen trong suốt
+        pygame.draw.rect(self.surface, border_color, banner_rect, 2)  # Viền
+        
+        # Vẽ text
+        texts = [
+            (student1_name, name_color, start_x, start_y),
+            (student1_mssv, mssv_color, start_x, start_y + 20),
+            (student2_name, name_color, start_x, start_y + 50),
+            (student2_mssv, mssv_color, start_x, start_y + 70)
+        ]
+        
+        for text, color, x, y in texts:
+            text_surface = font.render(text, True, color)
+            self.surface.blit(text_surface, (x, y))
     
     def _draw_background(self):
         """Draw the main background with enhanced transparency effects"""

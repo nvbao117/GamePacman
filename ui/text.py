@@ -50,9 +50,15 @@ class TextGroup(object):
     
     
     def addText(self,text,color , x, y , size , time=None , id = None) :
-        self.nextid += 1 
-        self.alltext[self.nextid] = Text(text,color,x,y,size,time = time,id = id )
-        return self.nextid
+        if id is not None:
+            # Sử dụng id được cung cấp
+            self.alltext[id] = Text(text,color,x,y,size,time = time,id = id )
+            return id
+        else:
+            # Tự động tạo id mới
+            self.nextid += 1 
+            self.alltext[self.nextid] = Text(text,color,x,y,size,time = time,id = id )
+            return self.nextid
     
     def removeText(self,id):
         self.alltext.pop(id)
@@ -66,6 +72,46 @@ class TextGroup(object):
         self.alltext[GAMEOVERTXT] = Text("GAMEOVER!", YELLOW, 10*TILEWIDTH, 20*TILEHEIGHT, size, visible=False)
         self.addText("SCORE",WHITE,0,0,size)
         self.addText("LEVEL",WHITE,23*TILEWIDTH,0,size)
+        
+        # Banner thông tin sinh viên - luôn hiển thị ở góc trái màn hình
+        self.setupStudentBanner()
+    
+    def setupStudentBanner(self):
+        """Tạo banner thông tin sinh viên ở góc trái màn hình"""
+        # Kích thước font cho banner
+        banner_size = 18
+        
+        # Màu sắc cho banner - tất cả màu trắng
+        banner_color = (255, 255, 255)  # Màu trắng
+        mssv_color = (255, 255, 255)    # Màu trắng
+        
+        # Vị trí góc trái màn hình
+        start_x = 10
+        start_y = 10
+        
+        # Thông tin sinh viên
+        student1_name = "Nguyễn Vũ Bảo"
+        student1_mssv = "MSSV: 23110079"
+        student2_name = "Trần Hoàng Phúc Quân"
+        student2_mssv = "MSSV: 23110146"
+        
+        # Tạo các text cho banner
+        self.addText(student1_name, banner_color, start_x, start_y, banner_size, id="student1_name")
+        self.addText(student1_mssv, mssv_color, start_x, start_y + 20, banner_size, id="student1_mssv")
+        self.addText(student2_name, banner_color, start_x, start_y + 50, banner_size, id="student2_name")
+        self.addText(student2_mssv, mssv_color, start_x, start_y + 70, banner_size, id="student2_mssv")
+        
+        # Thêm đường viền cho banner
+        self.addText("=" * 25, (100, 100, 100), start_x - 5, start_y - 5, 12, id="banner_border_top")
+        self.addText("=" * 25, (100, 100, 100), start_x - 5, start_y + 85, 12, id="banner_border_bottom")
+    
+    def ensureStudentBannerVisible(self):
+        """Đảm bảo banner sinh viên luôn hiển thị"""
+        banner_ids = ["student1_name", "student1_mssv", "student2_name", "student2_mssv", 
+                     "banner_border_top", "banner_border_bottom"]
+        for banner_id in banner_ids:
+            if banner_id in self.alltext:
+                self.alltext[banner_id].visible = True
         
     def update(self,dt):
         for tkey in list(self.alltext.keys()):
@@ -81,6 +127,8 @@ class TextGroup(object):
         self.alltext[READYTXT].visible = False
         self.alltext[PAUSETXT].visible = False
         self.alltext[GAMEOVERTXT].visible = False
+        # Đảm bảo banner sinh viên luôn hiển thị
+        self.ensureStudentBannerVisible()
     
     def updateScore(self,score):
         self.updateText(SCORETXT, str(score).zfill(8))
