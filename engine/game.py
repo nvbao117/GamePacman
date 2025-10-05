@@ -32,13 +32,14 @@ class Game(object):
     - Tích hợp analytics system để theo dõi performance
     - Hỗ trợ các thuật toán AI (BFS, DFS, A*, UCS, IDS, Greedy)
     """
-    def __init__(self, algorithm: str = 'BFS'):
+    def __init__(self, algorithm: str = 'BFS', config=None):
         pygame.init()
         
         # Lưu thuật toán AI được chọn
         self.algorithm = algorithm
         self.algorithm_heuristic = "NONE"  # Mặc định không heuristic
         self.custom_heuristic = None  # Hàm heuristic tùy chỉnh
+        self.config = config  # Lưu config để truyền cho Pacman
         
         # Khởi tạo analytics
         self.analytics_started = False
@@ -284,7 +285,7 @@ class Game(object):
         self.mazedata.obj.setPortalPairs(self.nodes)      # Thiết lập portal pairs
         self.mazedata.obj.connectHomeNodes(self.nodes)    # Kết nối home nodes
         
-        self.pacman = Pacman(self.nodes.getNodeFromTiles(*self.mazedata.obj.pacmanStart))
+        self.pacman = Pacman(self.nodes.getNodeFromTiles(*self.mazedata.obj.pacmanStart), self.config)
         self.pacman.game_instance = self
         
         # Bắt đầu analytics nếu chưa bắt đầu
@@ -732,7 +733,6 @@ class Game(object):
     def set_algorithm_heuristic(self, heuristic):
         """Đặt heuristic cho tất cả thuật toán"""
         self.algorithm_heuristic = heuristic
-        
         # Cập nhật pathfinder cho thuật toán hiện tại
         if hasattr(self, 'pacman') and self.pacman:
             # Reset path để áp dụng heuristic mới ngay lập tức
@@ -740,7 +740,6 @@ class Game(object):
             self.pacman.locked_target_node = None
             self.pacman.previous_node = None
             self.pacman.path_computed = False
-            
             # Re-apply algorithm với heuristic mới
             self.set_algorithm(self.algorithm)
     

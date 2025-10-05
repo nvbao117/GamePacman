@@ -61,8 +61,7 @@ class GameLayout(UIComponent):
         # Tùy chọn Ghost mode cho selectbox
         self.ghost_mode_options = ["Ghost ON", "Ghost OFF"]
         
-        # Tùy chọn heuristic cho BFS
-        self.heuristic_options = ["NONE", "MANHATTAN", "EUCLIDEAN"]
+        self.heuristic_options = ["NONE", "MANHATTAN", "EUCLIDEAN", "MAZEDISTANCE"]
         self.current_heuristic = 0  # Mặc định NONE
         
         # Few pellets mode settings
@@ -85,7 +84,6 @@ class GameLayout(UIComponent):
         self.ai_mode_selector = None
         self._setup_selectbox()
         
-        # Khởi tạo algorithm options cho AI mode mặc định
         self.update_algorithm_options_for_ai_mode(self.current_ai_mode)
         
         # Animation
@@ -899,26 +897,35 @@ class GameLayout(UIComponent):
         if self.ai_mode_selector:
             if self.ai_mode_selector.handle_events(event):
                 new_ai_mode = self.ai_mode_selector.get_current_mode()
-                ai_mode_changed = True
+                if new_ai_mode != self.current_ai_mode:
+                    self.current_ai_mode = new_ai_mode
+                    ai_mode_changed = True
+        
+        ghost_locked = self.current_ai_mode == "OFFLINE"
         
         if self.ghost_mode_selectbox:
-            if event.type == pygame.MOUSEMOTION:
-                if hasattr(self.ghost_mode_selectbox, 'rect') and self.ghost_mode_selectbox.rect.collidepoint(event.pos):
-                    if not getattr(self, '_ghost_selectbox_hovered', False):
-                        self.app.sound_system.play_sound('button_hover')
-                        self._ghost_selectbox_hovered = True
-                else:
-                    self._ghost_selectbox_hovered = False
-            
-            if self.ghost_mode_selectbox.handle_event(event):
-                # Kiểm tra xem selection có thay đổi không
-                new_ghost_mode_text = self.ghost_mode_selectbox.get_selected_value()
-                if new_ghost_mode_text:
-                    new_ghost_mode = (new_ghost_mode_text == "Ghost ON")
-                    if new_ghost_mode != self.ghost_mode:
-                        self.ghost_mode = new_ghost_mode
-                        ghost_mode_changed = True
-        
+            if ghost_locked:
+                self.ghost_mode = False
+                self.ghost_mode_selectbox.selected_option = 1
+                self.ghost_mode_selectbox.is_open = False
+                self._ghost_selectbox_hovered = False
+            else:
+                if event.type == pygame.MOUSEMOTION:
+                    if hasattr(self.ghost_mode_selectbox, 'rect') and self.ghost_mode_selectbox.rect.collidepoint(event.pos):
+                        if not getattr(self, '_ghost_selectbox_hovered', False):
+                            self.app.sound_system.play_sound('button_hover')
+                            self._ghost_selectbox_hovered = True
+                    else:
+                        self._ghost_selectbox_hovered = False
+
+                if self.ghost_mode_selectbox.handle_event(event):
+                    new_ghost_mode_text = self.ghost_mode_selectbox.get_selected_value()
+                    if new_ghost_mode_text:
+                        new_ghost_mode = (new_ghost_mode_text == 'Ghost ON')
+                        if new_ghost_mode != self.ghost_mode:
+                            self.ghost_mode = new_ghost_mode
+                            ghost_mode_changed = True
+
         # Xử lý algorithm selectbox (ở dưới)
         if self.algorithm_selectbox and is_ai_mode:
             # Xử lý mouse hover cho selectbox

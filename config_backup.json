@@ -9,7 +9,7 @@
   "fullscreen": false,
   "vsync": true,
   "resolution": "auto",
-  "fps_limit": 60,
+  "fps_limit": 30,
   "quality": "high",
   "difficulty": "normal",
   "ai_speed": 1.7800000000000002,
@@ -23,6 +23,6 @@
   "particle_effects": false,
   "few_pellets_mode": false,
   "few_pellets_count": 20,
-  "bfs_heuristic": "NONE",
-  "algorithm_heuristic": "MANHATTAN"
+  "bfs_heuristic": "MANHATTAN",
+  "algorithm_heuristic": "NONE"
 }

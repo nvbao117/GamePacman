@@ -6,16 +6,17 @@ import time
 from constants import *
 
 class ComputeOnceSystem:
-    def __init__(self):
+    def __init__(self, config=None):
         self.master_path = []  # Complete path for entire game
         self.current_index = 0  # Current position in master path
         self.is_computed = False
         self.algorithm_name = ""
+        self.config = config
         self.pellet_count_when_computed = 0
         self.curent_level = 0 
         self.last_level = -1 
         
-    def get_direction(self, pacman, pelletGroup, pathfinder, pathfinder_name):
+    def get_direction(self, pacman, pelletGroup, pathfinder, pathfinder_name, fruit = None ) :
         """
         Lấy hướng di chuyển từ master path đã tính sẵn
         
@@ -24,18 +25,10 @@ class ComputeOnceSystem:
             pelletGroup: Nhóm các pellet cần ăn
             pathfinder: Hàm thuật toán AI (BFS, DFS, A*, etc.)
             pathfinder_name: Tên thuật toán để hiển thị
-            
+
         Returns:
             direction: Hướng di chuyển (UP, DOWN, LEFT, RIGHT, STOP)
         """
-        # Điều kiện để tính toán lại master path:
-        # 1. Chưa từng tính toán lần nào
-        # 2. Thuật toán AI đã thay đổi
-        # 3. Số lượng pellets thay đổi (lên level mới)
-        # print("---------------------")
-        # print("self.curent_level", self.curent_level)
-        # print("self.last_level", self.last_level)
-        # print("---------------------")
         pellet_count_now = len([p for p in pelletGroup.pelletList if p.visible])
 
         should_compute = (

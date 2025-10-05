@@ -11,7 +11,7 @@ class Pellet(object):
         self.node = node 
         self.color = WHITE
         self.radius = int(2*TILEWIDTH/16)
-        self.collideRadius = 4
+        self.collideRadius = 10
         self.points = 10 
         self.visible = True 
         

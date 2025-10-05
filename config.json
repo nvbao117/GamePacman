@@ -23,6 +23,6 @@
   "particle_effects": false,
   "few_pellets_mode": false,
   "few_pellets_count": 20,
-  "bfs_heuristic": "NONE",
-  "algorithm_heuristic": "NONE"
+  "bfs_heuristic": "MANHATTAN",
+  "algorithm_heuristic": "MAZEDISTANCE"
 }

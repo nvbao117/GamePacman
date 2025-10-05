@@ -19,18 +19,7 @@ from engine.compute_once_system import compute_once
 from engine.hybrid_ai_system import HybridAISystem
 
 class Pacman(Entity):
-    """
-    Kế thừa từ Entity để có khả năng di chuyển cơ bản
-    
-    Chức năng:
-    - Điều khiển thủ công bằng bàn phím (UP, DOWN, LEFT, RIGHT)
-    - Điều khiển tự động bằng các thuật toán AI
-    - Hỗ trợ 6 thuật toán AI: BFS, DFS, A*, UCS, IDS, Greedy
-    - Sử dụng compute-once system để tối ưu performance
-    - Theo dõi analytics (position, steps, score, path info)
-    - Xử lý va chạm với pellets, fruits, và ghosts
-    """
-    def __init__(self, node):
+    def __init__(self, node, config=None):
         Entity.__init__(self, node) 
         self.name = PACMAN 
         self.color = YELLOW 
@@ -39,6 +28,7 @@ class Pacman(Entity):
         self.alive = True
         self.sprites = PacmanScriptes(self)
         self.score = 0
+        self.config = config  # Lưu config để sử dụng cho heuristic
         # Set tốc độ Pac-Man nhanh hơn ghost
         self.setSpeed(120)  # Pac-Man nhanh hơn ghost (ghost: 50-100, Pac-Man: 120)  
         
@@ -48,7 +38,7 @@ class Pacman(Entity):
         self.previous_node = None  # Node trước đó (để tránh backtracking)
         self.previous_direction = None  # Direction trước đó (để tránh U-turn trong Minimax)
         
-        # Thuật toán AI pathfinding (có thể thay đổi)
+        #  Thuật toán AI pathfinding (có thể thay đổi)
         self.pathfinder_name = 'BFS'  # Tên thuật toán hiện tại
         self.pathfinder = bfs  # Function thuật toán
         
@@ -66,7 +56,7 @@ class Pacman(Entity):
         self.original_pellet_count = 0
         
         # Hybrid AI System
-        self.hybrid_ai = HybridAISystem(self)
+        self.hybrid_ai = HybridAISystem(self, config)
         self.use_hybrid_ai = False  # Flag để bật/tắt hybrid AI
 
         # Stuck detection

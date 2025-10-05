@@ -8,6 +8,7 @@ from statemachine import State
 from ui.constants import *
 from states.gamelayout import GameLayout
 from engine.game import Game
+from engine.compute_once_system import compute_once
 from states.menu_state import MenuState
 
 class GameState(State):
@@ -21,7 +22,7 @@ class GameState(State):
         self.game_running = True  
         
         self.layout = GameLayout(app)
-        self.game = Game(algorithm)  
+        self.game = Game(algorithm, self.app.config)  
         
         if hasattr(self.game, 'initialize_game'):
             self.game.initialize_game()
@@ -37,14 +38,9 @@ class GameState(State):
         if hasattr(self.layout, 'ai_mode_selector') and self.layout.ai_mode_selector:
             default_ai_mode = self.layout.ai_mode_selector.get_current_mode()
             self.layout.update_algorithm_options_for_ai_mode(default_ai_mode)
-            if default_ai_mode == "ONLINE":
-                self.layout.ghost_mode = True
-                self.game.set_ghost_mode(True)
-            else:  # OFFLINE
-                self.layout.ghost_mode = False
-                self.game.set_ghost_mode(False)
-        
-            # Load few pellets mode configuration
+            self._apply_ai_mode_change(default_ai_mode)
+            self._sync_algorithm_from_layout(force=True)
+        # Load few pellets mode configuration
         if hasattr(app, 'config'):
             few_pellets_mode = app.config.get('few_pellets_mode', False)
             few_pellets_count = app.config.get('few_pellets_count', 20)
@@ -195,39 +191,36 @@ class GameState(State):
         
         if algorithm_changed:
             self.app.sound_system.play_sound('button_click')
-            # Algorithm đã thay đổi, cập nhật game
-            self.algorithm = self.layout.algorithm
-            self.game.set_algorithm(self.algorithm)
-        
+            self._sync_algorithm_from_layout()
+
         if ghost_mode_changed:
             self.app.sound_system.play_sound('button_click')
             self.game.set_ghost_mode(self.layout.ghost_mode)
-        
+
         if ai_mode_changed:
             self.app.sound_system.play_sound('button_click')
-            # AI mode đã thay đổi, cập nhật Pacman
-            new_ai_mode = self.layout.ai_mode_selector.get_current_mode()
+            new_ai_mode = self.layout.ai_mode_selector.get_current_mode() if hasattr(self.layout, 'ai_mode_selector') else 'OFFLINE'
             self._apply_ai_mode_change(new_ai_mode)
-            # Cập nhật algorithm options dựa trên AI mode mới
             self.layout.update_algorithm_options_for_ai_mode(new_ai_mode)
-        
+            self._sync_algorithm_from_layout(force=True)
+
         if few_pellets_changed:
             # Phát âm thanh khi thay đổi few pellets mode
             self.app.sound_system.play_sound('button_click')
             # Few pellets mode đã thay đổi, cập nhật game
             self.game.set_few_pellets_mode(
-                self.layout.few_pellets_mode, 
+                self.layout.few_pellets_mode,
                 self.layout.few_pellets_count
             )
             # Restart game để áp dụng thay đổi pellets
             self.restart_game()
-        
+
         if heuristic_changed:
             self.app.sound_system.play_sound('button_click')
             # Heuristic đã thay đổi, cập nhật game
             new_heuristic = self.layout.heuristic_options[self.layout.current_heuristic]
             self._apply_heuristic_change(new_heuristic)
-        
+
         # Cập nhật thông tin lên layout (bao gồm step info)
         if algorithm_changed or ghost_mode_changed or ai_mode_changed or few_pellets_changed or heuristic_changed:
             game_time = getattr(self.game, 'get_formatted_time', lambda: "00:00")()
@@ -250,8 +243,7 @@ class GameState(State):
             elif event.key == pygame.K_r:
                 self.restart_game()  # Restart với R
             elif event.key == pygame.K_m:
-                # Chỉ cho phép toggle mode khi ở AI mode
-                if hasattr(self.game, 'ai_mode') and self.game.ai_mode:
+                if hasattr(self.game, 'ai_mode'):
                     self.toggle_ai_mode()  # Toggle AI/Player mode với M
             # Analytics keys removed
     
@@ -261,25 +253,59 @@ class GameState(State):
         """
         if not hasattr(self.game, 'pacman') or not self.game.pacman:
             return
-        
+
         pacman = self.game.pacman
-        
+        hybrid_ai = getattr(pacman, 'hybrid_ai', None)
+
         if new_ai_mode == "ONLINE":
             pacman.enable_hybrid_ai()
+            if hybrid_ai:
+                hybrid_ai.set_mode("ONLINE")
             self.layout.ghost_mode = True
             self.game.set_ghost_mode(True)
             if hasattr(self.layout, 'ghost_mode_selectbox'):
-                self.layout.ghost_mode_selectbox.selected_option = 0  # Ghost ON
-            
+                self.layout.ghost_mode_selectbox.is_open = False
+                self.layout.ghost_mode_selectbox.selected_option = 0
+            compute_once.reset()
         elif new_ai_mode == "OFFLINE":
-            # Bật hybrid AI và set mode OFFLINE
             pacman.disable_hybrid_ai()
+            if hybrid_ai:
+                hybrid_ai.set_mode("OFFLINE")
             self.layout.ghost_mode = False
             self.game.set_ghost_mode(False)
-            # Cập nhật ghost mode selector UI
             if hasattr(self.layout, 'ghost_mode_selectbox'):
-                self.layout.ghost_mode_selectbox.selected_option = 1  # Ghost OFF
-    
+                self.layout.ghost_mode_selectbox.is_open = False
+                self.layout.ghost_mode_selectbox.selected_option = 1
+            compute_once.reset()
+        else:
+            return
+
+        if hasattr(self.layout, 'current_ai_mode'):
+            self.layout.current_ai_mode = new_ai_mode
+
+        if hasattr(pacman, 'force_recompute_path'):
+            pacman.force_recompute_path()
+
+    def _sync_algorithm_from_layout(self, force=False):
+        if not hasattr(self.layout, 'algorithm'):
+            return False
+
+        new_algorithm = self.layout.algorithm
+        if not force and new_algorithm == self.algorithm:
+            return False
+
+        self.algorithm = new_algorithm
+        if hasattr(self.game, 'set_algorithm'):
+            self.game.set_algorithm(self.algorithm)
+
+        if getattr(self.layout, 'current_ai_mode', 'OFFLINE') == 'OFFLINE':
+            compute_once.reset()
+
+        if hasattr(self.game, 'pacman') and self.game.pacman and hasattr(self.game.pacman, 'force_recompute_path'):
+            self.game.pacman.force_recompute_path()
+
+        return True
+
     def toggle_pause(self):
         """
         Chuyển đổi trạng thái pause
@@ -301,7 +327,7 @@ class GameState(State):
         - Reset tất cả giá trị về ban đầu
         - Bắt đầu ở trạng thái pause
         """
-        self.game = Game(self.algorithm)  # Tạo game mới với algorithm hiện tại
+        self.game = Game(self.algorithm, self.app.config)  # Tạo game mới với algorithm hiện tại
         
         # Áp dụng cài đặt few pellets mode nếu có
         if hasattr(self.layout, 'few_pellets_mode') and hasattr(self.layout, 'few_pellets_count'):
@@ -386,16 +412,20 @@ class GameState(State):
                 self.app.sound_system.play_sound('button_click')
     
     def _apply_heuristic_change(self, new_heuristic):
-
         # Lưu setting vào config
         if hasattr(self.app, 'config'):
+            # Cập nhật heuristic chung
             self.app.config.set('algorithm_heuristic', new_heuristic)
         
-        # Cập nhật game engine cho thuật toán hiện tại
-        if hasattr(self.game, 'set_algorithm_heuristic'):
-            self.game.set_algorithm_heuristic(new_heuristic)
             
-            # Đảm bảo Pacman sử dụng heuristic mới ngay lập tức
+            self.app.config.save_config()
+            
+            print(f"Updated algorithm_heuristic to {new_heuristic}")
+            print(f"Config saved: algorithm_heuristic = {self.app.config.get('algorithm_heuristic')}")
+        
+        if hasattr(self.game, 'set_algorithm_heuristic'):
+            print(f"Current algorithm_heuristic: {self.app.config.get('algorithm_heuristic')}")
+            self.game.set_algorithm_heuristic(new_heuristic)            # Đảm bảo Pacman sử dụng heuristic mới ngay lập tức
             if hasattr(self.game, 'pacman') and self.game.pacman:
                 self.game.pacman.path = []
                 self.game.pacman.locked_target_node = None
@@ -423,6 +453,23 @@ class GameState(State):
         self.replace_state(menu_state)
     
     def toggle_ai_mode(self):
-        if hasattr(self.game, 'ai_mode'):
-            self.game.set_ai_mode(not self.game.ai_mode)
-            mode_text = "AI" if self.game.ai_mode else "Player"
+        if not hasattr(self.game, 'ai_mode'):
+            return
+
+        new_state = not self.game.ai_mode
+        self.game.set_ai_mode(new_state)
+
+        if hasattr(self.app, 'sound_system'):
+            self.app.sound_system.play_sound('button_click')
+
+        if new_state:
+            current_ai_mode = self.layout.ai_mode_selector.get_current_mode() if hasattr(self.layout, 'ai_mode_selector') else 'OFFLINE'
+            self._apply_ai_mode_change(current_ai_mode)
+            self.layout.update_algorithm_options_for_ai_mode(current_ai_mode)
+            self._sync_algorithm_from_layout(force=True)
+        else:
+            if hasattr(self.game, 'pacman') and self.game.pacman and hasattr(self.game.pacman, 'disable_hybrid_ai'):
+                self.game.pacman.disable_hybrid_ai()
+
+        game_time = getattr(self.game, 'get_formatted_time', lambda: '00:00')()
+        self.layout.set_game_info(self.score, self.lives, self.level, self.algorithm, self.layout.ghost_mode, game_time, self.game)

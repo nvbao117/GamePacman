@@ -122,9 +122,9 @@ class ConfigManager:
                         description="Number of pellets in few pellets mode"),
             
             # AI Algorithm Settings
-            ConfigSchema("bfs_heuristic", "NONE", valid_values=["NONE", "MANHATTAN", "EUCLIDEAN"],
+            ConfigSchema("bfs_heuristic", "NONE", valid_values=["NONE", "MANHATTAN", "EUCLIDEAN", "MAZEDISTANCE"],
                         category=ConfigCategory.GAMEPLAY, description="Heuristic function for BFS algorithm (deprecated)"),
-            ConfigSchema("algorithm_heuristic", "NONE", valid_values=["NONE", "MANHATTAN", "EUCLIDEAN"],
+            ConfigSchema("algorithm_heuristic", "NONE", valid_values=["NONE", "MANHATTAN", "EUCLIDEAN", "MAZEDISTANCE"],
                         category=ConfigCategory.GAMEPLAY, description="Heuristic function for all algorithms"),
         ]
         
