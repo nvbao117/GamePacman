@@ -51,9 +51,7 @@ EVALUATION_WEIGHTS: Dict[str, float] = {
     "pellet_proximity": -100.0,
     "threat": -5000.0,
     "power_play": 1500.0,
-    "capsules": -50.0,
-    "route_efficiency": -50.0,
-    "wall_penalty": -100.0,
+    "capsules": -50.0
 }
 from engine.heuristic import Heuristic
 
@@ -90,7 +88,6 @@ class HybridAISystem:
             "Minimax": self._run_minimax,
             "Alpha-Beta": self._run_alpha_beta,
             "Hill Climbing": self._run_hill_climbing,
-            "A*": self._run_astar,
             "A* Online": self._run_astar,
         }
 
@@ -104,6 +101,13 @@ class HybridAISystem:
     def get_direction(self, pellet_group, ghost_group=None, fruit=None):
         return self._get_online_direction(pellet_group, ghost_group, fruit)
 
+    def _get_online_direction(self, pellet_group, ghost_group, fruit=None):
+        current_node = getattr(self.pacman, 'node', None)
+        if current_node is None:
+            return STOP
+        algorithm_name = getattr(self.pacman, 'pathfinder_name', DEFAULT_ALGORITHM)
+        handler = self._algorithm_handlers.get(algorithm_name, self._run_astar)
+        return handler(pellet_group, ghost_group, fruit)
 # ==========================================================
 #                    MINIMAX ALGORITHM
 # ----------------------------------------------------------
@@ -290,29 +294,9 @@ class HybridAISystem:
             weights['pellet_proximity'] * self.PelletProximity(state) +
             weights['threat'] * self.ThreatLevel(state) +
             weights['power_play'] * self.PowerPlayValue(state) +
-            weights['capsules'] * self.StrateCapsules(state) +
-            weights['route_efficiency'] * self.RouteEfficiency(state)+
-            weights['wall_penalty'] * self.WallCollisionPenalty(state)
+            weights['capsules'] * self.StrateCapsules(state)
         )
-    def WallCollisionPenalty(self, state):
-        pacman = state.get('pacman')
-     
-        if pacman is None:
-            return 0
-
-       
-        pacman_node = getattr(pacman, 'node', None)
-        current_node = getattr(pacman, 'node', None)
-        if not current_node:
-            return 1  # Penalty nếu không có node
-        
-        # Kiểm tra direction hiện tại có hợp lệ không
-        direction = getattr(pacman, 'direction', STOP)
-        if not self._can_move_in_direction(current_node, direction):
-            return 1  # Penalty nếu direction hiện tại không hợp lệ
-        
-        return 0  
-    # Lấy điểm số hiện tại của Pac-Man
+  
     def GameProgress(self, state):
         pacman = state.get('pacman')
         return getattr(pacman, 'score', 0) if pacman else 0
@@ -336,7 +320,6 @@ class HybridAISystem:
         ]
         return min(distances) if distances else 0
     
-
     def ThreatLevel(self, state):
         pacman = state.get('pacman')
         ghostgroup = state.get('ghostgroup')
@@ -391,46 +374,6 @@ class HybridAISystem:
         pellets = self._pellets(state.get('pellet_group'))
         return sum(1 for pellet in pellets if getattr(pellet, 'name', None) == POWERPELLET)
 
-    def RouteEfficiency(self, state):
-        pellet_group = state.get('pellet_group')
-        pacman = state.get('pacman')
-        pellets = self._pellets(pellet_group)
-        pacman_node = getattr(pacman, 'node', None)
-        if not pellets or pacman_node is None:
-            return 0
-
-        pellet_nodes = {getattr(pellet, 'node', None) for pellet in pellets if getattr(pellet, 'node', None)}
-
-        def count_connected_components(nodes):
-            nodes = set(nodes)
-            visited = set()
-            components = 0
-            
-            for node in nodes:
-                if node in visited:
-                    continue
-                    
-                components += 1
-                stack = [node]
-                
-                while stack:
-                    current = stack.pop()
-                    
-                    if current in visited:
-                        continue
-                        
-                    visited.add(current)
-                    
-                    for neighbor in current.neighbors.values():
-                        if neighbor and neighbor in nodes and neighbor not in visited:
-                            stack.append(neighbor)
-                            
-            return components
-
-        components = count_connected_components(pellet_nodes)
-        
-        return (components - 1) 
-
 # ==========================================================
 #                    END OF MINIMAX ALGORITHM
 # ==========================================================
@@ -457,7 +400,7 @@ class HybridAISystem:
             return self.evaluate(pacman, ghostgroup, pellet_group), None
 
         next_agent = (agent_index + 1) % num_agents
-        next_depth = depth - 1 if next_agent == 0 else depth
+        next_depth = depth - 1 
 
         if agent_index == 0:
             best_value = -math.inf
@@ -474,9 +417,9 @@ class HybridAISystem:
                     break
             return best_value, best_action
 
-        best_value = math.inf
-        best_action = actions[0]
         for action in actions:
+            best_value = math.inf
+            best_action = actions[0]
             next_state = self.apply_action_for_agent(pacman, ghostgroup, pellet_group, action, agent_index)
             value, _ = self.alpha_beta_pruning(*next_state, next_depth, alpha, beta, next_agent)
             if value < best_value:
@@ -487,22 +430,23 @@ class HybridAISystem:
                 break
         return best_value, best_action
 
-    def _alpha_beta_noise(self, pacman, action, order):
-        noise = float(order)
-        prev_dir = getattr(pacman, 'previous_direction', None)
-        if prev_dir is None:
-            return noise
-        if REVERSE_DIRECTION.get(action) == prev_dir:
-            return -10000.0
-        return noise + 100.0
 
+
+# ==========================================================
+#                HILL CLIMBING ALGORITHM CHO PAC-MAN
+# ----------------------------------------------------------
+# - Tìm hướng đi tốt nhất bằng cách đánh giá các trạng thái lân cận (neighbor states)
+# - Luôn chọn nước đi cải thiện điểm số (evaluation) so với hiện tại
+# - Không đảm bảo tìm được nghiệm tối ưu toàn cục (có thể mắc kẹt ở local optimum)
+# ==========================================================
     def hill_climbing(self, pacman, ghost_group, pellet_group, max_steps=5):
         pass
       
 # ==========================================================
 #                    END OF HILL CLIMBING ALGORITHM
-
 # ==========================================================
+
+
 # ==========================================================
 #                    GENETIC ALGORITHM
 # ----------------------------------------------------------
@@ -512,9 +456,13 @@ class HybridAISystem:
 # - Lặp lại qua nhiều thế hệ để tìm chuỗi hành động tối ưu
 # ==========================================================
 
+
+
 # ==========================================================
 #                    END OF GENETIC ALGORITHM
 # ==========================================================
+
+
 # ==========================================================
 #                    MONTE CARLO TREE SEARCH (MCTS)
 # ----------------------------------------------------------
@@ -524,204 +472,37 @@ class HybridAISystem:
 # - Chọn hành động dựa trên thống kê kết quả mô phỏng
 # - Phù hợp với môi trường có nhiều trạng thái và không xác định
 # ==========================================================
-# ==========================================================
-#                END OF MONTE CARLO TREE SEARCH (MCTS)
-# ==========================================================
 
 # ==========================================================
-#                    DEEP Q-LEARNING
-# ----------------------------------------------------------
-# Thuật toán Deep Q-Learning cho Pac-Man
-# - Sử dụng mạng nơ-ron sâu (Deep Neural Network) để xấp xỉ hàm Q
-# - Đầu vào là trạng thái, đầu ra là Q-value cho mỗi hành động
-# - Học từ trải nghiệm bằng cách tối ưu hàm mất mát giữa Q thực tế và Q dự đoán
-# - Giải quyết bài toán không gian trạng thái lớn, phức tạp
-# ==========================================================
-# ==========================================================
-#                    END OF DEEP Q-LEARNING
+#                END OF MONTE CARLO TREE SEARCH (MCTS)
 # ==========================================================
 # ==========================================================
 #                    A* ALGORITHM
 # ----------------------------------------------------------
 # ==========================================================
+
     def astar_pacman_direction(self, pacman, ghostgroup, pellet_group):
-        import heapq
+        pass
 
-        start_node = getattr(pacman, 'node', None)
-        if start_node is None:
-            return STOP
 
-        dangerous_nodes = []
-        freight_nodes = []
-        for ghost in self._ghosts(ghostgroup):
-            if not getattr(ghost, 'visible', True):
-                continue
-            node = getattr(ghost, 'node', None)
-            if node is None:
-                continue
-            mode = getattr(getattr(ghost, 'mode', None), 'current', None)
-            if mode == FREIGHT:
-                freight_nodes.append(node)
-            elif mode == SPAWN:
-                continue
-            else:
-                dangerous_nodes.append(node)
 
-        pellets = [
-            pellet
-            for pellet in self._pellets(pellet_group)
-            if getattr(pellet, 'visible', True) and getattr(pellet, 'node', None)
-        ]
-        if not pellets:
-            return STOP
 
-        power_pellets = [pellet.node for pellet in pellets if getattr(pellet, 'name', None) == POWERPELLET]
-        normal_pellets = [pellet.node for pellet in pellets if getattr(pellet, 'name', None) != POWERPELLET]
-        all_pellets = power_pellets + normal_pellets
+# ==========================================================
+#                    END OF A* ALGORITHM
+# ==========================================================
 
-        def heuristic(node, target):
-            base = self._calculate_distance(node, target)
-            if not dangerous_nodes:
-                return base
-            min_danger = min(self._calculate_distance(node, ghost_node) for ghost_node in dangerous_nodes)
-            if min_danger <= 2:
-                return base + 100
-            if min_danger <= 4:
-                return base + 50
-            if min_danger <= 6:
-                return base + 20
-            return base
 
-        def node_cost(node):
-            cost = 1.0
-            if node in all_pellets:
-                cost -= 50.0 if node in power_pellets else 5.0
-
-            if dangerous_nodes:
-                min_danger = min(self._calculate_distance(node, ghost_node) for ghost_node in dangerous_nodes)
-                if min_danger == 0:
-                    return 50000.0
-                if min_danger == 1:
-                    cost += 10000.0
-                elif min_danger == 2:
-                    cost += 5000.0
-                elif min_danger == 3:
-                    cost += 1000.0
-                elif min_danger <= 5:
-                    cost += 200.0
-
-            if freight_nodes:
-                min_freight = min(self._calculate_distance(node, freight_node) for freight_node in freight_nodes)
-                if min_freight <= FREIGHT_CHASE_RADIUS:
-                    bonus = -200.0
-                    if dangerous_nodes:
-                        min_danger = min(self._calculate_distance(node, ghost_node) for ghost_node in dangerous_nodes)
-                        if min_danger < 4:
-                            bonus = 0.0
-                    cost += bonus
-
-            neighbor_count = sum(1 for direction in ALL_DIRECTIONS if node.neighbors.get(direction))
-            if neighbor_count <= DEAD_END_NEIGHBORS:
-                cost += 500.0
-            elif neighbor_count == CORRIDOR_NEIGHBORS:
-                cost += 100.0
-            elif neighbor_count >= SAFE_EXIT_NEIGHBORS:
-                cost -= 10.0
-
-            pellets_remaining = len(pellets)
-            total_pellets = getattr(pellet_group, 'total_pellets', pellets_remaining)
-            if total_pellets:
-                progress = (total_pellets - pellets_remaining) / float(total_pellets)
-                if progress > LATE_GAME_PROGRESS_THRESHOLD:
-                    cost -= 20.0
-            return cost
-
-        def choose_target():
-            if dangerous_nodes and power_pellets:
-                min_danger = min(self._calculate_distance(start_node, node) for node in dangerous_nodes)
-                if min_danger <= 6:
-                    best_power = None
-                    best_score = math.inf
-                    for pellet_node in power_pellets:
-                        distance = self._calculate_distance(start_node, pellet_node)
-                        safety = 0
-                        if dangerous_nodes:
-                            safety = min(self._calculate_distance(pellet_node, ghost_node) for ghost_node in dangerous_nodes)
-                        score = distance - safety * 3
-                        if score < best_score:
-                            best_score = score
-                            best_power = pellet_node
-                    if best_power:
-                        return best_power
-
-            if freight_nodes:
-                min_freight = min(self._calculate_distance(start_node, node) for node in freight_nodes)
-                if min_freight <= 5:
-                    if not dangerous_nodes or min(self._calculate_distance(start_node, node) for node in dangerous_nodes) > 4:
-                        return min(freight_nodes, key=lambda node: self._calculate_distance(start_node, node))
-
-            best_pellet = None
-            best_score = math.inf
-            for pellet_node in all_pellets:
-                distance = self._calculate_distance(start_node, pellet_node)
-                safety_penalty = 0
-                if dangerous_nodes:
-                    min_ghost = min(self._calculate_distance(pellet_node, node) for node in dangerous_nodes)
-                    if min_ghost <= 2:
-                        safety_penalty = 500
-                    elif min_ghost <= 4:
-                        safety_penalty = 100
-                score = distance + safety_penalty
-                if score < best_score:
-                    best_score = score
-                    best_pellet = pellet_node
-            return best_pellet
-
-        target_node = choose_target()
-        open_set = []
-        heapq.heappush(open_set, (heuristic(start_node, target_node), 0.0, start_node))
-        came_from = {}
-        g_score = {start_node: 0.0}
-        visited = set()
-
-        while open_set:
-            _, current_cost, current = heapq.heappop(open_set)
-            if current in visited:
-                continue
-            visited.add(current)
-
-            if current is target_node:
-                while came_from.get(current) and came_from[current][0] is not start_node:
-                    current = came_from[current][0]
-                if current is target_node and came_from.get(current) is None:
-                    return STOP
-                direction = came_from[current][1] if came_from.get(current) else STOP
-                return direction
-
-            for direction in ALL_DIRECTIONS:
-                neighbor = current.neighbors.get(direction)
-                if neighbor is None:
-                    continue
-                tentative = current_cost + node_cost(neighbor)
-                if tentative >= g_score.get(neighbor, math.inf):
-                    continue
-                came_from[neighbor] = (current, direction)
-                g_score[neighbor] = tentative
-                f_score = tentative + heuristic(neighbor, target_node)
-                heapq.heappush(open_set, (f_score, tentative, neighbor))
-
-        return STOP
-
-    def _get_online_direction(self, pellet_group, ghost_group, fruit=None):
-        current_node = getattr(self.pacman, 'node', None)
-        if current_node is None:
-            return STOP
-        algorithm_name = getattr(self.pacman, 'pathfinder_name', DEFAULT_ALGORITHM)
-        handler = self._algorithm_handlers.get(algorithm_name, self._run_astar)
-        try:
-            return handler(pellet_group, ghost_group, fruit)
-        except Exception as exc:  
-            return self._get_random_direction(current_node)
+# ==========================================================
+#        CÁC HÀM HANDLER CHO TỪNG THUẬT TOÁN AI PAC-MAN
+# ----------------------------------------------------------
+# - Đóng vai trò là "bộ chuyển đổi" giữa hệ thống và các thuật toán tìm đường:
+#   + _run_minimax:      Gọi thuật toán Minimax để chọn hướng đi tối ưu cho Pac-Man
+#   + _run_alpha_beta:   Gọi thuật toán Alpha-Beta Pruning để chọn hướng đi tối ưu
+#   + _run_hill_climbing:Gọi thuật toán Hill Climbing để chọn hướng đi
+#   + _run_astar:        Gọi thuật toán A* để chọn hướng đi ngắn nhất/tránh nguy hiểm
+# - Các hàm này nhận vào trạng thái hiện tại (pellet_group, ghost_group, fruit)
+#   và trả về hướng đi (direction) phù hợp cho Pac-Man
+# ==========================================================
 
     def _run_minimax(self, pellet_group, ghost_group, fruit):
         pacman_copy = self._clone_entity(
@@ -730,8 +511,6 @@ class HybridAISystem:
             previous_direction=getattr(self.pacman, 'direction', None),
         )
         score, action = self.minimax(pacman_copy, ghost_group, pellet_group, depth=2, agent_index=0, fruit=fruit)
-        if action is None:
-            return self._get_random_direction(getattr(self.pacman, 'node', None))
         return action
 
     def _run_alpha_beta(self, pellet_group, ghost_group, fruit):
@@ -741,8 +520,6 @@ class HybridAISystem:
             previous_direction=getattr(self.pacman, 'direction', None),
         )
         _, action = self.alpha_beta_pruning(pacman_copy, ghost_group, pellet_group, depth=3, agent_index=0)
-        if action is None:
-            return self._get_random_direction(getattr(self.pacman, 'node', None))
         return action
 
     def _run_hill_climbing(self, pellet_group, ghost_group, fruit):
@@ -751,101 +528,12 @@ class HybridAISystem:
     def _run_astar(self, pellet_group, ghost_group, fruit):
         return self.astar_pacman_direction(self.pacman, ghost_group, pellet_group)
 
-    def _get_random_direction(self, current_node):
-        """Return a random legal direction from current_node."""
-        if current_node is None:
-            return STOP
-        valid_directions = [
-            direction
-            for direction in ALL_DIRECTIONS
-            if self._can_move_in_direction(current_node, direction)
-        ]
-        return random.choice(valid_directions) if valid_directions else STOP
-
-    def _calculate_distance(self, node1, node2):
-        # Lấy config từ pacman nếu self.config là None
-        config = self.config
-        if config is None and hasattr(self.pacman, 'config'):
-            config = self.pacman.config
-        
-        func = Heuristic.get_heuristic_function(config)
-        return func(node1, node2)
-
-    def _calculate_distance_manhattan(self, node1, node2):
-        result = Heuristic.manhattan(node1, node2)
-        return result
-
-    def _calculate_distance_euclidean(self, node1, node2):
-        func = Heuristic.euclidean
-        return func(node1, node2)
-
-
-
-    def _evaluate_power_pellets(self, pacman_node, pellet_group):
-        """Đánh giá power pellets (nếu có trong game)"""    
-        if not pacman_node or not pellet_group.powerPellets:
-            return 0
-            
-        # Tìm power pellets còn lại
-        power_pellets = []
-        if pellet_group.powerPellets:
-            power_pellets = [pp for pp in pellet_group.powerPellets if pp.visible]
-        
-        if not power_pellets:
-            return 0
-            
-        # Tính khoảng cách đến power pellet gần nhất
-        min_power_dist = min(
-            (self._calculate_distance(pacman_node, pp.node) for pp in power_pellets if pp.node),
-            default=float('inf')
-        )
-        
-        if min_power_dist <= 3:
-            return 30  
-        elif min_power_dist <= 6:
-            return 15 
-        else:
-            return 0  
-
-    def _evaluate_movement_efficiency(self, pacman_node, pellet_nodes, ghost_nodes):
-        """Đánh giá hiệu quả di chuyển dựa trên hướng tối ưu"""
-        if not pacman_node or not pellet_nodes:
-            return 0
-            
-        # Tìm hướng di chuyển tốt nhất (có nhiều pellets nhất)
-        direction_scores = {}
-        for direction in ALL_DIRECTIONS:
-            if not self._can_move_in_direction(pacman_node, direction):
-                continue
-                
-            next_node = pacman_node.neighbors[direction]
-            if not next_node:
-                continue
-                
-            # Đếm pellets có thể tiếp cận từ vị trí tiếp theo
-            reachable_pellets = 0
-            for pellet_node in pellet_nodes:
-                dist = self._calculate_distance(next_node, pellet_node)
-                if dist <= 5:  # Trong tầm 5 bước
-                    reachable_pellets += 1
-            
-            # Trừ đi nếu có ghost gần
-            ghost_penalty = 0
-            for ghost_node in ghost_nodes:
-                dist = self._calculate_distance(next_node, ghost_node)
-                if dist <= 2:
-                    ghost_penalty += 20
-                elif dist <= 4:
-                    ghost_penalty += 10
-            
-            direction_scores[direction] = reachable_pellets * 5 - ghost_penalty
-        
-        if not direction_scores:
-            return 0
-            
-        # Trả về điểm của hướng tốt nhất
-        return max(direction_scores.values())
-
+# ==========================================================
+#            Các hàm tiện ích static cho HybridAISystem
+# ----------------------------------------------------------
+#  - Hỗ trợ clone entity, lấy danh sách ghost, pellet, v.v.
+#  - Được sử dụng nội bộ cho các thuật toán AI
+# ==========================================================
     @staticmethod
     def _clone_entity(entity, **overrides):
         if entity is None:
@@ -873,4 +561,25 @@ class HybridAISystem:
             return tuple()
         return tuple(pellets)
 
+# ==========================================================
+#                   KHOẢNG CÁCH (DISTANCE)
+# ----------------------------------------------------------
+# Các hàm và logic liên quan đến tính toán khoảng cách giữa
+# Pac-Man, ma, và các đối tượng khác trên bản đồ.
+# ==========================================================
+    def _calculate_distance(self, node1, node2):
+        # Lấy config từ pacman nếu self.config là None
+        config = self.config
+        if config is None and hasattr(self.pacman, 'config'):
+            config = self.pacman.config
+        
+        func = Heuristic.get_heuristic_function(config)
+        return func(node1, node2)
 
+    def _calculate_distance_manhattan(self, node1, node2):
+        result = Heuristic.manhattan(node1, node2)
+        return result
+
+    def _calculate_distance_euclidean(self, node1, node2):
+        func = Heuristic.euclidean
+        return func(node1, node2)
