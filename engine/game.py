@@ -692,9 +692,6 @@ class Game(object):
             elif algorithm == 'A*':
                 self.pacman.pathfinder_name = 'A*'
                 self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)
-            elif algorithm == 'GREEDY':
-                self.pacman.pathfinder_name = 'GREEDY'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(greedy)
             elif algorithm == 'Hill Climbing':
                 self.pacman.pathfinder_name = 'Hill Climbing'
             elif algorithm == 'Genetic Algorithm':
@@ -705,6 +702,9 @@ class Game(object):
                 self.pacman.pathfinder = None
             elif algorithm == 'Alpha-Beta':
                 self.pacman.pathfinder_name = 'Alpha-Beta'
+                self.pacman.pathfinder = None
+            elif algorithm == 'GBFS':
+                self.pacman.pathfinder_name = 'GBFS'
                 self.pacman.pathfinder = None
             elif algorithm == 'A* Online':
                 self.pacman.pathfinder_name = 'A* Online'

@@ -46,14 +46,14 @@ class GameLayout(UIComponent):
         # Thêm các thuật toán mới vào danh sách bên dưới nếu cần
         self.algorithm_options = [
             "BFS", "DFS", "A*", 
-            "UCS", "IDS", "GREEDY",
+            "UCS", "IDS", "GBFS",
             "Hill Climbing", "Genetic Algorithm", "Minimax",
             "Alpha-Beta", "A* Online"
         ] 
 
         self.online_algorithms = [
-            "GREEDY", "Hill Climbing", "Minimax",
-            "Genetic Algorithm", "Alpha-Beta", "A* Online"
+            "Hill Climbing", "Minimax",
+            "Genetic Algorithm", "Alpha-Beta", "A* Online" ,"GBFS"
         ]
 
         self.offline_algorithms = ["BFS", "DFS", "A*", "UCS", "IDS"]  

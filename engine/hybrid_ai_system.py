@@ -1,8 +1,9 @@
 import copy
+import heapq
 import math
 import random
+from collections import deque
 from typing import Dict, Optional, Tuple
-
 from constants import (
     BLINKY,
     CHASE,
@@ -89,6 +90,7 @@ class HybridAISystem:
             "Alpha-Beta": self._run_alpha_beta,
             "Hill Climbing": self._run_hill_climbing,
             "A* Online": self._run_astar,
+            "GBFS": self._run_gbfs,
         }
 
     def set_mode(self, mode):
@@ -430,8 +432,6 @@ class HybridAISystem:
                 break
         return best_value, best_action
 
-
-
 # ==========================================================
 #                HILL CLIMBING ALGORITHM CHO PAC-MAN
 # ----------------------------------------------------------
@@ -484,13 +484,206 @@ class HybridAISystem:
     def astar_pacman_direction(self, pacman, ghostgroup, pellet_group):
         pass
 
-
-
-
 # ==========================================================
 #                    END OF A* ALGORITHM
 # ==========================================================
 
+# ==========================================================
+#                GREEDY BEST FIRST SEARCH (GBFS)
+# ----------------------------------------------------------
+# Thuật toán Greedy Best First Search cho Pac-Man
+# - Luôn chọn node có heuristic nhỏ nhất (gần mục tiêu nhất) để mở rộng tiếp theo
+# - Không xét tổng chi phí đường đi, chỉ xét heuristic (ước lượng khoảng cách đến mục tiêu)
+# - Thường tìm đường nhanh nhưng không đảm bảo tối ưu như A*
+# - Phù hợp khi cần tìm đường nhanh đến pellet/capsule gần nhất, tránh ghost
+# ==========================================================
+    def GreedyBestFirstSearch(self, pacman, ghostgroup, pellet_group):
+        pacman_node = getattr(pacman, 'node', None)
+        if pacman_node is None:
+            return STOP
+
+        ghosts = [
+            ghost
+            for ghost in self._ghosts(ghostgroup)
+            if getattr(ghost, 'node', None) is not None
+        ]
+        # ghost gần nhất là freight thì trả về true
+        if not ghosts:
+            freight_ghost_nodes = []
+        else:
+            nearest_ghost = min(
+                ghosts,
+                key=lambda ghost: self._calculate_distance(pacman_node, getattr(ghost, 'node', None))
+            )
+            if getattr(getattr(nearest_ghost, 'mode', None), 'current', None) == FREIGHT:
+                is_freight_ghost = True
+            else:
+                is_freight_ghost = False
+            freight_ghost_nodes = [
+                ghost.node
+                for ghost in ghosts
+                if getattr(getattr(ghost, 'mode', None), 'current', None) == FREIGHT
+            ]
+
+        if is_freight_ghost:
+            min_dist = float('inf')
+            selected_ghost_node = None
+            selected_time_left = 0
+            for ghost in ghosts:
+                ghost_node = getattr(ghost, 'node', None)
+                mode_controller = getattr(ghost, 'mode', None)
+                if ghost_node is None or getattr(mode_controller, 'current', None) != FREIGHT:
+                    continue
+                time_total = getattr(mode_controller, 'time', 0)
+                time_timer = getattr(mode_controller, 'timer', 0)
+                time_left = max(0, float(time_total) - float(time_timer))
+                dist = self._calculate_distance(pacman_node, ghost_node)
+                if dist < min_dist and time_left > 0.5:  
+                    min_dist = dist
+                    selected_ghost_node = ghost_node
+                    selected_time_left = time_left
+
+            if selected_ghost_node is not None and selected_time_left > 0.5:
+                goal_node = selected_ghost_node
+            else:
+                if freight_ghost_nodes:
+                    goal_node = min(
+                        freight_ghost_nodes,
+                        key=lambda node: self._calculate_distance(pacman_node, node),
+                    )
+                else:
+                    goal_node = None
+        else:
+            if self.is_ghost_near(pacman_node, ghostgroup):
+                power_node = self.find_nearest_power_pellet(pacman_node, pellet_group)
+                if power_node is not None:
+                    goal_node = power_node
+                else:
+                    goal_node = self.find_furthes_safe_node(pacman_node, ghostgroup)
+            else:
+                goal_node = self.find_nearest_pellet(pacman_node, pellet_group)
+
+        if goal_node is None or goal_node == pacman_node:
+            return STOP
+
+        open_set = []
+        heapq.heappush(open_set, (self._calculate_distance(pacman_node, goal_node), pacman_node, None))
+        visited = set()
+
+        while open_set:
+            _, current, first_direction = heapq.heappop(open_set)
+            if current == goal_node:
+                return first_direction if first_direction is not None else STOP
+
+            visited.add(current)
+            if not hasattr(current, 'neighbors'):
+                continue
+
+            for direction, neighbor in current.neighbors.items():
+                if neighbor is None or neighbor in visited:
+                    continue
+
+                next_direction = direction if current == pacman_node else first_direction
+                heapq.heappush(
+                    open_set,
+                    (self._calculate_distance(neighbor, goal_node), neighbor, next_direction),
+                )
+
+        return STOP
+
+    def find_furthes_safe_node(self, pacman_node, ghostgroup, max_depth=5):
+        visited = set()
+        queue = deque([(pacman_node, 0)])
+        best_node = pacman_node
+        best_dist = -1
+
+        # Get all dangerous ghosts
+        dangerous_ghosts = [
+            ghost for ghost in self._ghosts(ghostgroup)
+            if getattr(ghost, 'node', None) is not None
+            and getattr(getattr(ghost, 'mode', None), 'current', None) in DANGEROUS_GHOST_MODES
+        ]
+
+        # If no dangerous ghosts, return current position
+        if not dangerous_ghosts:
+            return pacman_node
+
+        while queue:
+            node, depth = queue.popleft()
+            if node in visited or depth > max_depth:
+                continue
+            visited.add(node)
+
+            # Calculate minimum distance to any dangerous ghost
+            min_ghost_dist = min(
+                (
+                    self._calculate_distance(node, ghost.node)
+                    for ghost in dangerous_ghosts
+                ),
+                default=float('inf'),
+            )
+
+            if min_ghost_dist > best_dist:
+                best_dist = min_ghost_dist
+                best_node = node
+
+            for neighbor in node.neighbors.values():
+                if neighbor is not None and neighbor not in visited:
+                    queue.append((neighbor, depth + 1))
+
+        return best_node
+
+    def find_nearest_power_pellet(self, pacman_node, pellet_group):
+        pellet_list = getattr(pellet_group, 'pelletList', None)
+        if not pellet_list:
+            return None
+
+        return min(
+            (
+                getattr(pellet, 'node', None)
+                for pellet in pellet_list
+                if getattr(pellet, 'name', None) == POWERPELLET
+                and getattr(pellet, 'node', None) is not None
+                and getattr(pellet, 'visible', True)
+            ),
+            key=lambda node: self._calculate_distance(pacman_node, node),
+            default=None,
+        )
+
+    def find_nearest_pellet(self, pacman_node, pellet_group):
+        pellet_list = getattr(pellet_group, 'pelletList', None)
+        if not pellet_list:
+            return None
+
+        return min(
+            (
+                getattr(pellet, 'node', None)
+                for pellet in pellet_list
+                if getattr(pellet, 'node', None) is not None
+                and getattr(pellet, 'visible', True)
+            ),
+            key=lambda node: self._calculate_distance(pacman_node, node),
+            default=None,
+        )
+    
+    def is_ghost_near(self, pacman_node, ghostgroup, threat_range=THREAT_RANGE):
+        if pacman_node is None:
+            return False
+
+        for ghost in self._ghosts(ghostgroup):
+            ghost_node = getattr(ghost, 'node', None)
+            if ghost_node is None:
+                continue
+
+            mode = getattr(getattr(ghost, 'mode', None), 'current', None)
+            if mode in DANGEROUS_GHOST_MODES and self._calculate_distance(pacman_node, ghost_node) <= threat_range:
+                return True
+
+        return False
+
+# ==========================================================
+#                    END OF GBFS ALGORITHM
+# ==========================================================
 
 # ==========================================================
 #        CÁC HÀM HANDLER CHO TỪNG THUẬT TOÁN AI PAC-MAN
@@ -527,6 +720,9 @@ class HybridAISystem:
 
     def _run_astar(self, pellet_group, ghost_group, fruit):
         return self.astar_pacman_direction(self.pacman, ghost_group, pellet_group)
+
+    def _run_gbfs(self, pellet_group, ghost_group, fruit):
+        return self.GreedyBestFirstSearch(self.pacman, ghost_group, pellet_group)
 
 # ==========================================================
 #            Các hàm tiện ích static cho HybridAISystem
@@ -573,6 +769,10 @@ class HybridAISystem:
         if config is None and hasattr(self.pacman, 'config'):
             config = self.pacman.config
         
+        # Check if nodes are valid
+        if not hasattr(node1, 'position') or not hasattr(node2, 'position'):
+            return float('inf')
+            
         func = Heuristic.get_heuristic_function(config)
         return func(node1, node2)
 
