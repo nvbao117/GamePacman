@@ -41,7 +41,10 @@ def bfs(startNode, pellet_group, heuristic_func=None):
             nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
             path_to_pellet = bfs_find_nearest_pellet(current_node, {nearest_pellet})
         else:
-            path_to_pellet = bfs_find_nearest_pellet(current_node, remaining_pellets)
+            if len(remaining_pellets) <= 7:
+                path_to_pellet = bfs_few_pellets(current_node, remaining_pellets)
+            else:
+                path_to_pellet = bfs_find_nearest_pellet(current_node, remaining_pellets)
         if not path_to_pellet:
             break  
 
@@ -72,6 +75,32 @@ def bfs_find_nearest_pellet(start_node, pellet_nodes):
                 queue.append((neighbor, path + [neighbor]))
     return None
 
+def bfs_few_pellets(start_node, pellet_nodes):
+    max_pellets = 7
+    from collections import deque
+    queue = deque()
+    initial_collected = set([start_node]) if start_node in pellet_nodes else set()
+    queue.append((start_node, [start_node], initial_collected))
+    visited = set()
+    visited.add((start_node, frozenset(initial_collected)))
+    while queue:
+        current, path, collected = queue.popleft()
+        if len(collected) >= max_pellets:
+            return path
+        if len(collected) == len(pellet_nodes):
+            return path
+
+        for direction in get_all_directions():
+            neighbor = current.neighbors.get(direction)
+            if is_valid_node(neighbor, current, direction):
+                new_collected = set(collected)
+                if neighbor in pellet_nodes:
+                    new_collected.add(neighbor)
+                state = (neighbor, frozenset(new_collected))
+                if state not in visited:
+                    visited.add(state)
+                    queue.append((neighbor, path + [neighbor], new_collected))
+    return None
 # =============================================================================
 # DFS 
 # =============================================================================
@@ -100,7 +129,10 @@ def dfs(startNode, pellet_group, heuristic_func=None):
             nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
             path_to_pellet = dfs_find_nearest_pellet(current_node, {nearest_pellet})
         else:
-            path_to_pellet = dfs_find_nearest_pellet(current_node, remaining_pellets)
+            if len(remaining_pellets) <= 7:
+                path_to_pellet = dfs_few_pellets(current_node, remaining_pellets)
+            else:
+                path_to_pellet = dfs_find_nearest_pellet(current_node, remaining_pellets)
         if not path_to_pellet:
             break  
 
@@ -130,6 +162,32 @@ def dfs_find_nearest_pellet(start_node, pellet_nodes):
                 visited.add(neighbor)
                 stack.append((neighbor, path + [neighbor]))
     return None
+
+def dfs_few_pellets(start_node, pellet_nodes):
+    max_pellets = 7
+    stack = []
+    stack.append((start_node, [start_node], set([start_node]) if start_node in pellet_nodes else set()))
+    visited = set()
+    visited.add((start_node, frozenset(set([start_node]) if start_node in pellet_nodes else set())))
+    while stack:
+        current, path, collected = stack.pop()
+        if len(collected) >= max_pellets:
+            return path
+        if len(collected) == len(pellet_nodes):
+            return path
+
+        for direction in get_all_directions():
+            neighbor = current.neighbors.get(direction)
+            if is_valid_node(neighbor, current, direction):
+                new_collected = set(collected)
+                if neighbor in pellet_nodes:
+                    new_collected.add(neighbor)
+                state = (neighbor, frozenset(new_collected))
+                if state not in visited:
+                    visited.add(state)
+                    stack.append((neighbor, path + [neighbor], new_collected))
+    return None
+
 
 # =============================================================================
 # A*

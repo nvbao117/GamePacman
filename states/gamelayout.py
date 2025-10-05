@@ -901,30 +901,23 @@ class GameLayout(UIComponent):
                     self.current_ai_mode = new_ai_mode
                     ai_mode_changed = True
         
-        ghost_locked = self.current_ai_mode == "OFFLINE"
         
         if self.ghost_mode_selectbox:
-            if ghost_locked:
-                self.ghost_mode = False
-                self.ghost_mode_selectbox.selected_option = 1
-                self.ghost_mode_selectbox.is_open = False
-                self._ghost_selectbox_hovered = False
-            else:
-                if event.type == pygame.MOUSEMOTION:
-                    if hasattr(self.ghost_mode_selectbox, 'rect') and self.ghost_mode_selectbox.rect.collidepoint(event.pos):
-                        if not getattr(self, '_ghost_selectbox_hovered', False):
-                            self.app.sound_system.play_sound('button_hover')
-                            self._ghost_selectbox_hovered = True
-                    else:
-                        self._ghost_selectbox_hovered = False
+            if event.type == pygame.MOUSEMOTION:
+                if hasattr(self.ghost_mode_selectbox, 'rect') and self.ghost_mode_selectbox.rect.collidepoint(event.pos):
+                    if not getattr(self, '_ghost_selectbox_hovered', False):
+                        self.app.sound_system.play_sound('button_hover')
+                        self._ghost_selectbox_hovered = True
+                else:
+                    self._ghost_selectbox_hovered = False
 
-                if self.ghost_mode_selectbox.handle_event(event):
-                    new_ghost_mode_text = self.ghost_mode_selectbox.get_selected_value()
-                    if new_ghost_mode_text:
-                        new_ghost_mode = (new_ghost_mode_text == 'Ghost ON')
-                        if new_ghost_mode != self.ghost_mode:
-                            self.ghost_mode = new_ghost_mode
-                            ghost_mode_changed = True
+            if self.ghost_mode_selectbox.handle_event(event):
+                new_ghost_mode_text = self.ghost_mode_selectbox.get_selected_value()
+                if new_ghost_mode_text:
+                    new_ghost_mode = (new_ghost_mode_text == 'Ghost ON')
+                    if new_ghost_mode != self.ghost_mode:
+                        self.ghost_mode = new_ghost_mode
+                        ghost_mode_changed = True
 
         # Xử lý algorithm selectbox (ở dưới)
         if self.algorithm_selectbox and is_ai_mode:

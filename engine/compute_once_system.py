@@ -4,6 +4,7 @@
 
 import time
 from constants import *
+from engine.heuristic import Heuristic
 
 class ComputeOnceSystem:
     def __init__(self, config=None):
@@ -17,18 +18,6 @@ class ComputeOnceSystem:
         self.last_level = -1 
         
     def get_direction(self, pacman, pelletGroup, pathfinder, pathfinder_name, fruit = None ) :
-        """
-        Lấy hướng di chuyển từ master path đã tính sẵn
-        
-        Args:
-            pacman: Đối tượng Pacman
-            pelletGroup: Nhóm các pellet cần ăn
-            pathfinder: Hàm thuật toán AI (BFS, DFS, A*, etc.)
-            pathfinder_name: Tên thuật toán để hiển thị
-
-        Returns:
-            direction: Hướng di chuyển (UP, DOWN, LEFT, RIGHT, STOP)
-        """
         pellet_count_now = len([p for p in pelletGroup.pelletList if p.visible])
 
         should_compute = (
@@ -37,11 +26,9 @@ class ComputeOnceSystem:
             self.curent_level != self.last_level or
             abs(pellet_count_now - self.pellet_count_when_computed) >= 200
         )
-        print("should_compute", should_compute)
         if should_compute:
             success = self._compute_master_path(pacman, pelletGroup, pathfinder, pathfinder_name)
             if not success:
-                # Nếu tính toán thất bại, dùng greedy backup
                 return self._emergency_greedy(pacman, pelletGroup)
 
         return self._follow_master_path(pacman, pelletGroup)
@@ -146,16 +133,6 @@ class ComputeOnceSystem:
         return STOP
     
     def _emergency_greedy(self, pacman, pelletGroup):
-        """
-        Chế độ greedy khẩn cấp khi master path không khả dụng
-        
-        Args:
-            pacman: Đối tượng Pacman
-            pelletGroup: Nhóm pellet còn lại
-            
-        Returns:
-            direction: Hướng di chuyển greedy tới pellet gần nhất
-        """
         from constants import UP, DOWN, LEFT, RIGHT, PORTAL, PACMAN, STOP
         
         if not pelletGroup or not pelletGroup.pelletList:
@@ -168,7 +145,7 @@ class ComputeOnceSystem:
         
         # Use simple greedy - very fast, no lag
         nearest_pellet = min(pellet_nodes, 
-                           key=lambda p: self._manhattan_distance(pacman.node, p))
+                           key=lambda p: self._calculate_distance(pacman.node, p))
         
         # Move toward nearest pellet
         best_direction = STOP
@@ -182,7 +159,7 @@ class ComputeOnceSystem:
                            PACMAN in pacman.node.access[direction])
                 
                 if can_move:
-                    distance = self._manhattan_distance(neighbor, nearest_pellet)
+                    distance = self._calculate_distance(neighbor, nearest_pellet)
                     if distance < min_distance:
                         min_distance = distance
                         best_direction = direction
@@ -196,15 +173,6 @@ class ComputeOnceSystem:
             pass
         
         return best_direction
-    
-    def _manhattan_distance(self, node1, node2):
-        """Manhattan distance"""
-        if not node1 or not node2:
-            return float('inf')
-        
-        dx = abs(node1.position.x - node2.position.x)
-        dy = abs(node1.position.y - node2.position.y)
-        return dx + dy
     
     def _can_move_between(self, from_node, to_node):
         """
@@ -236,24 +204,19 @@ class ComputeOnceSystem:
         self.pellet_count_when_computed = 0
         # System reset - sẽ tính lại path ở lần gọi tiếp theo
     
-    def get_progress_info(self):
-        """Get current progress information"""
-        if not self.is_computed:
-            return "Not computed yet"
+
+    def _calculate_distance(self, node1, node2):
+        config = self.config
+        if config is None and hasattr(self.pacman, 'config'):
+            config = self.pacman.config
         
-        total_steps = len(self.master_path)
-        current_step = self.current_index
-        remaining_steps = total_steps - current_step
-        progress_percent = (current_step / total_steps) * 100 if total_steps > 0 else 0
-        
-        return {
-            'algorithm': self.algorithm_name,
-            'total_steps': total_steps,
-            'current_step': current_step,
-            'remaining_steps': remaining_steps,
-            'progress_percent': progress_percent,
-            'is_completed': current_step >= total_steps
-        }
+        # Check if nodes are valid
+        if not hasattr(node1, 'position') or not hasattr(node2, 'position'):
+            return float('inf')
+            
+        func = Heuristic.get_heuristic_function(config)
+        return func(node1, node2)
+
 # Global compute-once system
 compute_once = ComputeOnceSystem()
 
