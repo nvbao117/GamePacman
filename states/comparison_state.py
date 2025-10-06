@@ -209,49 +209,54 @@ class ComparisonState(State):
             self.algorithm
         )
         
-        # Log performance data cho AI game
+        # Log performance data cho AI game - chỉ khi có thay đổi
         if hasattr(self, 'performance_logger') and self.game_running and not self.is_pause:
             # Thu thập dữ liệu thực tế từ game
             current_score = getattr(self.ai_game, 'score', 0)
             current_lives = getattr(self.ai_game, 'lives', 5)
             current_level = getattr(self.ai_game, 'level', 0)
             
-            # Update game stats với dữ liệu thật
-            self.performance_logger.update_game_stats(
-                score=current_score,
-                lives=current_lives,
-                level=current_level,
-                food_eaten=current_score // 10,  # Ước tính food eaten từ score
-                deaths=5 - current_lives,  # Số lần chết
-                win_rate=100.0 if current_lives > 0 else 0.0
-            )
-            
-            # Thêm dữ liệu thật vào data_records ngay lập tức
-            if current_score > 0:  # Chỉ thêm khi có score
-                record = {
-                    'algorithm': self.algorithm,
-                    'avg_time_ms': 150.5,  # Giá trị mặc định
-                    'steps': 100,  # Giá trị mặc định
-                    'food_eaten': current_score // 10,
-                    'deaths': 5 - current_lives,
-                    'win_rate': 100.0 if current_lives > 0 else 0.0,
-                    'score': current_score,
-                    'level': current_level + 1,
-                    'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
-                }
+            # Chỉ update khi có thay đổi để tránh spam
+            if (current_score != self.ai_score or 
+                current_lives != self.ai_lives or 
+                current_level != self.ai_level):
                 
-                # Kiểm tra xem record đã tồn tại chưa (tránh duplicate)
-                existing = False
-                for existing_record in self.performance_logger.data_records:
-                    if (existing_record['algorithm'] == record['algorithm'] and 
-                        existing_record['score'] == record['score'] and
-                        existing_record['level'] == record['level']):
-                        existing = True
-                        break
+                # Update game stats với dữ liệu thật
+                self.performance_logger.update_game_stats(
+                    score=current_score,
+                    lives=current_lives,
+                    level=current_level,
+                    food_eaten=current_score // 10,  # Ước tính food eaten từ score
+                    deaths=5 - current_lives,  # Số lần chết
+                    win_rate=100.0 if current_lives > 0 else 0.0
+                )
                 
-                if not existing:
-                    self.performance_logger.data_records.append(record)
-                    print(f"Added real data record: {record}")
+                # Chỉ thêm record khi có thay đổi đáng kể (score tăng ít nhất 10 điểm)
+                if current_score > 0 and current_score - self.ai_score >= 10:
+                    record = {
+                        'algorithm': self.algorithm,
+                        'avg_time_ms': 150.5,  # Giá trị mặc định
+                        'steps': 100,  # Giá trị mặc định
+                        'food_eaten': current_score // 10,
+                        'deaths': 5 - current_lives,
+                        'win_rate': 100.0 if current_lives > 0 else 0.0,
+                        'score': current_score,
+                        'level': current_level + 1,
+                        'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    
+                    # Kiểm tra xem record đã tồn tại chưa (tránh duplicate)
+                    existing = False
+                    for existing_record in self.performance_logger.data_records:
+                        if (existing_record['algorithm'] == record['algorithm'] and 
+                            existing_record['score'] == record['score'] and
+                            existing_record['level'] == record['level']):
+                            existing = True
+                            break
+                    
+                    if not existing:
+                        self.performance_logger.data_records.append(record)
+                        print(f"Added AI data record: Score={current_score}, Level={current_level + 1}")
         else:
             # Ngay cả khi pause, vẫn cập nhật layout với giá trị hiện tại
             self.layout.set_game_info(
@@ -454,39 +459,38 @@ class ComparisonState(State):
             print(f"Performance logger type: {type(self.performance_logger)}")
             print(f"AI score: {self.ai_score}, AI level: {self.ai_level}")
             
-            # Thêm dữ liệu hiện tại nếu chưa có
-            if len(self.performance_logger.data_records) == 0:
-                print("No data records found, adding current game data...")
-                # Thêm dữ liệu từ game hiện tại
-                current_record = {
-                    'algorithm': self.algorithm,
-                    'avg_time_ms': 150.5,  # Giá trị mặc định
-                    'steps': 100,  # Giá trị mặc định
-                    'food_eaten': self.ai_score // 10,  # Ước tính từ score
-                    'deaths': 5 - self.ai_lives,  # Số lần chết
-                    'win_rate': 100.0 if self.ai_lives > 0 else 0.0,
-                    'score': self.ai_score,
-                    'level': self.ai_level + 1,
-                    'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
-                }
-                self.performance_logger.data_records.append(current_record)
-                print(f"Added current game record: {current_record}")
-            else:
-                print(f"Found {len(self.performance_logger.data_records)} existing records")
-                # Vẫn thêm dữ liệu hiện tại để cập nhật
-                current_record = {
-                    'algorithm': self.algorithm,
-                    'avg_time_ms': 150.5,
-                    'steps': 100,
-                    'food_eaten': self.ai_score // 10,
-                    'deaths': 5 - self.ai_lives,
-                    'win_rate': 100.0 if self.ai_lives > 0 else 0.0,
-                    'score': self.ai_score,
-                    'level': self.ai_level + 1,
-                    'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
-                }
-                self.performance_logger.data_records.append(current_record)
-                print(f"Added current game record: {current_record}")
+            # Thêm dữ liệu AI và Human Player
+            print("Adding current game data for both AI and Human Player...")
+            
+            # Thêm dữ liệu AI
+            ai_record = {
+                'algorithm': f"AI-{self.algorithm}",
+                'avg_time_ms': 150.5,  # Giá trị mặc định
+                'steps': 100,  # Giá trị mặc định
+                'food_eaten': self.ai_score // 10,  # Ước tính từ score
+                'deaths': 5 - self.ai_lives,  # Số lần chết
+                'win_rate': 100.0 if self.ai_lives > 0 else 0.0,
+                'score': self.ai_score,
+                'level': self.ai_level + 1,
+                'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            self.performance_logger.data_records.append(ai_record)
+            print(f"Added AI record: Score={self.ai_score}, Level={self.ai_level + 1}")
+            
+            # Thêm dữ liệu Human Player
+            human_record = {
+                'algorithm': "Human-Player",
+                'avg_time_ms': 200.0,  # Human thường chậm hơn AI
+                'steps': 120,  # Human thường đi nhiều bước hơn
+                'food_eaten': self.player_score // 10,  # Ước tính từ score
+                'deaths': 5 - self.player_lives,  # Số lần chết
+                'win_rate': 100.0 if self.player_lives > 0 else 0.0,
+                'score': self.player_score,
+                'level': self.player_level + 1,
+                'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            self.performance_logger.data_records.append(human_record)
+            print(f"Added Human Player record: Score={self.player_score}, Level={self.player_level + 1}")
             
             # Export dữ liệu ra file Excel
             success = self.performance_logger.export_to_excel()
