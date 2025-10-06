@@ -12,9 +12,9 @@ import math
 # =============================================================================
 # BFS
 # =============================================================================
-def bfs(startNode, pellet_group, heuristic_func=None):
+def bfs(startNode, pellet_group, ghost_group=None, heuristic_func=None, ghost_avoid_dist=2):
     """
-    BFS practical pathfinding to collect all pellets.
+    BFS practical pathfinding to collect all pellets with ghost avoidance.
     Optionally uses a heuristic function to prioritize which pellet to go to next.
     """
     if not pellet_group or not pellet_group.pelletList:
@@ -31,6 +31,13 @@ def bfs(startNode, pellet_group, heuristic_func=None):
     else:
         print("🎯 BFS using NO heuristic (None)")
 
+    # Lấy vị trí ghost để tránh
+    ghost_nodes = set()
+    if ghost_group is not None and hasattr(ghost_group, 'ghosts'):
+        for ghost in ghost_group.ghosts:
+            if hasattr(ghost, 'node') and getattr(ghost, 'visible', True):
+                ghost_nodes.add(ghost.node)
+
     current_node = startNode
     remaining_pellets = set(pellet_nodes)
     full_path = []
@@ -39,12 +46,12 @@ def bfs(startNode, pellet_group, heuristic_func=None):
         if heuristic_func is not None:
             # Tìm pellet gần nhất theo heuristic
             nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
-            path_to_pellet = bfs_find_nearest_pellet(current_node, {nearest_pellet})
+            path_to_pellet = bfs_find_nearest_pellet(current_node, {nearest_pellet}, ghost_nodes, ghost_avoid_dist)
         else:
             if len(remaining_pellets) <= 7:
-                path_to_pellet = bfs_few_pellets(current_node, remaining_pellets)
+                path_to_pellet = bfs_few_pellets(current_node, remaining_pellets, ghost_nodes, ghost_avoid_dist)
             else:
-                path_to_pellet = bfs_find_nearest_pellet(current_node, remaining_pellets)
+                path_to_pellet = bfs_find_nearest_pellet(current_node, remaining_pellets, ghost_nodes, ghost_avoid_dist)
         if not path_to_pellet:
             break  
 
@@ -58,11 +65,29 @@ def bfs(startNode, pellet_group, heuristic_func=None):
 
     return full_path if full_path else None
 
-def bfs_find_nearest_pellet(start_node, pellet_nodes):
+def bfs_find_nearest_pellet(start_node, pellet_nodes, ghost_nodes=None, ghost_avoid_dist=2):
     queue = deque()
     queue.append((start_node, [start_node]))
     visited = set()
     visited.add(start_node)
+
+    # Tạo set các node nguy hiểm (gần ghost)
+    danger_nodes = set()
+    if ghost_nodes:
+        for ghost_node in ghost_nodes:
+            # BFS nhỏ để lấy các node trong bán kính ghost_avoid_dist quanh ghost
+            danger_queue = [(ghost_node, 0)]
+            danger_visited = set([ghost_node])
+            while danger_queue:
+                node, dist = danger_queue.pop(0)
+                if dist > ghost_avoid_dist:
+                    continue
+                danger_nodes.add(node)
+                for direction in get_all_directions():
+                    neighbor = node.neighbors.get(direction)
+                    if neighbor and neighbor not in danger_visited:
+                        danger_visited.add(neighbor)
+                        danger_queue.append((neighbor, dist + 1))
 
     while queue:
         current, path = queue.popleft()
@@ -71,11 +96,14 @@ def bfs_find_nearest_pellet(start_node, pellet_nodes):
         for direction in get_all_directions():
             neighbor = current.neighbors.get(direction)
             if is_valid_node(neighbor, current, direction) and neighbor not in visited:
+                # Tránh node nguy hiểm (trừ khi là pellet target)
+                if neighbor in danger_nodes and neighbor not in pellet_nodes:
+                    continue
                 visited.add(neighbor)
                 queue.append((neighbor, path + [neighbor]))
     return None
 
-def bfs_few_pellets(start_node, pellet_nodes):
+def bfs_few_pellets(start_node, pellet_nodes, ghost_nodes=None, ghost_avoid_dist=2):
     max_pellets = 7
     from collections import deque
     queue = deque()
@@ -83,6 +111,25 @@ def bfs_few_pellets(start_node, pellet_nodes):
     queue.append((start_node, [start_node], initial_collected))
     visited = set()
     visited.add((start_node, frozenset(initial_collected)))
+    
+    # Tạo set các node nguy hiểm (gần ghost)
+    danger_nodes = set()
+    if ghost_nodes:
+        for ghost_node in ghost_nodes:
+            # BFS nhỏ để lấy các node trong bán kính ghost_avoid_dist quanh ghost
+            danger_queue = [(ghost_node, 0)]
+            danger_visited = set([ghost_node])
+            while danger_queue:
+                node, dist = danger_queue.pop(0)
+                if dist > ghost_avoid_dist:
+                    continue
+                danger_nodes.add(node)
+                for direction in get_all_directions():
+                    neighbor = node.neighbors.get(direction)
+                    if neighbor and neighbor not in danger_visited:
+                        danger_visited.add(neighbor)
+                        danger_queue.append((neighbor, dist + 1))
+    
     while queue:
         current, path, collected = queue.popleft()
         if len(collected) >= max_pellets:
@@ -93,6 +140,9 @@ def bfs_few_pellets(start_node, pellet_nodes):
         for direction in get_all_directions():
             neighbor = current.neighbors.get(direction)
             if is_valid_node(neighbor, current, direction):
+                # Tránh node nguy hiểm (trừ khi là pellet target)
+                if neighbor in danger_nodes and neighbor not in pellet_nodes:
+                    continue
                 new_collected = set(collected)
                 if neighbor in pellet_nodes:
                     new_collected.add(neighbor)
@@ -104,7 +154,7 @@ def bfs_few_pellets(start_node, pellet_nodes):
 # =============================================================================
 # DFS 
 # =============================================================================
-def dfs(startNode, pellet_group, heuristic_func=None):
+def dfs(startNode, pellet_group, ghost_group=None, heuristic_func=None, ghost_avoid_dist=2):
     if not pellet_group or not pellet_group.pelletList:
         return None
 
@@ -119,6 +169,13 @@ def dfs(startNode, pellet_group, heuristic_func=None):
     else:
         print("🎯 DFS using NO heuristic (None)")
 
+    # Lấy vị trí ghost để tránh
+    ghost_nodes = set()
+    if ghost_group is not None and hasattr(ghost_group, 'ghosts'):
+        for ghost in ghost_group.ghosts:
+            if hasattr(ghost, 'node') and getattr(ghost, 'visible', True):
+                ghost_nodes.add(ghost.node)
+
     current_node = startNode
     remaining_pellets = set(pellet_nodes)
     full_path = []
@@ -127,12 +184,12 @@ def dfs(startNode, pellet_group, heuristic_func=None):
         if heuristic_func is not None:
             # Tìm pellet gần nhất theo heuristic
             nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
-            path_to_pellet = dfs_find_nearest_pellet(current_node, {nearest_pellet})
+            path_to_pellet = dfs_find_nearest_pellet(current_node, {nearest_pellet}, ghost_nodes, ghost_avoid_dist)
         else:
             if len(remaining_pellets) <= 7:
-                path_to_pellet = dfs_few_pellets(current_node, remaining_pellets)
+                path_to_pellet = dfs_few_pellets(current_node, remaining_pellets, ghost_nodes, ghost_avoid_dist)
             else:
-                path_to_pellet = dfs_find_nearest_pellet(current_node, remaining_pellets)
+                path_to_pellet = dfs_find_nearest_pellet(current_node, remaining_pellets, ghost_nodes, ghost_avoid_dist)
         if not path_to_pellet:
             break  
 
@@ -146,11 +203,29 @@ def dfs(startNode, pellet_group, heuristic_func=None):
 
     return full_path if full_path else None
 
-def dfs_find_nearest_pellet(start_node, pellet_nodes):
+def dfs_find_nearest_pellet(start_node, pellet_nodes, ghost_nodes=None, ghost_avoid_dist=2):
     stack = []
     stack.append((start_node, [start_node]))
     visited = set()
     visited.add(start_node)
+
+    # Tạo set các node nguy hiểm (gần ghost)
+    danger_nodes = set()
+    if ghost_nodes:
+        for ghost_node in ghost_nodes:
+            # BFS nhỏ để lấy các node trong bán kính ghost_avoid_dist quanh ghost
+            danger_queue = [(ghost_node, 0)]
+            danger_visited = set([ghost_node])
+            while danger_queue:
+                node, dist = danger_queue.pop(0)
+                if dist > ghost_avoid_dist:
+                    continue
+                danger_nodes.add(node)
+                for direction in get_all_directions():
+                    neighbor = node.neighbors.get(direction)
+                    if neighbor and neighbor not in danger_visited:
+                        danger_visited.add(neighbor)
+                        danger_queue.append((neighbor, dist + 1))
 
     while stack:
         current, path = stack.pop()
@@ -159,16 +234,38 @@ def dfs_find_nearest_pellet(start_node, pellet_nodes):
         for direction in get_all_directions():
             neighbor = current.neighbors.get(direction)
             if is_valid_node(neighbor, current, direction) and neighbor not in visited:
+                # Tránh node nguy hiểm (trừ khi là pellet target)
+                if neighbor in danger_nodes and neighbor not in pellet_nodes:
+                    continue
                 visited.add(neighbor)
                 stack.append((neighbor, path + [neighbor]))
     return None
 
-def dfs_few_pellets(start_node, pellet_nodes):
+def dfs_few_pellets(start_node, pellet_nodes, ghost_nodes=None, ghost_avoid_dist=2):
     max_pellets = 7
     stack = []
     stack.append((start_node, [start_node], set([start_node]) if start_node in pellet_nodes else set()))
     visited = set()
     visited.add((start_node, frozenset(set([start_node]) if start_node in pellet_nodes else set())))
+    
+    # Tạo set các node nguy hiểm (gần ghost)
+    danger_nodes = set()
+    if ghost_nodes:
+        for ghost_node in ghost_nodes:
+            # BFS nhỏ để lấy các node trong bán kính ghost_avoid_dist quanh ghost
+            danger_queue = [(ghost_node, 0)]
+            danger_visited = set([ghost_node])
+            while danger_queue:
+                node, dist = danger_queue.pop(0)
+                if dist > ghost_avoid_dist:
+                    continue
+                danger_nodes.add(node)
+                for direction in get_all_directions():
+                    neighbor = node.neighbors.get(direction)
+                    if neighbor and neighbor not in danger_visited:
+                        danger_visited.add(neighbor)
+                        danger_queue.append((neighbor, dist + 1))
+    
     while stack:
         current, path, collected = stack.pop()
         if len(collected) >= max_pellets:
@@ -179,6 +276,9 @@ def dfs_few_pellets(start_node, pellet_nodes):
         for direction in get_all_directions():
             neighbor = current.neighbors.get(direction)
             if is_valid_node(neighbor, current, direction):
+                # Tránh node nguy hiểm (trừ khi là pellet target)
+                if neighbor in danger_nodes and neighbor not in pellet_nodes:
+                    continue
                 new_collected = set(collected)
                 if neighbor in pellet_nodes:
                     new_collected.add(neighbor)
@@ -295,9 +395,9 @@ def astar_single(start, goal, ghost_nodes=None, heuristic_func=None, ghost_avoid
 # =============================================================================
 # UCS
 # =============================================================================
-def ucs(startNode, pellet_group, heuristic_func=None):
+def ucs(startNode, pellet_group, ghost_group=None, heuristic_func=None, ghost_avoid_dist=2):
     """
-    UCS practical pathfinding to collect all pellets.
+    UCS practical pathfinding to collect all pellets with ghost avoidance.
     Optionally uses a heuristic function to prioritize which pellet to go to next.
     """
     if not pellet_group or not pellet_group.pelletList:
@@ -314,6 +414,13 @@ def ucs(startNode, pellet_group, heuristic_func=None):
     else:
         print("🎯 UCS using NO heuristic (None)")
 
+    # Lấy vị trí ghost để tránh
+    ghost_nodes = set()
+    if ghost_group is not None and hasattr(ghost_group, 'ghosts'):
+        for ghost in ghost_group.ghosts:
+            if hasattr(ghost, 'node') and getattr(ghost, 'visible', True):
+                ghost_nodes.add(ghost.node)
+
     current_node = startNode
     remaining_pellets = set(pellet_nodes)
     full_path = []
@@ -322,9 +429,9 @@ def ucs(startNode, pellet_group, heuristic_func=None):
         if heuristic_func is not None:
             # Tìm pellet gần nhất theo heuristic
             nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
-            path_to_pellet, _ = ucs_find_nearest_pellet(current_node, {nearest_pellet})
+            path_to_pellet, _ = ucs_find_nearest_pellet(current_node, {nearest_pellet}, ghost_nodes, ghost_avoid_dist)
         else:
-            path_to_pellet, _ = ucs_find_nearest_pellet(current_node, remaining_pellets)
+            path_to_pellet, _ = ucs_find_nearest_pellet(current_node, remaining_pellets, ghost_nodes, ghost_avoid_dist)
         if not path_to_pellet:
             break  
 
@@ -338,11 +445,29 @@ def ucs(startNode, pellet_group, heuristic_func=None):
 
     return full_path if full_path else None
 
-def ucs_find_nearest_pellet(start_node, pellet_nodes):
+def ucs_find_nearest_pellet(start_node, pellet_nodes, ghost_nodes=None, ghost_avoid_dist=2):
     from queue import PriorityQueue
     pq = PriorityQueue()
     pq.put((0, start_node, [start_node]))
     visited = {}
+
+    # Tạo set các node nguy hiểm (gần ghost)
+    danger_nodes = set()
+    if ghost_nodes:
+        for ghost_node in ghost_nodes:
+            # BFS nhỏ để lấy các node trong bán kính ghost_avoid_dist quanh ghost
+            danger_queue = [(ghost_node, 0)]
+            danger_visited = set([ghost_node])
+            while danger_queue:
+                node, dist = danger_queue.pop(0)
+                if dist > ghost_avoid_dist:
+                    continue
+                danger_nodes.add(node)
+                for direction in get_all_directions():
+                    neighbor = node.neighbors.get(direction)
+                    if neighbor and neighbor not in danger_visited:
+                        danger_visited.add(neighbor)
+                        danger_queue.append((neighbor, dist + 1))
 
     while not pq.empty():
         cost, current, path = pq.get()
@@ -354,7 +479,15 @@ def ucs_find_nearest_pellet(start_node, pellet_nodes):
         for direction in get_all_directions():
             neighbor = current.neighbors.get(direction)
             if is_valid_node(neighbor, current, direction):
+                # Tránh node nguy hiểm (trừ khi là pellet target)
+                if neighbor in danger_nodes and neighbor not in pellet_nodes:
+                    continue
                 move_cost = 3 if direction == PORTAL else 1
+                # Thêm penalty cost nếu gần ghost
+                if ghost_nodes:
+                    min_ghost_dist = min(heuristic_manhattan(neighbor, g) for g in ghost_nodes)
+                    if min_ghost_dist <= ghost_avoid_dist:
+                        move_cost += 50 * (ghost_avoid_dist + 1 - min_ghost_dist)  # penalty mạnh khi gần ghost
                 total_cost = cost + move_cost
                 if neighbor not in visited or total_cost < visited.get(neighbor, float('inf')):
                     pq.put((total_cost, neighbor, path + [neighbor]))
@@ -362,7 +495,7 @@ def ucs_find_nearest_pellet(start_node, pellet_nodes):
 # =============================================================================
 # IDS
 # =============================================================================
-def ids(startNode, pellet_group, heuristic_func=None, max_depth=50):
+def ids(startNode, pellet_group, ghost_group=None, heuristic_func=None, ghost_avoid_dist=2, max_depth=50):
     if not pellet_group or not pellet_group.pelletList:
         return None
 
@@ -376,6 +509,13 @@ def ids(startNode, pellet_group, heuristic_func=None, max_depth=50):
     else:
         print("🎯 IDS using NO heuristic (None)")
 
+    # Lấy vị trí ghost để tránh
+    ghost_nodes = set()
+    if ghost_group is not None and hasattr(ghost_group, 'ghosts'):
+        for ghost in ghost_group.ghosts:
+            if hasattr(ghost, 'node') and getattr(ghost, 'visible', True):
+                ghost_nodes.add(ghost.node)
+
     current_node = startNode
     remaining_pellets = set(pellet_nodes)
     full_path = []
@@ -384,9 +524,9 @@ def ids(startNode, pellet_group, heuristic_func=None, max_depth=50):
         if heuristic_func is not None:
             # Tìm pellet gần nhất theo heuristic
             nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
-            path_to_pellet = ids_find_nearest_pellet(current_node, {nearest_pellet}, max_depth)
+            path_to_pellet = ids_find_nearest_pellet(current_node, {nearest_pellet}, ghost_nodes, ghost_avoid_dist, max_depth)
         else:
-            path_to_pellet = ids_find_nearest_pellet(current_node, remaining_pellets, max_depth)
+            path_to_pellet = ids_find_nearest_pellet(current_node, remaining_pellets, ghost_nodes, ghost_avoid_dist, max_depth)
         if not path_to_pellet:
             break  
 
@@ -400,24 +540,42 @@ def ids(startNode, pellet_group, heuristic_func=None, max_depth=50):
 
     return full_path if full_path else None
 
-def ids_find_nearest_pellet(start_node, pellet_nodes, max_depth=50):
+def ids_find_nearest_pellet(start_node, pellet_nodes, ghost_nodes=None, ghost_avoid_dist=2, max_depth=50):
     """
-    Tìm đường đi đến pellet gần nhất bằng IDS (Iterative Deepening Search)
+    Tìm đường đi đến pellet gần nhất bằng IDS (Iterative Deepening Search) với ghost avoidance
     """
     for depth in range(1, max_depth + 1):
-        found_path = dls_find_nearest_pellet(start_node, pellet_nodes, depth)
+        found_path = dls_find_nearest_pellet(start_node, pellet_nodes, ghost_nodes, ghost_avoid_dist, depth)
         if found_path is not None:
             return found_path
     return None
 
-def dls_find_nearest_pellet(start_node, pellet_nodes, limit):
+def dls_find_nearest_pellet(start_node, pellet_nodes, ghost_nodes=None, ghost_avoid_dist=2, limit=50):
     """
-    Depth-Limited Search (DLS) cho IDS
+    Depth-Limited Search (DLS) cho IDS với ghost avoidance
     """
     stack = []
     stack.append((start_node, [start_node], 0))
     visited = set()
     visited.add(start_node)
+
+    # Tạo set các node nguy hiểm (gần ghost)
+    danger_nodes = set()
+    if ghost_nodes:
+        for ghost_node in ghost_nodes:
+            # BFS nhỏ để lấy các node trong bán kính ghost_avoid_dist quanh ghost
+            danger_queue = [(ghost_node, 0)]
+            danger_visited = set([ghost_node])
+            while danger_queue:
+                node, dist = danger_queue.pop(0)
+                if dist > ghost_avoid_dist:
+                    continue
+                danger_nodes.add(node)
+                for direction in get_all_directions():
+                    neighbor = node.neighbors.get(direction)
+                    if neighbor and neighbor not in danger_visited:
+                        danger_visited.add(neighbor)
+                        danger_queue.append((neighbor, dist + 1))
 
     while stack:
         current, path, depth = stack.pop()
@@ -427,6 +585,9 @@ def dls_find_nearest_pellet(start_node, pellet_nodes, limit):
             for direction in get_all_directions():
                 neighbor = current.neighbors.get(direction)
                 if is_valid_node(neighbor, current, direction) and neighbor not in visited:
+                    # Tránh node nguy hiểm (trừ khi là pellet target)
+                    if neighbor in danger_nodes and neighbor not in pellet_nodes:
+                        continue
                     visited.add(neighbor)
                     stack.append((neighbor, path + [neighbor], depth + 1))
     return None
@@ -505,6 +666,214 @@ def greedy_find_path(start_node, goal_node, heuristic=None):
                 h = heuristic(neighbor, goal_node)
                 open_set.append((h, neighbor, new_path))
     return None
+
+# =============================================================================
+# HILL CLIMBING
+# =============================================================================
+def hill_climbing(startNode, pellet_group, ghost_group=None, heuristic_func=None, ghost_avoid_dist=2):
+    """
+    Hill Climbing algorithm với ghost avoidance
+    """
+    if not pellet_group or not pellet_group.pelletList:
+        return None
+
+    pellet_nodes = get_visible_pellet_nodes(pellet_group)
+    if not pellet_nodes:
+        return None
+
+    # Lấy vị trí ghost để tránh
+    ghost_nodes = set()
+    if ghost_group is not None and hasattr(ghost_group, 'ghosts'):
+        for ghost in ghost_group.ghosts:
+            if hasattr(ghost, 'node') and getattr(ghost, 'visible', True):
+                ghost_nodes.add(ghost.node)
+
+    current_node = startNode
+    remaining_pellets = set(pellet_nodes)
+    full_path = []
+
+    while remaining_pellets:
+        if heuristic_func is not None:
+            # Tìm pellet gần nhất theo heuristic
+            nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
+            path_to_pellet = hill_climbing_find_path(current_node, nearest_pellet, ghost_nodes, ghost_avoid_dist, heuristic_func)
+        else:
+            path_to_pellet = hill_climbing_find_path(current_node, nearest_pellet, ghost_nodes, ghost_avoid_dist, heuristic_manhattan)
+        
+        if not path_to_pellet:
+            break
+
+        if full_path and path_to_pellet[0] == full_path[-1]:
+            full_path.extend(path_to_pellet[1:])
+        else:
+            full_path.extend(path_to_pellet)
+
+        current_node = path_to_pellet[-1]
+        remaining_pellets.discard(current_node)
+
+    return full_path if full_path else None
+
+def hill_climbing_find_path(start_node, goal_node, ghost_nodes=None, ghost_avoid_dist=2, heuristic_func=None):
+    """
+    Hill Climbing tìm đường đi từ start_node tới goal_node
+    """
+    if heuristic_func is None:
+        heuristic_func = heuristic_manhattan
+
+    current = start_node
+    path = [current]
+    visited = set([current])
+
+    # Tạo set các node nguy hiểm (gần ghost)
+    danger_nodes = set()
+    if ghost_nodes:
+        for ghost_node in ghost_nodes:
+            danger_queue = [(ghost_node, 0)]
+            danger_visited = set([ghost_node])
+            while danger_queue:
+                node, dist = danger_queue.pop(0)
+                if dist > ghost_avoid_dist:
+                    continue
+                danger_nodes.add(node)
+                for direction in get_all_directions():
+                    neighbor = node.neighbors.get(direction)
+                    if neighbor and neighbor not in danger_visited:
+                        danger_visited.add(neighbor)
+                        danger_queue.append((neighbor, dist + 1))
+
+    while current != goal_node:
+        best_neighbor = None
+        best_heuristic = float('inf')
+
+        for direction in get_all_directions():
+            neighbor = current.neighbors.get(direction)
+            if is_valid_node(neighbor, current, direction) and neighbor not in visited:
+                # Tránh node nguy hiểm (trừ khi là goal)
+                if neighbor in danger_nodes and neighbor != goal_node:
+                    continue
+                
+                h = heuristic_func(neighbor, goal_node)
+                if h < best_heuristic:
+                    best_heuristic = h
+                    best_neighbor = neighbor
+
+        if best_neighbor is None:
+            # Không tìm được neighbor tốt hơn, quay lại
+            if len(path) > 1:
+                path.pop()
+                current = path[-1]
+            else:
+                break
+        else:
+            current = best_neighbor
+            path.append(current)
+            visited.add(current)
+
+    return path if current == goal_node else None
+
+# =============================================================================
+# NONE (MATTRAUNE) - RANDOM MOVEMENT
+# =============================================================================
+def none_algorithm(startNode, pellet_group, ghost_group=None, heuristic_func=None, ghost_avoid_dist=2):
+    """
+    None algorithm - Random movement (Mattraune style)
+    """
+    if not pellet_group or not pellet_group.pelletList:
+        return None
+
+    pellet_nodes = get_visible_pellet_nodes(pellet_group)
+    if not pellet_nodes:
+        return None
+
+    # Lấy vị trí ghost để tránh
+    ghost_nodes = set()
+    if ghost_group is not None and hasattr(ghost_group, 'ghosts'):
+        for ghost in ghost_group.ghosts:
+            if hasattr(ghost, 'node') and getattr(ghost, 'visible', True):
+                ghost_nodes.add(ghost.node)
+
+    import random
+    current_node = startNode
+    remaining_pellets = set(pellet_nodes)
+    full_path = []
+
+    while remaining_pellets:
+        # Random walk - chọn pellet ngẫu nhiên
+        if remaining_pellets:
+            target_pellet = random.choice(list(remaining_pellets))
+            path_to_pellet = random_walk_find_path(current_node, target_pellet, ghost_nodes, ghost_avoid_dist)
+        else:
+            break
+
+        if not path_to_pellet:
+            break
+
+        if full_path and path_to_pellet[0] == full_path[-1]:
+            full_path.extend(path_to_pellet[1:])
+        else:
+            full_path.extend(path_to_pellet)
+
+        current_node = path_to_pellet[-1]
+        remaining_pellets.discard(current_node)
+
+    return full_path if full_path else None
+
+def random_walk_find_path(start_node, goal_node, ghost_nodes=None, ghost_avoid_dist=2):
+    """
+    Random walk tìm đường đi từ start_node tới goal_node
+    """
+    import random
+    
+    current = start_node
+    path = [current]
+    visited = set([current])
+    max_steps = 100  # Giới hạn số bước để tránh vô hạn
+
+    # Tạo set các node nguy hiểm (gần ghost)
+    danger_nodes = set()
+    if ghost_nodes:
+        for ghost_node in ghost_nodes:
+            danger_queue = [(ghost_node, 0)]
+            danger_visited = set([ghost_node])
+            while danger_queue:
+                node, dist = danger_queue.pop(0)
+                if dist > ghost_avoid_dist:
+                    continue
+                danger_nodes.add(node)
+                for direction in get_all_directions():
+                    neighbor = node.neighbors.get(direction)
+                    if neighbor and neighbor not in danger_visited:
+                        danger_visited.add(neighbor)
+                        danger_queue.append((neighbor, dist + 1))
+
+    steps = 0
+    while current != goal_node and steps < max_steps:
+        # Lấy danh sách neighbors hợp lệ
+        valid_neighbors = []
+        for direction in get_all_directions():
+            neighbor = current.neighbors.get(direction)
+            if is_valid_node(neighbor, current, direction) and neighbor not in visited:
+                # Tránh node nguy hiểm (trừ khi là goal)
+                if neighbor in danger_nodes and neighbor != goal_node:
+                    continue
+                valid_neighbors.append(neighbor)
+
+        if not valid_neighbors:
+            # Không có neighbor hợp lệ, quay lại
+            if len(path) > 1:
+                path.pop()
+                current = path[-1]
+            else:
+                break
+        else:
+            # Chọn neighbor ngẫu nhiên
+            current = random.choice(valid_neighbors)
+            path.append(current)
+            visited.add(current)
+
+        steps += 1
+
+    return path if current == goal_node else None
 
 # =============================================================================
 # HELPER FUNCTIONS

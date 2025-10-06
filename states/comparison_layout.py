@@ -50,11 +50,19 @@ class ComparisonLayout(UIComponent):
         self.is_playing = False # Trạng thái play/pause
         
         # Tùy chọn thuật toán cho selectbox
-        self.algorithm_options = ["BFS", "DFS", "A*", "UCS", "IDS"]
+        self.algorithm_options = ["BFS", "DFS", "A*", "UCS", "IDS", "Greedy", "Hill Climbing", "None (Mattraune)"]
         
         # Khởi tạo selectbox
         self.algorithm_selectbox = None
         self._setup_selectbox()
+        
+        # Khởi tạo export button (chỉ manual detection)
+        self.export_button_rect = None
+        self._setup_export_button()
+        
+        # Khởi tạo clear data button
+        self.clear_data_button_rect = None
+        self._setup_clear_data_button()
         
         # Animation
         self.animation_time = 0
@@ -140,6 +148,37 @@ class ComparisonLayout(UIComponent):
         if self.algorithm in self.algorithm_options:
             self.algorithm_selectbox.selected_option = self.algorithm_options.index(self.algorithm)
     
+    def _setup_export_button(self):
+        """Setup export button - chỉ tạo rect cho manual detection"""
+        # Position export button right below the PAUSE button
+        # PAUSE button is positioned at center between 2 game areas
+        button_width = 140
+        button_height = 60
+        button_x = (self.ai_game_area_rect.right + self.player_game_area_rect.x) // 2 - button_width // 2
+        button_y = (self.ai_game_area_rect.y + self.ai_game_area_rect.height) // 2 - button_height // 2
+        
+        # Export button positioned right below PAUSE button
+        export_button_width = 100  # Giảm width để vừa với text
+        export_button_height = 35  # Giảm height
+        export_button_x = button_x + (button_width - export_button_width) // 2  # Center align with PAUSE button
+        export_button_y = button_y + button_height + 15  # 15px spacing below PAUSE button
+        
+        # Tạo export_button_rect cho manual click detection
+        self.export_button_rect = pygame.Rect(export_button_x, export_button_y, export_button_width, export_button_height)
+    
+    def _setup_clear_data_button(self):
+        """Setup clear data button - chỉ tạo rect cho manual detection"""
+        # Position clear data button right below the export button
+        if hasattr(self, 'export_button_rect') and self.export_button_rect:
+            export_rect = self.export_button_rect
+            clear_button_width = 120
+            clear_button_height = 40
+            clear_button_x = export_rect.x
+            clear_button_y = export_rect.bottom + 10  # 10px spacing below export button
+            
+            # Tạo clear_data_button_rect cho manual click detection
+            self.clear_data_button_rect = pygame.Rect(clear_button_x, clear_button_y, clear_button_width, clear_button_height)
+    
     def set_game_info(self, ai_score=0, ai_lives=3, ai_level=1, 
                      player_score=0, player_lives=3, player_level=1, algorithm="BFS"):
         """
@@ -178,11 +217,18 @@ class ComparisonLayout(UIComponent):
         # Vẽ control panel
         self._draw_control_panel()
         
-        # Vẽ banner sinh viên
+        # Vẽ export button (ở giữa 2 game areas) - vẽ cuối cùng để không bị che
+        # Chỉ vẽ manual button, không vẽ Button object để tránh duplicate
+        self._draw_export_button()
+        
+        # Vẽ clear data button
+        self._draw_clear_data_button()
+        
+        # Vẽ banner sinh viên - di chuyển lên cuối để không bị che
         self._draw_student_banner()
     
     def _draw_student_banner(self):
-        """Vẽ banner thông tin sinh viên ở góc trái màn hình"""
+        """Vẽ banner thông tin sinh viên ở góc trái màn hình với z-index cao"""
         # Font cho banner - sử dụng Times New Roman hoặc font hệ thống
         try:
             font = pygame.font.SysFont("Times New Roman", 18, bold=True)
@@ -214,12 +260,12 @@ class ComparisonLayout(UIComponent):
         student2_name = "Trần Hoàng Phúc Quân"
         student2_mssv = "MSSV: 23110146"
         
-        # Vẽ background cho banner
+        # Vẽ background cho banner với độ trong suốt cao hơn để nổi bật
         banner_rect = pygame.Rect(start_x - 5, start_y - 5, 250, 95)
-        pygame.draw.rect(self.surface, (0, 0, 0, 180), banner_rect)  # Nền đen trong suốt
-        pygame.draw.rect(self.surface, border_color, banner_rect, 2)  # Viền
+        pygame.draw.rect(self.surface, (0, 0, 0, 200), banner_rect)  # Nền đen đậm hơn
+        pygame.draw.rect(self.surface, border_color, banner_rect, 3)  # Viền dày hơn
         
-        # Vẽ text
+        # Vẽ text với hiệu ứng glow để nổi bật hơn
         texts = [
             (student1_name, name_color, start_x, start_y),
             (student1_mssv, mssv_color, start_x, start_y + 20),
@@ -228,6 +274,10 @@ class ComparisonLayout(UIComponent):
         ]
         
         for text, color, x, y in texts:
+            # Vẽ shadow/glow effect
+            shadow_surface = font.render(text, True, (0, 0, 0))
+            self.surface.blit(shadow_surface, (x + 1, y + 1))
+            # Vẽ text chính
             text_surface = font.render(text, True, color)
             self.surface.blit(text_surface, (x, y))
     
@@ -528,7 +578,7 @@ class ComparisonLayout(UIComponent):
         pygame.draw.rect(self.surface, GHOST_BLUE, controls_rect, 1)
         
         # Controls text - sắp xếp theo chiều ngang
-        controls_text = "CONTROLS: ↑↓←→ Move (Player) | SPACE Pause | ESC Menu | R Restart"
+        controls_text = "CONTROLS: ↑↓←→ Move (Player) | SPACE Pause | ESC Back to Menu | R Restart | E Export Text"
         text_surface = font.render(controls_text, True, PAC_YELLOW)
         self.surface.blit(text_surface, (controls_rect.x + 10, controls_rect.y + 3))
     
@@ -577,6 +627,95 @@ class ComparisonLayout(UIComponent):
         
         # Store button rect for click detection
         self.play_button_rect = button_rect
+    
+    
+    def _draw_export_button(self):
+        """Draw export button with same style as PAUSE button"""
+        # Same dimensions and positioning as PAUSE button
+        button_width = 140
+        button_height = 60
+        button_x = (self.ai_game_area_rect.right + self.player_game_area_rect.x) // 2 - button_width // 2
+        button_y = (self.ai_game_area_rect.y + self.ai_game_area_rect.height) // 2 - button_height // 2
+        
+        # Export button positioned right below PAUSE button
+        export_button_width = 100  # Giảm width để vừa với text
+        export_button_height = 35  # Giảm height
+        export_button_x = button_x + (button_width - export_button_width) // 2  # Center align with PAUSE button
+        export_button_y = button_y + button_height + 15  # 15px spacing below PAUSE button
+        
+        button_rect = pygame.Rect(export_button_x, export_button_y, export_button_width, export_button_height)
+        
+        # Font nhỏ hơn để vừa với nút
+        try:
+            font = pygame.font.Font(FONT_PATH, 14)  # Giảm font size
+        except:
+            font = pygame.font.Font(None, 14)
+        
+        # Button glow effect với animation (same as PAUSE button)
+        glow_size = int(8 + 4 * math.sin(self.animation_time * 4))
+        button_glow = button_rect.inflate(glow_size, glow_size)
+        glow_color = (100 + int(50 * math.sin(self.animation_time * 3)), 
+                     100 + int(50 * math.sin(self.animation_time * 3)), 
+                     150 + int(50 * math.sin(self.animation_time * 3)))
+        pygame.draw.rect(self.surface, glow_color, button_glow, 4)
+        
+        # Button background với gradient (same as PAUSE button)
+        for i in range(button_rect.height):
+            alpha = int(60 + (i / button_rect.height) * 40)
+            color = (alpha, alpha, alpha + 40)
+            pygame.draw.line(self.surface, color, 
+                           (button_rect.x, button_rect.y + i),
+                           (button_rect.right, button_rect.y + i))
+        
+        # Button border (same as PAUSE button)
+        pygame.draw.rect(self.surface, PAC_YELLOW, button_rect, 4)
+        pygame.draw.rect(self.surface, (255, 255, 100), button_rect, 2)
+        
+        # Button text (same style as PAUSE button) - text ngắn gọn hơn
+        button_text = font.render("Export", True, PAC_YELLOW)
+        text_rect = button_text.get_rect(center=button_rect.center)
+        self.surface.blit(button_text, text_rect)
+        
+        # Store button rect for click detection
+        self.export_button_rect = button_rect
+    
+    def _draw_clear_data_button(self):
+        """Draw clear data button below export button"""
+        if not hasattr(self, 'clear_data_button_rect') or not self.clear_data_button_rect:
+            return
+            
+        button_rect = self.clear_data_button_rect
+        
+        # Font nhỏ hơn để vừa với nút
+        try:
+            font = pygame.font.Font(FONT_PATH, 12)  # Font size nhỏ hơn
+        except:
+            font = pygame.font.Font(None, 12)
+        
+        # Button glow effect với animation
+        glow_size = int(6 + 3 * math.sin(self.animation_time * 4))
+        button_glow = button_rect.inflate(glow_size, glow_size)
+        glow_color = (150 + int(30 * math.sin(self.animation_time * 3)), 
+                     50 + int(30 * math.sin(self.animation_time * 3)), 
+                     50 + int(30 * math.sin(self.animation_time * 3)))
+        pygame.draw.rect(self.surface, glow_color, button_glow, 3)
+        
+        # Button background với gradient
+        for i in range(button_rect.height):
+            alpha = int(50 + (i / button_rect.height) * 30)
+            color = (alpha + 20, alpha, alpha)
+            pygame.draw.line(self.surface, color, 
+                           (button_rect.x, button_rect.y + i),
+                           (button_rect.right, button_rect.y + i))
+        
+        # Button border
+        pygame.draw.rect(self.surface, (200, 100, 100), button_rect, 3)
+        pygame.draw.rect(self.surface, (255, 150, 150), button_rect, 1)
+        
+        # Button text
+        button_text = font.render("Clear Data", True, (255, 200, 200))
+        text_rect = button_text.get_rect(center=button_rect.center)
+        self.surface.blit(button_text, text_rect)
     
     def get_ai_game_area_rect(self):
         """
@@ -631,6 +770,32 @@ class ComparisonLayout(UIComponent):
             if hasattr(self, 'play_button_rect') and self.play_button_rect.collidepoint(event.pos):
                 self.is_playing = not self.is_playing
                 return True  # Báo hiệu play state đã thay đổi
+        return False
+    
+    def handle_export_button_click(self, event):
+        """
+        Xử lý sự kiện click export button
+        Args:
+            event: Pygame event
+        Returns:
+            True nếu export button được click, False nếu không
+        """
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
+            if hasattr(self, 'export_button_rect') and self.export_button_rect.collidepoint(event.pos):
+                return True
+        return False
+    
+    def handle_clear_data_button_click(self, event):
+        """
+        Xử lý sự kiện click clear data button
+        Args:
+            event: Pygame event
+        Returns:
+            True nếu clear data button được click, False nếu không
+        """
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
+            if hasattr(self, 'clear_data_button_rect') and self.clear_data_button_rect.collidepoint(event.pos):
+                return True
         return False
     
     def update(self):

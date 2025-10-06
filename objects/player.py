@@ -175,9 +175,14 @@ class Pacman(Entity):
             if self.target is not self.node: 
                 self.direction = direction
             else: 
-                # Nếu không thể di chuyển theo hướng AI, thử hướng hiện tại
-                self.target = self.getNewTarget(self.direction)
-                if self.target is self.node: 
+                # Nếu không thể di chuyển theo hướng AI, thử các hướng khác
+                valid_directions = self.validDirections()
+                if valid_directions:
+                    # Chọn hướng ngẫu nhiên từ các hướng hợp lệ
+                    import random
+                    self.direction = random.choice(valid_directions)
+                    self.target = self.getNewTarget(self.direction)
+                else:
                     self.direction = STOP             
             self.setPosition()
         else:
