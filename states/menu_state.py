@@ -120,6 +120,7 @@ class MenuState(State):
             NeonText(self.app, "• Game State", GHOST_PINK, center_x, center_y + 5, 14, outline=True),
             NeonText(self.app, "• Pause State", GHOST_PINK, center_x, center_y + 30, 14, outline=True),
             NeonText(self.app, "• Game Over State", GHOST_PINK, center_x, center_y + 55, 14, outline=True),
+            NeonText(self.app, "• Statistics State", GHOST_PINK, center_x, center_y + 80, 14, outline=True),
             
             # Back button - moved further down
             PacManButton(self.app, pos=(center_x, center_y + 140), text="❮ BACK", 
@@ -169,10 +170,10 @@ class MenuState(State):
 
     def show_states(self):
         self.app.sound_system.play_sound('button_click')
-        self.scene = MenuState.STATES
-        self.current_button_index = 0
-        self._last_button_index = -1  # Reset để không phát hover sound
-        self._update_scene_focus()
+        # Chuyển sang StatsState thay vì hiển thị trong menu
+        from states.stats_state import StatsState
+        stats_state = StatsState(self.app, self.machine)
+        self.replace_state(stats_state)
     
     def back_to_home(self):
         self.app.sound_system.play_sound('button_click')

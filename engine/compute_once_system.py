@@ -1,7 +1,3 @@
-# =============================================================================
-# COMPUTE_ONCE_SYSTEM.PY - TÍNH TOÁN PATH CHỈ 1 LẦN DUY NHẤT
-# =============================================================================
-
 import time
 from constants import *
 from engine.heuristic import Heuristic
@@ -20,6 +16,10 @@ class ComputeOnceSystem:
     def get_direction(self, pacman, pelletGroup, pathfinder, pathfinder_name, fruit = None ) :
         pellet_count_now = len([p for p in pelletGroup.pelletList if p.visible])
 
+
+        pellet_change = abs(pellet_count_now - self.pellet_count_when_computed)
+        pellet_change_threshold = min(20, int(self.pellet_count_when_computed * 0.1)) if self.pellet_count_when_computed > 0 else 20
+        
         should_compute = (
             not self.is_computed or                 
             self.algorithm_name != pathfinder_name or
@@ -52,11 +52,6 @@ class ComputeOnceSystem:
                 self.algorithm_name = pathfinder_name
                 self.pellet_count_when_computed = len([p for p in pelletGroup.pelletList if p.visible])
                 self.last_level = self.curent_level
-                for node in self.master_path:
-                    print(f"{node.position.x//16, node.position.y//16}",end = " ")
-                print()
-                print(f"Total steps: {len(self.master_path)}")
-                print("--------------------------------")
 
                 return True
             else:
@@ -204,7 +199,6 @@ class ComputeOnceSystem:
         self.pellet_count_when_computed = 0
         # System reset - sẽ tính lại path ở lần gọi tiếp theo
     
-
     def _calculate_distance(self, node1, node2):
         config = self.config
         if config is None and hasattr(self.pacman, 'config'):

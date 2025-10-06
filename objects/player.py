@@ -100,12 +100,6 @@ class Pacman(Entity):
 
         
     def _update_pathfind_interval(self):
-        """
-        Cập nhật interval pathfinding dựa trên thuật toán được sử dụng
-        - BFS: Interval dài hơn vì tính toán phức tạp
-        - A*: Interval trung bình
-        - DFS, UCS: Interval ngắn hơn
-        """
         if hasattr(self, 'pathfinder_name'):
             if self.pathfinder_name == 'BFS':
                 self.pathfind_interval = 1.0  # 1 giây cho BFS
@@ -162,7 +156,6 @@ class Pacman(Entity):
                     
                     # Kiểm tra tính hợp lệ của direction từ AI
                     if not self._is_valid_direction(direction):
-                        print(f"Warning: AI returned invalid direction {direction}, using current direction")
                         direction = self.direction
                         
                 except Exception as e:
@@ -242,14 +235,6 @@ class Pacman(Entity):
         self._update_pathfind_interval()
     
     def getValidKey(self):
-        """
-        Lấy phím được nhấn từ keyboard
-        - Kiểm tra các phím mũi tên
-        - Trả về hướng di chuyển tương ứng
-        
-        Returns:
-            Hướng di chuyển (UP, DOWN, LEFT, RIGHT) hoặc STOP
-        """
         key_pressed = pygame.key.get_pressed()
         if key_pressed[K_UP]: 
             return UP 

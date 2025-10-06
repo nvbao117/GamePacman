@@ -22,10 +22,18 @@ class GameState(State):
         self.game_running = True  
         
         self.layout = GameLayout(app)
+        # Cập nhật algorithm cho layout ngay từ đầu
+        self.layout.algorithm = algorithm
+        
         self.game = Game(algorithm, self.app.config)  
         
         if hasattr(self.game, 'initialize_game'):
             self.game.initialize_game()
+        
+        # ⚠️ QUAN TRỌNG: Set algorithm ngay sau initialize
+        # Vì initialize_game() tạo Pacman mới với BFS mặc định
+        if hasattr(self.game, 'set_algorithm'):
+            self.game.set_algorithm(self.algorithm)
         
         self.score = getattr(self.game, 'score', 0)  
         self.lives = getattr(self.game, 'lives', 4)     
@@ -40,6 +48,11 @@ class GameState(State):
             self.layout.update_algorithm_options_for_ai_mode(default_ai_mode)
             self._apply_ai_mode_change(default_ai_mode)
             self._sync_algorithm_from_layout(force=True)
+        
+        # Đảm bảo algorithm selectbox hiển thị đúng thuật toán được chọn
+        if hasattr(self.layout, 'algorithm_selectbox') and self.layout.algorithm_selectbox:
+            if self.algorithm in self.layout.algorithm_options:
+                self.layout.algorithm_selectbox.selected_option = self.layout.algorithm_options.index(self.algorithm)
         # Load few pellets mode configuration
         if hasattr(app, 'config'):
             few_pellets_mode = app.config.get('few_pellets_mode', False)
@@ -187,6 +200,11 @@ class GameState(State):
                 else:
                     self.game.pause.setPause(playerPaused=True)  
         
+        # Handle reset button click
+        if self.layout.handle_reset_button_click(event):
+            self.reset_game()
+            return  # Early return after reset
+        
         algorithm_changed, ghost_mode_changed, ai_mode_changed, few_pellets_changed, heuristic_changed = self.layout.handle_selectbox_event(event)
         
         if algorithm_changed:
@@ -229,6 +247,10 @@ class GameState(State):
             # Cập nhật step info liên tục
             if hasattr(self.game, 'get_step_info'):
                 self.layout.step_info = self.game.get_step_info()
+            
+            # Cập nhật stats liên tục cho UI
+            if hasattr(self.game, 'get_stats'):
+                self.layout.stats = self.game.get_stats()
         
         # Chuyển tiếp events cho game engine
         if hasattr(self.game, 'handle_event'):
@@ -320,11 +342,59 @@ class GameState(State):
         """
         self.is_pause = True
     
+    def reset_game(self):
+        """
+        Reset game hoàn toàn như bắt đầu một game mới
+        - Reset level về 0
+        - Reset score về 0
+        - Reset lives về 5
+        - Tạo game engine mới
+        - Bắt đầu ở trạng thái pause
+        """
+        # Reset level về 0
+        self.level = 0
+        
+        # Tạo game mới
+        self.game = Game(self.algorithm, self.app.config)
+        
+        # Áp dụng cài đặt few pellets mode nếu có
+        if hasattr(self.layout, 'few_pellets_mode') and hasattr(self.layout, 'few_pellets_count'):
+            self.game.set_few_pellets_mode(
+                self.layout.few_pellets_mode, 
+                self.layout.few_pellets_count
+            )
+        
+        if hasattr(self.game, 'initialize_game'):
+            self.game.initialize_game()
+        
+        # Set lại algorithm sau khi initialize
+        if hasattr(self.game, 'set_algorithm'):
+            self.game.set_algorithm(self.algorithm)
+        
+        # Reset tất cả giá trị về ban đầu như game mới
+        self.score = 0
+        self.lives = 5  # Game mới bắt đầu với 5 mạng
+        self.level = 0  # Game mới bắt đầu với level 0
+        self.game_running = True
+        self.is_pause = True  # Bắt đầu ở trạng thái pause
+        self.layout.is_playing = False  # Reset trạng thái play
+        
+        # Cập nhật layout với giá trị mới
+        self.layout.score = self.score
+        self.layout.lives = self.lives
+        self.layout.level = self.level
+        self.layout.set_game_info(self.score, self.lives, self.level, self.algorithm)
+        
+        # Reset AI mode và algorithm options
+        if hasattr(self.layout, 'ai_mode_selector') and self.layout.ai_mode_selector:
+            current_mode = self.layout.ai_mode_selector.get_current_mode()
+            self.layout.update_algorithm_options_for_ai_mode(current_mode)
+    
     def restart_game(self):
         """
-        Restart game với algorithm hiện tại
+        Restart game với algorithm hiện tại (giữ level và lives)
         - Tạo game engine mới
-        - Reset tất cả giá trị về ban đầu
+        - Giữ nguyên level và lives hiện tại
         - Bắt đầu ở trạng thái pause
         """
         self.game = Game(self.algorithm, self.app.config)  # Tạo game mới với algorithm hiện tại
@@ -338,6 +408,12 @@ class GameState(State):
         
         if hasattr(self.game, 'initialize_game'):
             self.game.initialize_game()
+        
+        # ⚠️ QUAN TRỌNG: Set lại algorithm sau khi initialize
+        # Vì initialize_game() tạo Pacman mới với BFS mặc định
+        if hasattr(self.game, 'set_algorithm'):
+            self.game.set_algorithm(self.algorithm)
+        
         # Reset tất cả giá trị game về ban đầu
         self.score = getattr(self.game, 'score', 0)
         self.lives = getattr(self.game, 'lives', 4)  # Game bắt đầu với 5 mạng
@@ -419,13 +495,9 @@ class GameState(State):
         
             
             self.app.config.save_config()
-            
-            print(f"Updated algorithm_heuristic to {new_heuristic}")
-            print(f"Config saved: algorithm_heuristic = {self.app.config.get('algorithm_heuristic')}")
         
         if hasattr(self.game, 'set_algorithm_heuristic'):
-            print(f"Current algorithm_heuristic: {self.app.config.get('algorithm_heuristic')}")
-            self.game.set_algorithm_heuristic(new_heuristic)            # Đảm bảo Pacman sử dụng heuristic mới ngay lập tức
+            self.game.set_algorithm_heuristic(new_heuristic)          
             if hasattr(self.game, 'pacman') and self.game.pacman:
                 self.game.pacman.path = []
                 self.game.pacman.locked_target_node = None

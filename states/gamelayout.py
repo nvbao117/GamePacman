@@ -57,6 +57,10 @@ class GameLayout(UIComponent):
         ]
 
         self.offline_algorithms = ["BFS", "DFS", "A*", "UCS", "IDS"]  
+        # Track last selected algorithm per AI mode
+        self._last_offline_algorithm = self.algorithm if self.algorithm in self.offline_algorithms else (self.offline_algorithms[0] if self.offline_algorithms else None)
+        self._last_online_algorithm = self.online_algorithms[0] if self.online_algorithms else None
+
 
         # Tùy chọn Ghost mode cho selectbox
         self.ghost_mode_options = ["Ghost ON", "Ghost OFF"]
@@ -90,25 +94,41 @@ class GameLayout(UIComponent):
         self.animation_time = 0
         
     def update_algorithm_options_for_ai_mode(self, ai_mode):
+        """Update algorithm list and restore last choice for the given AI mode"""
+        desired_algorithm = None
+
         if ai_mode == "ONLINE":
             self.algorithm_options = self.online_algorithms.copy()
-        elif ai_mode == "OFFLINE":
+            desired_algorithm = self._last_online_algorithm
+        else:
             self.algorithm_options = self.offline_algorithms.copy()
-        
-        # Cập nhật algorithm selectbox nếu đã được khởi tạo
+            desired_algorithm = self._last_offline_algorithm
+
+        if not desired_algorithm and self.algorithm in self.algorithm_options:
+            desired_algorithm = self.algorithm
+
+        if desired_algorithm and desired_algorithm not in self.algorithm_options:
+            desired_algorithm = self.algorithm_options[0] if self.algorithm_options else None
+
+        if desired_algorithm:
+            self.algorithm = desired_algorithm
+        elif self.algorithm_options:
+            self.algorithm = self.algorithm_options[0]
+
+        if ai_mode == "ONLINE":
+            self._last_online_algorithm = self.algorithm
+        else:
+            self._last_offline_algorithm = self.algorithm
+
         if self.algorithm_selectbox:
             self.algorithm_selectbox.options = self.algorithm_options
-            # Reset selection nếu algorithm hiện tại không có trong danh sách mới
-            if self.algorithm not in self.algorithm_options:
-                self.algorithm = self.algorithm_options[0] if self.algorithm_options else "BFS"
-            # Cập nhật selected option
             if self.algorithm in self.algorithm_options:
                 self.algorithm_selectbox.selected_option = self.algorithm_options.index(self.algorithm)
             else:
                 self.algorithm_selectbox.selected_option = 0
-        
+
         self.current_ai_mode = ai_mode
-        
+
     def _setup_layout(self):
         """
         Setup kích thước layout cho game
@@ -608,16 +628,16 @@ class GameLayout(UIComponent):
         self.surface.blit(level_value, (self.control_panel_rect.x + 30, y_start + 80))
     
     def _draw_play_section(self):
-        """Draw play/pause button section"""
+        """Draw play/pause and reset button section"""
         y_start = 1100  # Above algorithm section
         try:
             font = pygame.font.Font(FONT_PATH, 14)
         except:
             font = pygame.font.Font(None, 14)
         
-        # Section background with glow
+        # Section background with glow - increased height for 2 buttons
         section_rect = pygame.Rect(self.control_panel_rect.x + 20, y_start - 5, 
-                                 self.control_panel_rect.width - 40, 80)
+                                 self.control_panel_rect.width - 40, 130)
         
         # Enhanced glow effect
         glow_rect = section_rect.inflate(6, 6)
@@ -635,8 +655,8 @@ class GameLayout(UIComponent):
         pygame.draw.rect(self.surface, (0, 150, 255), section_rect, 1)
         
         # Play/Pause button
-        button_rect = pygame.Rect(self.control_panel_rect.x + 30, y_start + 15, 
-                                 self.control_panel_rect.width - 60, 50)
+        button_rect = pygame.Rect(self.control_panel_rect.x + 30, y_start + 10, 
+                                 self.control_panel_rect.width - 60, 45)
         
         # Button glow effect
         button_glow = button_rect.inflate(4, 4)
@@ -654,6 +674,26 @@ class GameLayout(UIComponent):
         
         # Store button rect for click detection
         self.play_button_rect = button_rect
+        
+        # Reset button (below Play/Pause)
+        reset_button_rect = pygame.Rect(self.control_panel_rect.x + 30, y_start + 65, 
+                                        self.control_panel_rect.width - 60, 45)
+        
+        # Reset button glow effect
+        reset_button_glow = reset_button_rect.inflate(4, 4)
+        pygame.draw.rect(self.surface, (150, 80, 80), reset_button_glow, 2)
+        
+        # Reset button background (different color - reddish)
+        pygame.draw.rect(self.surface, (80, 40, 40), reset_button_rect)
+        pygame.draw.rect(self.surface, (255, 100, 100), reset_button_rect, 2)
+        
+        # Reset button text
+        reset_text = font.render("RESET GAME", True, (255, 150, 150))
+        reset_text_rect = reset_text.get_rect(center=reset_button_rect.center)
+        self.surface.blit(reset_text, reset_text_rect)
+        
+        # Store reset button rect for click detection
+        self.reset_button_rect = reset_button_rect
     
     def _draw_lives_section(self):
         """Draw lives section"""
@@ -935,6 +975,10 @@ class GameLayout(UIComponent):
                 new_algorithm = self.algorithm_selectbox.get_selected_value()
                 if new_algorithm and new_algorithm != self.algorithm:
                     self.algorithm = new_algorithm
+                    if self.current_ai_mode == "ONLINE":
+                        self._last_online_algorithm = new_algorithm
+                    else:
+                        self._last_offline_algorithm = new_algorithm
                     algorithm_changed = True
         
         # Xử lý few pellets selectbox
@@ -985,6 +1029,7 @@ class GameLayout(UIComponent):
         return algorithm_changed, ghost_mode_changed, ai_mode_changed, few_pellets_changed, heuristic_changed
     
     def handle_play_button_click(self, event):
+        """Handle play/pause button clicks and hover"""
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  
             if hasattr(self, 'play_button_rect') and self.play_button_rect.collidepoint(event.pos):
                 self.app.sound_system.play_sound('button_click')
@@ -998,6 +1043,23 @@ class GameLayout(UIComponent):
                     self._play_button_hovered = True
             else:
                 self._play_button_hovered = False
+        return False
+    
+    def handle_reset_button_click(self, event):
+        """Handle reset button clicks and hover"""
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  
+            if hasattr(self, 'reset_button_rect') and self.reset_button_rect.collidepoint(event.pos):
+                self.app.sound_system.play_sound('button_click')
+                return True  # Signal that reset was clicked
+                
+        elif event.type == pygame.MOUSEMOTION:
+            if hasattr(self, 'reset_button_rect') and self.reset_button_rect.collidepoint(event.pos):
+                if not getattr(self, '_reset_button_hovered', False):
+                    self.app.sound_system.play_sound('button_hover')
+                    self._reset_button_hovered = True
+            else:
+                self._reset_button_hovered = False
+                
         return False
     
     def update(self):

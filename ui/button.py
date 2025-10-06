@@ -83,6 +83,10 @@ class Button(UIComponent):
 
     def update(self):
         pass
+    
+    def set_active(self, active):
+        """Set trạng thái active cho button"""
+        self.is_active = active
 
 
 class PacManButton(Button):
@@ -109,6 +113,7 @@ class PacManButton(Button):
 
         self.scale = 1.0
         self.target_scale = 1.0
+        self.is_active = False  # Trạng thái active cho view selector
 
     def handle_event(self, event):
         super().handle_event(event)
@@ -188,6 +193,14 @@ class PacManButton(Button):
         pygame.draw.rect(highlight_surf, (*highlight_color, 120), highlight_surf.get_rect(), border_radius=8)
         self.surface.blit(highlight_surf, highlight_rect)
 
-        # Border
-        border_color = self.accent_color if self.is_hovered else (200, 200, 200)
-        pygame.draw.rect(self.surface, border_color, top_rect, width=3, border_radius=15)
+        # Border - highlight if active
+        if self.is_active:
+            border_color = PAC_YELLOW
+            border_width = 4
+        elif self.is_hovered:
+            border_color = self.accent_color
+            border_width = 3
+        else:
+            border_color = (200, 200, 200)
+            border_width = 2
+        pygame.draw.rect(self.surface, border_color, top_rect, width=border_width, border_radius=15)

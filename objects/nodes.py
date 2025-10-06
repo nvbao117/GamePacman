@@ -50,7 +50,13 @@ class Node(object) :
         return hash((self.position.x, self.position.y))
     
     def __lt__(self, other):
-        return self.position.x ,self.position.y < other.position.x, self.position.y
+        """
+        So sánh node theo vị trí (dùng cho PriorityQueue/heapq)
+        Trả về True nếu self < other theo thứ tự (y, x)
+        """
+        if not isinstance(other, Node):
+            return NotImplemented
+        return (self.position.y, self.position.x) < (other.position.y, other.position.x)
     
     def denyAccess(self,direction,entity) : 
         """

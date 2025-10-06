@@ -17,7 +17,9 @@ from objects.ghosts import GhostGroup
 from objects.pellets import PelletGroup
 from ui.text import TextGroup
 import time
+import datetime
 from engine.compute_once_system import compute_once
+from engine.stats_logger import StatsLogger
 
 class Game(object):
     """
@@ -429,14 +431,20 @@ class Game(object):
             self.pellets.numEaten += 1 
             self.updateScore(pellet.points)
             if self.ghost_mode:
-                if self.pellets.numEaten == 30 :
                     self.ghosts.inky.startNode.allowAccess(RIGHT,self.ghosts.inky)
-                if self.pellets.numEaten == 70 : 
                     self.ghosts.clyde.startNode.allowAccess(LEFT,self.ghosts.clyde)
             self.pellets.pelletList.remove(pellet)
             if pellet.name == POWERPELLET and self.ghost_mode:
                 self.ghosts.startFreight()
             if self.pellets.isEmpty():
+                # Level hoàn thành - GHI LOG THỐNG KÊ
+                try:
+                    stats = self.get_stats()
+                    stats["result"] = "LEVEL_COMPLETE"
+                    StatsLogger.log(stats)
+                except Exception as e:
+                    print(f"Warning: Failed to log game stats: {e}")
+                
                 self.flashBG = True
                 self.hideEntities()
                 self.endtime = time.time()
@@ -463,7 +471,14 @@ class Game(object):
                             self.pacman.die()                            
                             self.ghosts.hide()
                             if self.lives <= 0 : 
-                                # Kết thúc game hoàn toàn
+                                # Kết thúc game hoàn toàn - GHI LOG THỐNG KÊ
+                                try:
+                                    stats = self.get_stats()
+                                    stats["result"] = "GAME_OVER"
+                                    StatsLogger.log(stats)
+                                except Exception as e:
+                                    print(f"Warning: Failed to log game stats: {e}")
+                                
                                 total_pellets = len(self.pellets.pelletList) if hasattr(self, 'pellets') else 0                                
                                 self.textgroup.showText(GAMEOVERTXT) 
                                 self.pause.setPause(pauseTime=3,func=self.restartGame) 
@@ -681,54 +696,52 @@ class Game(object):
                 ids , greedy , heuristic_manhattan, heuristic_euclidean
             )       
             if algorithm == 'DFS':
-                self.pacman.pathfinder_name = 'DFS'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(dfs )
+                self.pacman.set_algorithm('DFS', self._get_algorithm_with_heuristic(dfs))
             elif algorithm == 'IDS':
-                self.pacman.pathfinder_name = 'IDS'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(ids )
+                self.pacman.set_algorithm('IDS', self._get_algorithm_with_heuristic(ids))
             elif algorithm == 'UCS':
-                self.pacman.pathfinder_name = 'UCS'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(ucs )
+                self.pacman.set_algorithm('UCS', self._get_algorithm_with_heuristic(ucs))
             elif algorithm == 'A*':
-                self.pacman.pathfinder_name = 'A*'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)
+                self.pacman.set_algorithm('A*', self._get_algorithm_with_heuristic(astar))
             elif algorithm == 'Hill Climbing':
-                self.pacman.pathfinder_name = 'Hill Climbing'
+                self.pacman.set_algorithm('Hill Climbing', None)
             elif algorithm == 'Genetic Algorithm':
-                self.pacman.pathfinder_name = 'Genetic Algorithm'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(astar)  # Tạm dạng A* cho GA
+                self.pacman.set_algorithm('Genetic Algorithm', self._get_algorithm_with_heuristic(astar)) 
             elif algorithm == 'Minimax':
-                self.pacman.pathfinder_name = 'Minimax'
-                self.pacman.pathfinder = None
+                self.pacman.set_algorithm('Minimax', None)
             elif algorithm == 'Alpha-Beta':
-                self.pacman.pathfinder_name = 'Alpha-Beta'
-                self.pacman.pathfinder = None
+                self.pacman.set_algorithm('Alpha-Beta', None)
             elif algorithm == 'GBFS':
-                self.pacman.pathfinder_name = 'GBFS'
-                self.pacman.pathfinder = None
+                self.pacman.set_algorithm('GBFS', None)
             elif algorithm == 'A* Online':
-                self.pacman.pathfinder_name = 'A* Online'
-                self.pacman.pathfinder = None
+                self.pacman.set_algorithm('A* Online', None)
             elif algorithm == 'BFS':  
-                self.pacman.pathfinder_name = 'BFS'
-                self.pacman.pathfinder = self._get_algorithm_with_heuristic(bfs )
+                self.pacman.set_algorithm('BFS', self._get_algorithm_with_heuristic(bfs))
 
             self.pacman.path = []
             self.pacman.locked_target_node = None
             self.pacman.previous_node = None
     
     def _get_algorithm_with_heuristic(self, algorithm_func):
-        """Lấy algorithm function với heuristic tương ứng"""
-        from engine.algorithms_practical import (
-            heuristic_manhattan, heuristic_euclidean
-        )
+        """
+        Lấy algorithm function với heuristic tương ứng
+        Sử dụng heuristic từ config/selectbox thay vì hardcode
+        """
+        from engine.heuristic import Heuristic
         
+        # Lấy heuristic function từ config/selectbox
+        heuristic_func = None
         if self.algorithm_heuristic == "MANHATTAN":
-            return lambda start, pellets: algorithm_func(start, pellets, heuristic_manhattan)
+            heuristic_func = Heuristic.manhattan
         elif self.algorithm_heuristic == "EUCLIDEAN":
-            return lambda start, pellets: algorithm_func(start, pellets, heuristic_euclidean)
+            heuristic_func = Heuristic.euclidean
+        elif self.algorithm_heuristic == "MAZEDISTANCE":
+            heuristic_func = Heuristic.mazedistance
         else:  # NONE
-            return lambda start, pellets: algorithm_func(start, pellets, None)
+            heuristic_func = None
+        
+        # Trả về lambda với heuristic từ selectbox
+        return lambda start, pellets: algorithm_func(start, pellets, heuristic_func)
     
     def set_algorithm_heuristic(self, heuristic):
         """Đặt heuristic cho tất cả thuật toán"""
@@ -858,4 +871,48 @@ class Game(object):
         self.ai_steps = 0
         self.player_steps = 0
         self.last_step_position = None
+    
+    def get_stats(self):
+        """
+        Lấy thống kê game hiện tại để ghi vào CSV hoặc hiển thị UI
+        
+        Returns:
+            Dictionary chứa tất cả thống kê quan trọng
+        """
+        # Tính toán pellets
+        pellets_total = 0
+        pellets_remaining = 0
+        if hasattr(self, "pellets") and self.pellets and hasattr(self.pellets, "pelletList"):
+            pellets_total = len(self.pellets.pelletList)
+            pellets_remaining = len([p for p in self.pellets.pelletList if getattr(p, "visible", False)])
+        
+        pellets_eaten = max(0, pellets_total - pellets_remaining)
+        
+        # Tính thời gian
+        duration_sec = int(self.get_game_time()) if hasattr(self, "get_game_time") else 0
+        time_formatted = self.get_formatted_time() if hasattr(self, "get_formatted_time") else "00:00"
+        
+        # AI mode
+        ai_mode_str = "ONLINE" if getattr(self, "ai_mode", False) else "OFFLINE"
+        
+        return {
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "time_formatted": time_formatted,
+            "duration_sec": duration_sec,
+            "algorithm": getattr(self, "algorithm", "BFS"),
+            "heuristic": getattr(self, "algorithm_heuristic", "NONE"),
+            "ai_mode": ai_mode_str,
+            "score": getattr(self, "score", 0),
+            "total_steps": getattr(self, "total_steps", 0),
+            "ai_steps": getattr(self, "ai_steps", 0),
+            "player_steps": getattr(self, "player_steps", 0),
+            "pellets_total": pellets_total,
+            "pellets_eaten": pellets_eaten,
+            "pellets_remaining": pellets_remaining,
+            "level_reached": getattr(self, "level", 0),
+            "few_pellets_mode": getattr(self, "few_pellets_mode", False),
+            "few_pellets_count": getattr(self, "few_pellets_count", 0),
+            "ghost_mode": getattr(self, "ghost_mode", True),
+            "result": "GAME_OVER",  # Mặc định, có thể thay đổi
+        }
     
