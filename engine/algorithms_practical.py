@@ -115,25 +115,27 @@ def dfs(startNode, pellet_group, heuristic_func=None):
     current_node = startNode
     remaining_pellets = set(pellet_nodes)
     full_path = []
-    if len(remaining_pellets) <= 7:
+    path_to_pellet = None
+    use_special_case = len(remaining_pellets) <= 7
+    if use_special_case:
         path_to_pellet = dfs_few_pellets(current_node, remaining_pellets)
-    while remaining_pellets:
-        if heuristic_func is not None:
-            nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
-            path_to_pellet = dfs_find_nearest_pellet(current_node, {nearest_pellet})
-        else:
+        if path_to_pellet:
+            return path_to_pellet
+    if not use_special_case or path_to_pellet is None:
+        while remaining_pellets:
+            if heuristic_func is not None:
+                nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
+                path_to_pellet = dfs_find_nearest_pellet(current_node, {nearest_pellet})
+            else:
                 path_to_pellet = dfs_find_nearest_pellet(current_node, remaining_pellets)
-        if not path_to_pellet:
-            break  
-
-        if full_path and path_to_pellet[0] == full_path[-1]:
-            full_path.extend(path_to_pellet[1:])
-        else:
-            full_path.extend(path_to_pellet)
-
-        current_node = path_to_pellet[-1]
-        remaining_pellets.discard(current_node)
-
+            if not path_to_pellet:
+                break
+            if full_path and path_to_pellet[0] == full_path[-1]:
+                full_path.extend(path_to_pellet[1:])
+            else:
+                full_path.extend(path_to_pellet)
+            current_node = path_to_pellet[-1]
+            remaining_pellets.discard(current_node)
     return full_path if full_path else None
 
 def dfs_find_nearest_pellet(start_node, pellet_nodes):

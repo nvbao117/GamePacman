@@ -28,7 +28,7 @@ class StatsLogger:
         "duration_sec",        # Thời lượng (giây)
         "algorithm",           # Thuật toán sử dụng
         "heuristic",           # Heuristic sử dụng
-        "ai_mode",             # ONLINE/OFFLINE
+        "ai_mode",             # AI/Human
         "score",               # Điểm số
         "total_steps",         # Tổng số bước
         "ai_steps",            # Số bước AI
@@ -43,6 +43,11 @@ class StatsLogger:
         "few_pellets_mode",    # Chế độ few pellets (True/False)
         "few_pellets_count",   # Số pellets trong chế độ few
         "ghost_mode",          # Chế độ ghost (True/False)
+        "lives_lost",          # Số mạng đã chết
+        "current_mode",        # Mode hiện tại (AI/Human)
+        "ai_time_sec",         # Thời gian chơi AI (giây)
+        "human_time_sec",       # Thời gian chơi Human (giây)
+        "mode_changes_count",  # Số lần chuyển đổi mode
         "result",              # Kết quả (GAME_OVER, WIN, QUIT)
     ]
     
@@ -109,6 +114,23 @@ class StatsLogger:
                         row["power_pellets_eaten"] = "0"
                     if "power_pellets_remaining" not in row:
                         row["power_pellets_remaining"] = "0"
+                    if "lives_lost" not in row:
+                        row["lives_lost"] = "0"
+                    if "current_mode" not in row:
+                        row["current_mode"] = "AI"
+                    if "ai_time_sec" not in row:
+                        row["ai_time_sec"] = "0"
+                    if "human_time_sec" not in row:
+                        row["human_time_sec"] = "0"
+                    if "mode_changes_count" not in row:
+                        row["mode_changes_count"] = "0"
+                    
+                    # Chuyển đổi ai_mode từ ONLINE/OFFLINE sang AI/Human
+                    if "ai_mode" in row:
+                        if row["ai_mode"] == "ONLINE":
+                            row["ai_mode"] = "AI"
+                        elif row["ai_mode"] == "OFFLINE":
+                            row["ai_mode"] = "Human"
                 
                 # Lấy max_rows rows cuối cùng (mới nhất)
                 rows = all_rows[-max_rows:] if len(all_rows) > max_rows else all_rows

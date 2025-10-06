@@ -51,7 +51,7 @@ class StatsState(State):
         if self.game and hasattr(self.game, 'few_pellets_mode') and hasattr(self.game, 'ghost_mode'):
             return {
                 'few_pellets_mode': getattr(self.game, 'few_pellets_mode', False),
-                'few_pellets_count': getattr(self.game, 'few_pellets_count', 20),
+                'few_pellets_count': getattr(self.game, 'few_pellets_count', 7),
                 'ghost_mode': getattr(self.game, 'ghost_mode', True)
             }
         return {
@@ -443,8 +443,8 @@ class StatsState(State):
         
         # Headers - hiển thị đầy đủ features với khoảng cách lớn hơn
 
-        headers = ["Time", "Algorithm", "Heuristic", "AI Mode", "Score", "Steps", "Pellets", "Power Pellets", "Level", "Few Mode", "Ghost Mode", "Result"]
-        col_widths = [130, 150, 150, 140, 130, 130, 180, 180, 120, 130, 180, 250]
+        headers = ["Time", "Algorithm", "Heuristic", "AI Mode", "Score", "Steps", "Pellets", "Power Pellets", "Lives Lost", "Mode", "Level", "Few Mode", "Ghost Mode", "Result"]
+        col_widths = [130, 150, 150, 180, 130, 130, 150, 200, 180, 100, 120, 130, 180, 250]
         
         x = 60
         for i, header in enumerate(headers):
@@ -482,11 +482,13 @@ class StatsState(State):
                     row.get("time_formatted", "00:00")[:5],
                     row.get("algorithm", "UNKNOWN")[:8],
                     row.get("heuristic", "UNKNOWN")[:8],
-                    row.get("ai_mode", "UNKNOWN")[:6],
+                    row.get("ai_mode", "AI")[:6],
                     str(row.get("score", 0))[:6],
                     str(row.get("total_steps", 0))[:6],
                     pellets_str[:8],
                     power_pellets_str[:8],
+                    str(row.get("lives_lost", 0))[:3],
+                    row.get("current_mode", "AI")[:6],
                     str(row.get("level_reached", 0))[:3],
                     few_mode[:6],
                     ghost_mode[:6],
@@ -494,11 +496,15 @@ class StatsState(State):
                 ]
                 
                 for i, val in enumerate(values):
-                    if i == 11:  # Result column
+                    if i == 13:  # Result column
                         color = GHOST_PINK if "COMPLETE" in val else GHOST_RED
-                    elif i == 9:  # Few Mode column
+                    elif i == 3:  # AI Mode column
+                        color = GHOST_BLUE if "AI" in val else GHOST_ORANGE
+                    elif i == 9:  # Mode column
+                        color = GHOST_BLUE if "AI" in val else GHOST_ORANGE
+                    elif i == 11:  # Few Mode column
                         color = GHOST_ORANGE if "ON" in val else DOT_WHITE
-                    elif i == 10:  # Ghost Mode column
+                    elif i == 12:  # Ghost Mode column
                         color = GHOST_BLUE if "ON" in val else DOT_WHITE
                     else:
                         color = DOT_WHITE
@@ -565,8 +571,8 @@ class StatsState(State):
         screen.blit(title, (60, start_y + 10))
         
         # Headers - hiển thị đầy đủ features với khoảng cách lớn hơn
-        headers = ["Game #", "Algorithm", "Heuristic", "AI Mode", "Score", "Steps", "Efficiency", "Pellets", "Power Pellets", "Few Mode", "Ghost Mode", "Result"]
-        col_widths = [110, 140, 140, 130, 120, 120, 130, 180, 180, 120, 180, 140]
+        headers = ["Game #", "Algorithm", "Heuristic", "AI Mode", "Score", "Steps", "Efficiency", "Pellets", "Power Pellets", "Lives Lost", "Mode", "Few Mode", "Ghost Mode", "Result"]
+        col_widths = [110, 140, 140, 180, 120, 120, 130, 150, 200, 180, 100, 120, 180, 140]
         
         x = 60
         for i, header in enumerate(headers):
@@ -606,23 +612,29 @@ class StatsState(State):
                     f"#{len(rows) - i}",
                     row.get("algorithm", "UNKNOWN")[:8],
                     row.get("heuristic", "UNKNOWN")[:8],
-                    row.get("ai_mode", "UNKNOWN")[:6],
+                    row.get("ai_mode", "AI")[:6],
                     str(score)[:6],
                     str(steps)[:6],
                     f"{efficiency:.2f}",
                     pellets_str[:8],
                     power_pellets_str[:8],
+                    str(row.get("lives_lost", 0))[:3],
+                    row.get("current_mode", "AI")[:6],
                     few_mode[:6],
                     ghost_mode[:6],
                     row.get("result", "UNKNOWN")[:8],
                 ]
                 
                 for j, val in enumerate(values):
-                    if j == 11:  # Result column
+                    if j == 13:  # Result column
                         color = GHOST_PINK if "COMPLETE" in val else GHOST_RED
-                    elif j == 9:  # Few Mode column
+                    elif j == 3:  # AI Mode column
+                        color = GHOST_BLUE if "AI" in val else GHOST_ORANGE
+                    elif j == 10:  # Mode column
+                        color = GHOST_BLUE if "AI" in val else GHOST_ORANGE
+                    elif j == 11:  # Few Mode column
                         color = GHOST_ORANGE if "ON" in val else DOT_WHITE
-                    elif j == 10:  # Ghost Mode column
+                    elif j == 12:  # Ghost Mode column
                         color = GHOST_BLUE if "ON" in val else DOT_WHITE
                     else:
                         color = DOT_WHITE

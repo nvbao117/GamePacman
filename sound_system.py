@@ -24,6 +24,39 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class SilentSoundSystem:
+    """Fallback sound system used when pygame.mixer fails to initialize."""
+
+    def __init__(self, app):
+        self.app = app
+        self.enabled = False
+        self.music_playing = False
+        logger.warning("Sound disabled. Using silent sound system fallback.")
+
+    # ------------------------------------------------------------------
+    # API compatibility helpers – these methods intentionally do nothing
+    # so that the rest of the application can call them safely even when
+    # audio support is unavailable.
+    # ------------------------------------------------------------------
+    def play_sound(self, *_args, **_kwargs):
+        return None
+
+    def play_music(self, *_args, **_kwargs):
+        self.music_playing = False
+        return None
+
+    def stop_music(self):
+        self.music_playing = False
+
+    def update_volume(self):
+        return None
+
+    def apply_initial_settings(self):
+        return None
+
+    def cleanup(self):
+        return None
+
 class SoundType(Enum):
     """Enum cho các loại âm thanh"""
     SFX = "sfx"
@@ -103,7 +136,21 @@ class SoundSystem:
         self.apply_initial_settings()
         
         logger.info("Enhanced SoundSystem initialized successfully")
-    
+    def _initialize_audio_system(self):
+        """Initialize pygame mixer and fall back to a silent sound system if needed."""
+        try:
+            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
+        except pygame.error as exc:
+            logger.warning("Unable to initialize audio mixer: %s", exc)
+            self.sound_system = SilentSoundSystem(self)
+            return
+
+        try:
+            self.sound_system = SoundSystem(self)
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            logger.error("Sound system initialization failed: %s", exc)
+            pygame.mixer.quit()
+            self.sound_system = SilentSoundSystem(self)
     def _define_sound_configs(self):
         """Define configurations for all sounds"""
         configs = {

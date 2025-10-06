@@ -69,6 +69,14 @@ class Game(object):
         # Timer control
         self.timer_started_for_ai = False  # Flag để đảm bảo timer chỉ start một lần
         
+        # Lives tracking system
+        self.initial_lives = 4  # Số mạng ban đầu
+        self.lives_lost = 0  # Số mạng đã chết
+        
+        # AI vs Human mode tracking
+        self.mode_changes = []  # Lưu lịch sử thay đổi mode
+        self.current_mode = "AI" if getattr(self, 'ai_mode', True) else "Human"
+        
         # Các thuộc tính màn hình và render
         self.screen = None
         self.background = None
@@ -378,11 +386,12 @@ class Game(object):
         if self.pacman.alive:
             if not self.pause.paused:
                 self._track_step()
+                # Bắt đầu timer khi game bắt đầu (cả AI và Player mode)
+                if not self.timer_started_for_ai and not self.is_timer_running:
+                    self.start_timer()
+                    self.timer_started_for_ai = True
+                
                 if hasattr(self, 'ai_mode') and self.ai_mode:
-                    # Bắt đầu timer khi AI thực sự bắt đầu chạy (chỉ một lần)
-                    if not self.timer_started_for_ai and not self.is_timer_running:
-                        self.start_timer()
-                        self.timer_started_for_ai = True
                     ghost_group = self.ghosts if self.ghost_mode else None
                     self.pacman.update_ai(dt, self.pellets, True, ghostGroup=ghost_group, fruit=self.fruit)
                 else:
@@ -484,6 +493,7 @@ class Game(object):
                     elif ghost.mode.current is not SPAWN : 
                         if self.pacman.alive : 
                             self.lives -= 1 
+                            self.lives_lost += 1  # Đếm số mạng đã chết
                             self.lifesprites.removeImage()
                             self.pacman.die()                            
                             self.ghosts.hide()
@@ -694,7 +704,20 @@ class Game(object):
         self.running = False
     
     def set_ai_mode(self, ai_mode):
+        old_mode = self.current_mode
         self.ai_mode = ai_mode
+        self.current_mode = "AI" if ai_mode else "Human"
+        
+        # Track mode changes
+        if old_mode != self.current_mode:
+            self.mode_changes.append({
+                'timestamp': time.time(),
+                'from_mode': old_mode,
+                'to_mode': self.current_mode
+            })
+            
+            # Reset timer flag để có thể start timer lại
+            self.timer_started_for_ai = False
     
     def set_few_pellets_mode(self, enabled: bool, count: int = 20):
         """Set few pellets mode"""
@@ -919,8 +942,40 @@ class Game(object):
         duration_sec = int(self.get_game_time()) if hasattr(self, "get_game_time") else 0
         time_formatted = self.get_formatted_time() if hasattr(self, "get_formatted_time") else "00:00"
         
-        # AI mode
-        ai_mode_str = "ONLINE" if getattr(self, "ai_mode", False) else "OFFLINE"
+        # AI mode - hiển thị AI/Human thay vì ONLINE/OFFLINE
+        ai_mode_str = "AI" if getattr(self, "ai_mode", False) else "Human"
+        
+        # Calculate mode statistics
+        ai_time = 0
+        human_time = 0
+        
+        # Nếu không có mode changes, tính dựa trên current mode
+        if not self.mode_changes:
+            total_time = self.get_game_time()
+            if self.current_mode == "AI":
+                ai_time = total_time
+            else:
+                human_time = total_time
+        else:
+            # Calculate time spent in each mode
+            start_time = self.start_time if self.start_time else time.time()
+            current_time = time.time()
+            
+            last_time = start_time
+            for change in self.mode_changes:
+                duration = change['timestamp'] - last_time
+                if change['from_mode'] == "AI":
+                    ai_time += duration
+                else:
+                    human_time += duration
+                last_time = change['timestamp']
+            
+            # Add remaining time
+            remaining_time = current_time - last_time
+            if self.current_mode == "AI":
+                ai_time += remaining_time
+            else:
+                human_time += remaining_time
         
         return {
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
@@ -943,6 +998,11 @@ class Game(object):
             "few_pellets_mode": getattr(self, "few_pellets_mode", False),
             "few_pellets_count": getattr(self, "few_pellets_count", 20),
             "ghost_mode": getattr(self, "ghost_mode", True),
+            "lives_lost": getattr(self, "lives_lost", 0),
+            "current_mode": getattr(self, "current_mode", "AI"),
+            "ai_time_sec": int(ai_time),
+            "human_time_sec": int(human_time),
+            "mode_changes_count": len(getattr(self, "mode_changes", [])),
             "result": "GAME_OVER",  # Mặc định, có thể thay đổi
         }
     

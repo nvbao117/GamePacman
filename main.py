@@ -5,15 +5,16 @@
 # Quản lý vòng lặp chính, khởi tạo các hệ thống, và điều phối các state
 
 import pygame 
+import logging
 from statemachine import StateMachine
 from states.menu_state import MenuState
 from states.game_init_state import GameInitState
 from ui.setting_modal import SettingModal
-from sound_system import SoundSystem
+from sound_system import SoundSystem,SilentSoundSystem
 from config_manager import ConfigManager, ConfigCategory
 import sys
 
-
+logger = logging.getLogger(__name__)
 class App: 
     def __init__(self):
         """
@@ -34,7 +35,7 @@ class App:
         pygame.init()
         
         # Khởi tạo mixer cho âm thanh với cấu hình chất lượng cao
-        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
+        # pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
         
         # Thiết lập màn hình dựa trên cấu hình
         self._setup_display()
@@ -47,8 +48,9 @@ class App:
         self.settings = self.config.config
         
         # Tạo hệ thống âm thanh sau khi config được tạo
-        self.sound_system = SoundSystem(self)
-        
+        # self.sound_system = SoundSystem(self)
+        self.sound_system = None
+        self._initialize_audio_system()
         # Lưu reference đến game object hiện tại (nếu có)
         self.current_game = None
                 
@@ -84,7 +86,21 @@ class App:
         # Tạo màn hình với cài đặt đã chọn
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT), flags)
         pygame.display.set_caption("Pac-Man Arcade - Professional Edition")
-        
+    def _initialize_audio_system(self):
+        """Initialize pygame mixer and fall back to a silent sound system if needed."""
+        try:
+            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
+        except pygame.error as exc:
+            logger.warning("Unable to initialize audio mixer: %s", exc)
+            self.sound_system = SilentSoundSystem(self)
+            return
+
+        try:
+            self.sound_system = SoundSystem(self)
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            logger.error("Sound system initialization failed: %s", exc)
+            pygame.mixer.quit()
+            self.sound_system = SilentSoundSystem(self)
     def _setup_config_listeners(self):
         """
         Thiết lập các listener cho thay đổi cấu hình

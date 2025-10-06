@@ -86,6 +86,7 @@ class HybridAISystem:
             "Alpha-Beta": self._run_alpha_beta,
             "Hill Climbing": self._run_hill_climbing,
             "A* Online": self._run_astar,
+            "Genetic Algorithm": self._run_genetic_algorithm,
             "GBFS": self._run_gbfs,
         }
 
@@ -282,11 +283,27 @@ class HybridAISystem:
         return [ghost for ghost, _ in ghost_distances[:n]]
 
     def evaluate(self, pacman, ghostgroup, pellet_group, fruit=None):
+        pellets = self._pellets(pellet_group)
+        visible_pellets = []
+        visible_nodes = []
+        for pellet in pellets:
+            if not getattr(pellet, 'visible', True):
+                continue
+            visible_pellets.append(pellet)
+            node = getattr(pellet, 'node', None)
+            if node is not None:
+                visible_nodes.append(node)
         state = {
             'pacman': pacman,
             'ghostgroup': ghostgroup,
             'pellet_group': pellet_group,
-            'fruit': fruit
+            'fruit': fruit,
+            'pellet_data': {
+                'all': pellets,
+                'visible': tuple(visible_pellets),
+                'visible_nodes': tuple(visible_nodes),
+            },
+            'heuristic_func': Heuristic.get_heuristic_function(self._resolve_config()),
         }
         weights = self._evaluation_weights
         return (
@@ -303,28 +320,34 @@ class HybridAISystem:
         return getattr(pacman, 'score', 0) if pacman else 0
 
     def RemainingPellets(self, state):
+        pellet_data = state.get('pellet_data')
+        if pellet_data:
+            return len(pellet_data.get('all', ()))
         return len(self._pellets(state.get('pellet_group')))
 
     def PelletProximity(self, state):
         pacman = state.get('pacman')
         pellet_group = state.get('pellet_group')
         pacman_node = getattr(pacman, 'node', None)
-        pellets = self._pellets(pellet_group)
-        
-        if pacman_node is None or not pellets:
+        pellet_data = state.get('pellet_data') or {}
+        pellet_nodes = pellet_data.get('visible_nodes')
+        if pellet_nodes is None:
+            pellet_nodes = [
+                getattr(pellet, 'node', None)
+                for pellet in self._pellets(pellet_group)
+                if getattr(pellet, 'visible', True)
+            ]
+        pellet_nodes = [node for node in pellet_nodes if node is not None]
+
+        if pacman_node is None or not pellet_nodes:
             return 0
         
-        config = getattr(self, 'config', None)
-        from engine.heuristic import Heuristic
-        heuristic_func = Heuristic.get_heuristic_function(config)
+        heuristic_func = state.get('heuristic_func')
+        if heuristic_func is None:
+            heuristic_func = Heuristic.get_heuristic_function(self._resolve_config())
         is_maze_distance = heuristic_func == Heuristic.mazedistance
-
-        pellet_nodes = [
-            getattr(pellet, 'node', None)
-            for pellet in pellets
-            if getattr(pellet, 'node', None) is not None and getattr(pellet, 'visible', True)
-        ]
-
+       
+        
         if not pellet_nodes:
             distances = []
         elif is_maze_distance:
@@ -335,7 +358,7 @@ class HybridAISystem:
                 key=lambda node: manhattan(pacman_node, node)
             )[:N]
             distances = [
-                self._calculate_distance(pacman_node, node)
+                self._calculate_distance(pacman_node, node, heuristic_func=heuristic_func)
                 for node in pellet_nodes_sorted
             ]
         else:
@@ -396,7 +419,11 @@ class HybridAISystem:
         return value
 
     def StrateCapsules(self, state):
-        pellets = self._pellets(state.get('pellet_group'))
+        pellet_data = state.get('pellet_data')
+        if pellet_data:
+            pellets = pellet_data.get('all', ())
+        else:
+            pellets = self._pellets(state.get('pellet_group'))       
         return sum(1 for pellet in pellets if getattr(pellet, 'name', None) == POWERPELLET)
 
 # ==========================================================
@@ -473,6 +500,46 @@ class HybridAISystem:
 # ==========================================================
     def hill_climbing(self, pacman, ghost_group, pellet_group, max_steps=5):
         pass
+        if pacman is None:
+            return STOP
+
+        current_pacman = pacman
+        current_ghost_group = ghost_group
+        current_pellet_group = pellet_group
+
+        current_score = self.evaluate(current_pacman, current_ghost_group, current_pellet_group)
+        best_initial_action = STOP
+
+        for _ in range(max_steps):
+            actions = self.get_legal_actions_for_agent(current_pacman, current_ghost_group, current_pellet_group, 0)
+            if not actions:
+                break
+
+            best_neighbor_score = current_score
+            best_neighbor_state = None
+            best_neighbor_action = STOP
+
+            for action in actions:
+                next_pacman, next_ghost_group, next_pellet_group = self.apply_action_for_agent(
+                    current_pacman, current_ghost_group, current_pellet_group, action, 0
+                )
+                neighbor_score = self.evaluate(next_pacman, next_ghost_group, next_pellet_group)
+
+                if neighbor_score > best_neighbor_score:
+                    best_neighbor_score = neighbor_score
+                    best_neighbor_state = (next_pacman, next_ghost_group, next_pellet_group)
+                    best_neighbor_action = action
+
+            if best_neighbor_state is None:
+                break
+
+            if best_initial_action == STOP:
+                best_initial_action = best_neighbor_action
+
+            current_pacman, current_ghost_group, current_pellet_group = best_neighbor_state
+            current_score = best_neighbor_score
+
+        return best_initial_action
       
 # ==========================================================
 #                    END OF HILL CLIMBING ALGORITHM
@@ -487,7 +554,102 @@ class HybridAISystem:
 # - Tạo quần thể, đánh giá, chọn lọc, lai ghép, đột biến
 # - Lặp lại qua nhiều thế hệ để tìm chuỗi hành động tối ưu
 # ==========================================================
+    def genetic_algorithm(
+        self,
+        pacman,
+        ghost_group,
+        pellet_group,
+        fruit=None,
+        population_size=20,
+        sequence_length=6,
+        generations=15,
+        mutation_rate=0.15,
+        elite_fraction=0.2,
+        tournament_size=3,
+    ):
+        legal_actions = self.get_legal_actions_for_agent(pacman, ghost_group, pellet_group, 0)
+        if not legal_actions:
+            return []
 
+        population_size = max(1, population_size)
+        sequence_length = max(1, sequence_length)
+        generations = max(1, generations)
+
+        def random_sequence():
+            return [random.choice(legal_actions) for _ in range(sequence_length)]
+
+        def evaluate_sequence(action_sequence):
+            pacman_state = self._clone_entity(pacman)
+            ghost_state = ghost_group
+            pellet_state = pellet_group
+            for action in action_sequence:
+                pacman_state, ghost_state, pellet_state = self.apply_action_for_agent(
+                    pacman_state,
+                    ghost_state,
+                    pellet_state,
+                    action,
+                    0,
+                    fruit,
+                )
+            return self.evaluate(pacman_state, ghost_state, pellet_state, fruit)
+
+        def tournament_select(scored_population):
+            contenders = random.sample(
+                scored_population,
+                min(tournament_size, len(scored_population)),
+            )
+            return max(contenders, key=lambda item: item[0])[1]
+
+        def crossover(parent_a, parent_b):
+            if sequence_length <= 1:
+                return parent_a[:]
+            point = random.randint(1, sequence_length - 1)
+            return parent_a[:point] + parent_b[point:]
+
+        def mutate(sequence):
+            return [
+                random.choice(legal_actions) if random.random() < mutation_rate else action
+                for action in sequence
+            ]
+
+        population = [random_sequence() for _ in range(population_size)]
+        best_sequence = []
+        best_score = -math.inf
+
+        elite_count = max(1, min(int(population_size * elite_fraction), population_size))
+
+        for _ in range(generations):
+            scored_population = [
+                (evaluate_sequence(individual), individual[:])
+                for individual in population
+            ]
+            scored_population.sort(key=lambda item: item[0], reverse=True)
+
+            if scored_population and scored_population[0][0] > best_score:
+                best_score = scored_population[0][0]
+                best_sequence = scored_population[0][1][:]
+
+            new_population = [individual[:] for _, individual in scored_population[:elite_count]]
+
+            while len(new_population) < population_size and scored_population:
+                parent1 = tournament_select(scored_population)
+                parent2 = tournament_select(scored_population)
+                child = crossover(parent1, parent2)
+                child = mutate(child)
+                new_population.append(child)
+
+            if not new_population:
+                break
+
+            population = new_population
+
+        if not best_sequence and population:
+            best_sequence = max(
+                ((evaluate_sequence(individual), individual) for individual in population),
+                key=lambda item: item[0],
+            )[1][:]
+
+        return best_sequence
 
 
 # ==========================================================
@@ -848,7 +1010,16 @@ class HybridAISystem:
         )
         score, action = self.minimax(pacman_copy, ghost_group, pellet_group, depth=2, agent_index=0, fruit=fruit)
         return action
-
+    def _run_genetic_algorithm(self, pellet_group, ghost_group, fruit):
+        pacman_copy = self._clone_entity(
+            self.pacman,
+            direction=getattr(self.pacman, 'direction', None),
+            previous_direction=getattr(self.pacman, 'direction', None),
+        )
+        action_sequence = self.genetic_algorithm(pacman_copy, ghost_group, pellet_group, fruit)
+        if action_sequence:
+            return action_sequence[0]
+        return self._run_astar(pellet_group, ghost_group, fruit)
     def _run_alpha_beta(self, pellet_group, ghost_group, fruit):
         pacman_copy = self._clone_entity(
             self.pacman,
@@ -906,18 +1077,18 @@ class HybridAISystem:
 # Các hàm và logic liên quan đến tính toán khoảng cách giữa
 # Pac-Man, ma, và các đối tượng khác trên bản đồ.
 # ==========================================================
-    def _calculate_distance(self, node1, node2):
-        # Lấy config từ pacman nếu self.config là None
+    def _resolve_config(self):
         config = self.config
         if config is None and hasattr(self.pacman, 'config'):
-            config = self.pacman.config
-        
-        # Check if nodes are valid
+            config = getattr(self.pacman, 'config', None)
+        return config
+
+    def _calculate_distance(self, node1, node2, heuristic_func=None):
         if not hasattr(node1, 'position') or not hasattr(node2, 'position'):
             return float('inf')
-            
-        func = Heuristic.get_heuristic_function(config)
-        return func(node1, node2)
+        if heuristic_func is None:
+            heuristic_func = Heuristic.get_heuristic_function(self._resolve_config())
+        return heuristic_func(node1, node2)
 
     def _calculate_distance_manhattan(self, node1, node2):
         result = Heuristic.manhattan(node1, node2)
