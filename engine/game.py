@@ -466,6 +466,7 @@ class Game(object):
                 # Level hoàn thành - GHI LOG THỐNG KÊ
                 try:
                     stats = self.get_stats()
+                    # Set result dựa trên mode hiện tại
                     stats["result"] = "LEVEL_COMPLETE"
                     StatsLogger.log(stats)
                 except Exception as e:

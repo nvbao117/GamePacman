@@ -32,6 +32,7 @@ class StatsState(State):
         
         # View management
         self._current_view = "overview"  # overview, algorithms, heuristics, trends, efficiency
+        self._current_mode = "AI"  # AI or Human - để tách riêng thống kê
         self._sort_by = "score"  # score, steps, time, algorithm
         self._filter_algorithm = "ALL"
         self._filter_heuristic = "ALL"
@@ -69,6 +70,29 @@ class StatsState(State):
             self.app, "GAME STATISTICS", GHOST_BLUE, 
             center_x, 30, 50, glow=True, outline=True
         )
+        
+        # Mode selector buttons - AI vs Human
+        self.mode_buttons = []
+        mode_configs = [
+            ("🤖 AI MODE", "AI"),
+            ("👤 HUMAN MODE", "Human"),
+        ]
+        
+        # Calculate mode buttons with proper spacing
+        mode_button_height = 35
+        mode_button_width = 200
+        mode_gap = 200
+        mode_total_width = len(mode_configs) * mode_button_width + (len(mode_configs) - 1) * mode_gap
+        mode_start_x = (self.app.WIDTH - mode_total_width) // 2 - 400
+        
+        for i, (text, mode_name) in enumerate(mode_configs):
+            x = mode_start_x + i * (mode_button_width + mode_gap)
+            button = PacManButton(self.app, pos=(x, 900), text=text, 
+                                 onclick=[lambda m=mode_name: self._set_mode(m)])
+            button.w = mode_button_width
+            button.h = mode_button_height
+            button.rect = pygame.Rect(button.x, button.y, button.w, button.h)
+            self.mode_buttons.append(button)
         
         # View selector buttons - only essential ones
         self.view_buttons = []
@@ -143,12 +167,19 @@ class StatsState(State):
     def _load_stats_data(self):
         """Load dữ liệu thống kê từ CSV"""
         try:
-            self._stats_rows = StatsLogger.load_recent(max_rows=50)
+            all_stats = StatsLogger.load_recent(max_rows=50)
+            
+            # Filter theo mode hiện tại
+            if self._current_mode == "AI":
+                self._stats_rows = [row for row in all_stats if row.get("ai_mode", "AI") == "AI"]
+            else:  # Human mode
+                self._stats_rows = [row for row in all_stats if row.get("ai_mode", "AI") == "Human"]
+            
             self._stats_summary = StatsLogger.get_stats_summary()
             
             # Nếu không có dữ liệu thực, hiển thị thông báo
             if not self._stats_rows:
-                print("No game data found. Play some games to see statistics!")
+                print(f"No {self._current_mode} game data found. Play some games to see statistics!")
                 self._stats_rows = []
                 self._stats_summary = {}
                 
@@ -163,6 +194,19 @@ class StatsState(State):
         self.app.sound_system.play_sound('button_click')
         self._current_view = view_name
         print(f"Switched to view: {view_name}")
+    
+    def _set_mode(self, mode_name):
+        """Chuyển đổi giữa AI và Human mode"""
+        self.app.sound_system.play_sound('button_click')
+        self._current_mode = mode_name
+        
+        # Tự động chuyển về overview khi chuyển sang Human mode
+        if mode_name == "Human":
+            self._current_view = "overview"
+        
+        # Reload data với filter mới
+        self._load_stats_data()
+        print(f"Switched to mode: {mode_name}")
     
     def _toggle_filters(self):
         """Toggle filter options"""
@@ -257,14 +301,14 @@ class StatsState(State):
             self._handle_button_clicks(event)
         
         # Handle button hover and other events
-        all_buttons = self.view_buttons + self.control_buttons + [self.back_button]
+        all_buttons = self.mode_buttons + self.view_buttons + self.control_buttons + [self.back_button]
         for button in all_buttons:
             if hasattr(button, 'handle_event'):
                 button.handle_event(event)
     
     def _handle_button_clicks(self, event):
         """Xử lý click events cho buttons"""
-        all_buttons = self.view_buttons + self.control_buttons + [self.back_button]
+        all_buttons = self.mode_buttons + self.view_buttons + self.control_buttons + [self.back_button]
         
         for button in all_buttons:
             if hasattr(button, 'rect') and button.rect.collidepoint(event.pos):
@@ -284,7 +328,13 @@ class StatsState(State):
     
     def logic(self):
         """Logic update"""
-        # Update button states
+        # Update mode button states
+        for i, button in enumerate(self.mode_buttons):
+            mode_names = ["AI", "Human"]
+            if i < len(mode_names):
+                button.set_active(self._current_mode == mode_names[i])
+        
+        # Update view button states
         for i, button in enumerate(self.view_buttons):
             view_names = ["overview", "algorithms", "trends"]
             if i < len(view_names):
@@ -305,7 +355,12 @@ class StatsState(State):
         self.title.render()
         
         # Draw buttons
-        all_buttons = self.view_buttons + self.control_buttons + [self.back_button]
+        all_buttons = self.mode_buttons + self.control_buttons + [self.back_button]
+        
+        # Chỉ hiển thị view buttons cho AI mode
+        if self._current_mode == "AI":
+            all_buttons = self.mode_buttons + self.view_buttons + self.control_buttons + [self.back_button]
+        
         for button in all_buttons:
             if hasattr(button, 'render'):
                 button.render()
@@ -315,6 +370,29 @@ class StatsState(State):
         
         # Draw instructions
         self._draw_instructions(screen)
+    
+    def _draw_human_mode_message(self, screen, font_title, font_normal):
+        """Vẽ thông báo cho Human mode khi chọn algorithms view"""
+        start_y = 200
+        
+        # Background
+        message_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 200)
+        pygame.draw.rect(screen, (25, 25, 45), message_rect)
+        pygame.draw.rect(screen, GHOST_ORANGE, message_rect, 2)
+        
+        # Title
+        title = font_title.render("HUMAN MODE", True, GHOST_ORANGE)
+        screen.blit(title, (60, start_y + 20))
+        
+        # Message
+        message = font_normal.render("Human mode statistics are simplified.", True, DOT_WHITE)
+        screen.blit(message, (60, start_y + 60))
+        
+        message2 = font_normal.render("Only Time, Score, Steps, and Result are tracked.", True, DOT_WHITE)
+        screen.blit(message2, (60, start_y + 90))
+        
+        message3 = font_normal.render("Switch to AI mode to see detailed algorithm analysis.", True, DOT_WHITE)
+        screen.blit(message3, (60, start_y + 120))
     
     def _draw_background(self, screen):
         """Vẽ background"""
@@ -338,7 +416,12 @@ class StatsState(State):
         if self._current_view == "overview":
             self._draw_overview_view(screen, font_title, font_normal, font_small)
         elif self._current_view == "algorithms":
-            self._draw_algorithms_view(screen, font_title, font_normal, font_small)
+            # Chỉ hiển thị algorithms view cho AI mode
+            if self._current_mode == "AI":
+                self._draw_algorithms_view(screen, font_title, font_normal, font_small)
+            else:
+                # Human mode - hiển thị thông báo
+                self._draw_human_mode_message(screen, font_title, font_normal)
         elif self._current_view == "trends":
             self._draw_trends_view(screen, font_title, font_normal, font_small)
     
@@ -438,13 +521,17 @@ class StatsState(State):
         pygame.draw.rect(screen, GHOST_ORANGE, table_rect, 2)
         
         # Title
-        title = font_title.render("ALL GAMES", True, PAC_YELLOW)
+        mode_title = f"{self._current_mode} GAMES" if self._current_mode == "AI" else "HUMAN GAMES"
+        title = font_title.render(mode_title, True, PAC_YELLOW)
         screen.blit(title, (60, start_y + 10))
         
-        # Headers - hiển thị đầy đủ features với khoảng cách lớn hơn
-
-        headers = ["Time", "Algorithm", "Heuristic", "AI Mode", "Score", "Steps", "Pellets", "Power Pellets", "Lives Lost", "Mode", "Level", "Few Mode", "Ghost Mode", "Result"]
-        col_widths = [130, 150, 150, 180, 130, 130, 150, 200, 180, 100, 120, 130, 180, 250]
+        # Headers - khác nhau cho AI và Human
+        if self._current_mode == "AI":
+            headers = ["Time", "Algorithm", "Heuristic", "AI Mode", "Score", "Steps", "Pellets", "Power Pellets", "Lives Lost", "Mode", "Level", "Few Mode", "Ghost Mode", "Result"]
+            col_widths = [130, 150, 150, 180, 130, 130, 150, 200, 180, 100, 120, 130, 180, 250]
+        else:  # Human mode - chỉ hiển thị Time, Steps, Score
+            headers = ["Time", "Score", "Steps", "Result"]
+            col_widths = [200, 200, 200, 200]
         
         x = 60
         for i, header in enumerate(headers):
@@ -458,56 +545,81 @@ class StatsState(State):
         
         if not rows:
             # Hiển thị thông báo nếu không có dữ liệu
-            no_data = font_small.render("No game data available. Play some games first!", True, DOT_WHITE)
+            no_data = font_small.render(f"No {self._current_mode} game data available. Play some games first!", True, DOT_WHITE)
             screen.blit(no_data, (60, row_y))
         else:
             # Hiển thị tối đa 12 games để vừa màn hình với nhiều columns
             display_rows = rows[-12:] if len(rows) > 12 else rows
             for row in reversed(display_rows):
                 x = 60
-                pellets_eaten = row.get("pellets_eaten", 0)
-                pellets_total = row.get("pellets_total", 0)
-                pellets_str = f"{pellets_eaten}/{pellets_total}"
                 
-                power_pellets_eaten = row.get("power_pellets_eaten", 0)
-                power_pellets_total = row.get("power_pellets_total", 0)
-                power_pellets_str = f"{power_pellets_eaten}/{power_pellets_total}"
-                
-                # Format few mode and ghost mode - lấy từ game object nếu có
-                current_game_info = self._get_current_game_info()
-                few_mode = "ON" if current_game_info['few_pellets_mode'] else "OFF"
-                ghost_mode = "ON" if current_game_info['ghost_mode'] else "OFF"
-                
-                values = [
-                    row.get("time_formatted", "00:00")[:5],
-                    row.get("algorithm", "UNKNOWN")[:8],
-                    row.get("heuristic", "UNKNOWN")[:8],
-                    row.get("ai_mode", "AI")[:6],
-                    str(row.get("score", 0))[:6],
-                    str(row.get("total_steps", 0))[:6],
-                    pellets_str[:8],
-                    power_pellets_str[:8],
-                    str(row.get("lives_lost", 0))[:3],
-                    row.get("current_mode", "AI")[:6],
-                    str(row.get("level_reached", 0))[:3],
-                    few_mode[:6],
-                    ghost_mode[:6],
-                    row.get("result", "UNKNOWN")[:8],
-                ]
+                if self._current_mode == "AI":
+                    # AI mode - hiển thị đầy đủ thông tin
+                    pellets_eaten = row.get("pellets_eaten", 0)
+                    pellets_total = row.get("pellets_total", 0)
+                    pellets_str = f"{pellets_eaten}/{pellets_total}"
+                    
+                    power_pellets_eaten = row.get("power_pellets_eaten", 0)
+                    power_pellets_total = row.get("power_pellets_total", 0)
+                    power_pellets_str = f"{power_pellets_eaten}/{power_pellets_total}"
+                    
+                    # Format few mode and ghost mode - lấy từ game object nếu có
+                    current_game_info = self._get_current_game_info()
+                    few_mode = "ON" if current_game_info['few_pellets_mode'] else "OFF"
+                    ghost_mode = "ON" if current_game_info['ghost_mode'] else "OFF"
+                    
+                    values = [
+                        row.get("time_formatted", "00:00")[:5],
+                        row.get("algorithm", "UNKNOWN")[:8],
+                        row.get("heuristic", "UNKNOWN")[:8],
+                        row.get("ai_mode", "AI")[:6],
+                        str(row.get("score", 0))[:6],
+                        str(row.get("total_steps", 0))[:6],
+                        pellets_str[:8],
+                        power_pellets_str[:8],
+                        str(row.get("lives_lost", 0))[:3],
+                        row.get("current_mode", "AI")[:6],
+                        str(row.get("level_reached", 0))[:3],
+                        few_mode[:6],
+                        ghost_mode[:6],
+                        row.get("result", "UNKNOWN")[:8],
+                    ]
+                else:
+                    # Human mode - chỉ hiển thị Time, Score, Steps, Result
+                    values = [
+                        row.get("time_formatted", "00:00")[:5],
+                        str(row.get("score", 0))[:6],
+                        str(row.get("total_steps", 0))[:6],
+                        row.get("result", "UNKNOWN")[:8],
+                    ]
                 
                 for i, val in enumerate(values):
-                    if i == 13:  # Result column
-                        color = GHOST_PINK if "COMPLETE" in val else GHOST_RED
-                    elif i == 3:  # AI Mode column
-                        color = GHOST_BLUE if "AI" in val else GHOST_ORANGE
-                    elif i == 9:  # Mode column
-                        color = GHOST_BLUE if "AI" in val else GHOST_ORANGE
-                    elif i == 11:  # Few Mode column
-                        color = GHOST_ORANGE if "ON" in val else DOT_WHITE
-                    elif i == 12:  # Ghost Mode column
-                        color = GHOST_BLUE if "ON" in val else DOT_WHITE
+                    if self._current_mode == "AI":
+                        if i == 13:  # Result column
+                            if "COMPLETE" in val:
+                                color = GHOST_PINK
+                            else:
+                                color = GHOST_RED
+                        elif i == 3:  # AI Mode column
+                            color = GHOST_BLUE if "AI" in val else GHOST_ORANGE
+                        elif i == 9:  # Mode column
+                            color = GHOST_BLUE if "AI" in val else GHOST_ORANGE
+                        elif i == 11:  # Few Mode column
+                            color = GHOST_ORANGE if "ON" in val else DOT_WHITE
+                        elif i == 12:  # Ghost Mode column
+                            color = GHOST_BLUE if "ON" in val else DOT_WHITE
+                        else:
+                            color = DOT_WHITE
                     else:
-                        color = DOT_WHITE
+                        # Human mode - chỉ có 4 columns
+                        if i == 3:  # Result column
+                            if "COMPLETE" in val:
+                                color = GHOST_PINK
+                            else:
+                                color = GHOST_RED
+                        else:
+                            color = DOT_WHITE
+                    
                     txt = font_small.render(val, True, color)
                     screen.blit(txt, (x, row_y))
                     x += col_widths[i]
@@ -627,7 +739,10 @@ class StatsState(State):
                 
                 for j, val in enumerate(values):
                     if j == 13:  # Result column
-                        color = GHOST_PINK if "COMPLETE" in val else GHOST_RED
+                        if "COMPLETE" in val:
+                            color = GHOST_PINK
+                        else:
+                            color = GHOST_RED
                     elif j == 3:  # AI Mode column
                         color = GHOST_BLUE if "AI" in val else GHOST_ORANGE
                     elif j == 10:  # Mode column
