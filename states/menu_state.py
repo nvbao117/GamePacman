@@ -172,7 +172,7 @@ class MenuState(State):
         self.app.sound_system.play_sound('button_click')
         # Chuyển sang StatsState thay vì hiển thị trong menu
         from states.stats_state import StatsState
-        stats_state = StatsState(self.app, self.machine)
+        stats_state = StatsState(self.app, self.machine, self.app.current_game)
         self.replace_state(stats_state)
     
     def back_to_home(self):

@@ -48,6 +48,9 @@ class App:
         
         # Tạo hệ thống âm thanh sau khi config được tạo
         self.sound_system = SoundSystem(self)
+        
+        # Lưu reference đến game object hiện tại (nếu có)
+        self.current_game = None
                 
         # Backward compatibility for sfx_volume
         self.sfx_volume = self.config.get('sfx_volume', 0.8)

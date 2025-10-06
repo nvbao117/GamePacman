@@ -63,6 +63,12 @@ class Game(object):
         self.player_steps = 0 # Số bước khi điều khiển thủ công
         self.last_step_position = None  # Vị trí cuối cùng để detect step
         
+        # Pellets counting system
+        self.initial_pellets_total = 0  # Tổng số pellets ban đầu
+        
+        # Timer control
+        self.timer_started_for_ai = False  # Flag để đảm bảo timer chỉ start một lần
+        
         # Các thuộc tính màn hình và render
         self.screen = None
         self.background = None
@@ -294,6 +300,9 @@ class Game(object):
         if not self.analytics_started:
             self.analytics_started = True
         
+        # Reset timer flag cho level mới
+        self.timer_started_for_ai = False
+        
 
         maze_file = "assets/maze/"+self.mazedata.obj.name+".txt"
         
@@ -301,6 +310,10 @@ class Game(object):
         few_pellets_mode = getattr(self, 'few_pellets_mode', False)
         few_pellets_count = getattr(self, 'few_pellets_count', 20)
         self.pellets = PelletGroup(maze_file, self.nodes, few_pellets_mode, few_pellets_count)
+        
+        # Lưu tổng số pellets ban đầu để tính toán thống kê
+        self.initial_pellets_total = len(self.pellets.pelletList) if hasattr(self.pellets, 'pelletList') else 0
+        self.initial_power_pellets = len(self.pellets.powerpellets) if hasattr(self.pellets, 'powerpellets') else 0
         
         # Tạo ghosts với vị trí bắt đầu từ maze data
         self.ghosts = GhostGroup(self.nodes.getStartTempNode(), self.pacman)
@@ -366,6 +379,10 @@ class Game(object):
             if not self.pause.paused:
                 self._track_step()
                 if hasattr(self, 'ai_mode') and self.ai_mode:
+                    # Bắt đầu timer khi AI thực sự bắt đầu chạy (chỉ một lần)
+                    if not self.timer_started_for_ai and not self.is_timer_running:
+                        self.start_timer()
+                        self.timer_started_for_ai = True
                     ghost_group = self.ghosts if self.ghost_mode else None
                     self.pacman.update_ai(dt, self.pellets, True, ghostGroup=ghost_group, fruit=self.fruit)
                 else:
@@ -540,6 +557,9 @@ class Game(object):
         self.pause.paused = True
         self.fruit = None 
         
+        # Reset timer flag
+        self.timer_started_for_ai = False
+        
         # Khởi tạo lại game từ level 0
         self.startGame()
         
@@ -571,6 +591,9 @@ class Game(object):
         # Reset pellet count khi reset level
         if hasattr(self, 'pellets'):
             self.pellets.numEaten = 0
+        
+        # Reset timer flag cho level mới
+        self.timer_started_for_ai = False
         # Không reset timer khi Pacman chết nhưng còn mạng
         
     def updateScore(self,points) : 
@@ -880,13 +903,17 @@ class Game(object):
             Dictionary chứa tất cả thống kê quan trọng
         """
         # Tính toán pellets
-        pellets_total = 0
+        pellets_total = getattr(self, "initial_pellets_total", 0)
+        power_pellets_total = getattr(self, "initial_power_pellets", 0)
         pellets_remaining = 0
+        power_pellets_remaining = 0
+        
         if hasattr(self, "pellets") and self.pellets and hasattr(self.pellets, "pelletList"):
-            pellets_total = len(self.pellets.pelletList)
             pellets_remaining = len([p for p in self.pellets.pelletList if getattr(p, "visible", False)])
+            power_pellets_remaining = len([p for p in self.pellets.powerpellets if getattr(p, "visible", False)])
         
         pellets_eaten = max(0, pellets_total - pellets_remaining)
+        power_pellets_eaten = max(0, power_pellets_total - power_pellets_remaining)
         
         # Tính thời gian
         duration_sec = int(self.get_game_time()) if hasattr(self, "get_game_time") else 0
@@ -909,9 +936,12 @@ class Game(object):
             "pellets_total": pellets_total,
             "pellets_eaten": pellets_eaten,
             "pellets_remaining": pellets_remaining,
+            "power_pellets_total": power_pellets_total,
+            "power_pellets_eaten": power_pellets_eaten,
+            "power_pellets_remaining": power_pellets_remaining,
             "level_reached": getattr(self, "level", 0),
             "few_pellets_mode": getattr(self, "few_pellets_mode", False),
-            "few_pellets_count": getattr(self, "few_pellets_count", 0),
+            "few_pellets_count": getattr(self, "few_pellets_count", 20),
             "ghost_mode": getattr(self, "ghost_mode", True),
             "result": "GAME_OVER",  # Mặc định, có thể thay đổi
         }

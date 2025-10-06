@@ -77,8 +77,9 @@ class PelletGroup(object):
             
             # Tính số pellets thường cần chọn
             if len(regular_pellets) > self.few_pellets_count:
-                fixed_indices = [0, 10, 20, 30, 100, 150, 200]  # Vị trí cố định
-                selected_regular = [regular_pellets[i] for i in fixed_indices if i < len(regular_pellets)]
+                # fixed_indices = [0, 10, 20, 30, 100, 150, 200]  # Vị trí cố định
+                # selected_regular = [regular_pellets[i] for i in fixed_indices if i < len(regular_pellets)]
+                selected_regular = random.sample(regular_pellets, self.few_pellets_count)
             else:
                 selected_regular = regular_pellets
             

@@ -26,8 +26,9 @@ class StatsState(State):
     - Navigation về menu chính
     """
     
-    def __init__(self, app, machine):
+    def __init__(self, app, machine, game=None):
         super().__init__(app, machine)
+        self.game = game  # Lưu reference đến game object
         
         # View management
         self._current_view = "overview"  # overview, algorithms, heuristics, trends, efficiency
@@ -44,6 +45,20 @@ class StatsState(State):
         
         # Load stats data
         self._load_stats_data()
+    
+    def _get_current_game_info(self):
+        """Lấy thông tin few_mode và ghost_mode từ game object hiện tại"""
+        if self.game and hasattr(self.game, 'few_pellets_mode') and hasattr(self.game, 'ghost_mode'):
+            return {
+                'few_pellets_mode': getattr(self.game, 'few_pellets_mode', False),
+                'few_pellets_count': getattr(self.game, 'few_pellets_count', 20),
+                'ghost_mode': getattr(self.game, 'ghost_mode', True)
+            }
+        return {
+            'few_pellets_mode': False,
+            'few_pellets_count': 7,
+            'ghost_mode': True
+        }
     
     def _init_ui_components(self):
         """Khởi tạo các UI components"""
@@ -63,23 +78,21 @@ class StatsState(State):
             ("📈 TRENDS", "trends"),
         ]
         
-        # Calculate smaller buttons with tighter spacing
-        button_height = 35  # Smaller height
+        # Calculate buttons with proper spacing for 1920x1080
+        button_height = 35
         screen_width = self.app.WIDTH
         num_buttons = len(view_configs)
         
-        # Calculate button width to fill screen with equal spacing
-        total_gap_width = (num_buttons + 1) * 20 + (num_buttons - 1) * 5  # 20px margin on each side + 5px gaps between buttons
-        available_width = screen_width - total_gap_width
-        button_width = available_width // num_buttons  - 100
+        # Fixed button width for 1920px screen
+        button_width = 250  # Fixed width for each button
+        gap_between_buttons = 100  # Gap between buttons
         
-        # Calculate positions for perfectly centered buttons
-        # Calculate total width needed and center it
-        total_width_needed = num_buttons * button_width + (num_buttons - 1) * 5
-        start_x = (screen_width - total_width_needed) // 2  # Center the buttons
+        # Calculate total width needed
+        total_width_needed = num_buttons * button_width + (num_buttons - 1) * gap_between_buttons
+        start_x = (screen_width - total_width_needed) // 2  - 300
         
         for i, (text, view_name) in enumerate(view_configs):
-            x = start_x + i * (button_width + 5)  # 5px gap between buttons
+            x = start_x + i * (button_width + gap_between_buttons)
             button = PacManButton(self.app, pos=(x, 100), text=text, 
                                  onclick=[lambda v=view_name: self._set_view(v)])
             # Make buttons uniform size
@@ -89,30 +102,30 @@ class StatsState(State):
             self.view_buttons.append(button)
         
         # Control buttons - only essential ones
+        # Đặt các nút REFRESH và EXPORT CSV ở góc phải phía dưới
         control_configs = [
             ("🔄 REFRESH", self._refresh_stats),
+            ("📊 EXPORT CSV", self._export_csv),
         ]
         
-        # Calculate control buttons to fill remaining space on right
         control_height = 40
         num_control_buttons = len(control_configs)
         
-        # Use remaining space after view buttons
-        view_buttons_end = start_x + num_buttons * (button_width + 20)
-        remaining_width = screen_width - view_buttons_end - 20  # 20px margin from right
-        
-        # Calculate control button width
-        control_gap = 10
-        control_total_gap = (num_control_buttons - 1) * control_gap
-        control_width = (remaining_width - control_total_gap) // num_control_buttons
-        
-        # Position control buttons
-        control_start_x = view_buttons_end + 20  # 20px gap after view buttons
-        
+        # Fixed control button width
+        control_width = 200  # Fixed width for control buttons
+        control_gap = 200  # Gap between control buttons
+
+        # Vị trí các nút control ở góc phải phía dưới
+        margin_bottom = 40
+        margin_right = 50
+        total_controls_width = num_control_buttons * control_width + (num_control_buttons - 1) * control_gap
+        control_start_x = self.app.WIDTH - margin_right - total_controls_width
+        control_y = self.app.HEIGHT - margin_bottom - control_height - 300
+
         self.control_buttons = []
         for i, (text, callback) in enumerate(control_configs):
             x = control_start_x + i * (control_width + control_gap)
-            button = PacManButton(self.app, pos=(x, 100), text=text, onclick=[callback])
+            button = PacManButton(self.app, pos=(x, control_y), text=text, onclick=[callback])
             button.w = control_width
             button.h = control_height
             button.rect = pygame.Rect(button.x, button.y, button.w, button.h)
@@ -120,7 +133,6 @@ class StatsState(State):
         
         # Keep individual references for backward compatibility
         self.refresh_button = self.control_buttons[0]
-        
         # Back button
         self.back_button = PacManButton(
             self.app, pos=(center_x, self.app.HEIGHT - 60), text="❮ BACK TO MENU", 
@@ -134,85 +146,17 @@ class StatsState(State):
             self._stats_rows = StatsLogger.load_recent(max_rows=50)
             self._stats_summary = StatsLogger.get_stats_summary()
             
-            # Nếu không có dữ liệu, tạo dữ liệu mẫu để test
+            # Nếu không có dữ liệu thực, hiển thị thông báo
             if not self._stats_rows:
-                self._create_sample_data()
+                print("No game data found. Play some games to see statistics!")
+                self._stats_rows = []
+                self._stats_summary = {}
                 
         except Exception as e:
             print(f"Warning: Failed to load stats: {e}")
             self._stats_rows = []
             self._stats_summary = {}
-            self._create_sample_data()
     
-    def _create_sample_data(self):
-        """Tạo dữ liệu mẫu để test"""
-        import datetime
-        
-        sample_data = [
-            {
-                "timestamp": datetime.datetime.now().isoformat(),
-                "time_formatted": "02:15",
-                "duration_sec": 135,
-                "algorithm": "A*",
-                "heuristic": "MANHATTAN",
-                "ai_mode": "OFFLINE",
-                "score": 920,
-                "total_steps": 180,
-                "ai_steps": 180,
-                "player_steps": 0,
-                "pellets_total": 240,
-                "pellets_eaten": 240,
-                "pellets_remaining": 0,
-                "level_reached": 1,
-                "few_pellets_mode": False,
-                "few_pellets_count": 0,
-                "ghost_mode": True,
-                "result": "LEVEL_COMPLETE",
-            },
-            {
-                "timestamp": datetime.datetime.now().isoformat(),
-                "time_formatted": "01:45",
-                "duration_sec": 105,
-                "algorithm": "BFS",
-                "heuristic": "NONE",
-                "ai_mode": "OFFLINE",
-                "score": 780,
-                "total_steps": 310,
-                "ai_steps": 310,
-                "player_steps": 0,
-                "pellets_total": 240,
-                "pellets_eaten": 200,
-                "pellets_remaining": 40,
-                "level_reached": 0,
-                "few_pellets_mode": False,
-                "few_pellets_count": 0,
-                "ghost_mode": True,
-                "result": "GAME_OVER",
-            },
-            {
-                "timestamp": datetime.datetime.now().isoformat(),
-                "time_formatted": "03:20",
-                "duration_sec": 200,
-                "algorithm": "DFS",
-                "heuristic": "EUCLIDEAN",
-                "ai_mode": "ONLINE",
-                "score": 650,
-                "total_steps": 450,
-                "ai_steps": 450,
-                "player_steps": 0,
-                "pellets_total": 240,
-                "pellets_eaten": 180,
-                "pellets_remaining": 60,
-                "level_reached": 0,
-                "few_pellets_mode": False,
-                "few_pellets_count": 0,
-                "ghost_mode": True,
-                "result": "GAME_OVER",
-            }
-        ]
-        
-        self._stats_rows = sample_data
-        self._stats_summary = StatsLogger.get_stats_summary()
     
     def _set_view(self, view_name):
         """Chuyển đổi view thống kê"""
@@ -237,6 +181,48 @@ class StatsState(State):
         self.app.sound_system.play_sound('button_click')
         self._load_stats_data()
         print("Stats refreshed")
+    
+    def _export_csv(self):
+        """Export dữ liệu ra file CSV"""
+        self.app.sound_system.play_sound('button_click')
+        try:
+            import csv
+            import os
+            from datetime import datetime
+            
+            # Tạo thư mục exports nếu chưa có
+            export_dir = "exports"
+            os.makedirs(export_dir, exist_ok=True)
+            
+            # Tạo tên file với timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"game_stats_export_{timestamp}.csv"
+            filepath = os.path.join(export_dir, filename)
+            
+            # Headers cho CSV
+            headers = [
+                "timestamp", "time_formatted", "duration_sec",
+                "algorithm", "heuristic", "ai_mode",
+                "score", "total_steps", "ai_steps", "player_steps",
+                "pellets_total", "pellets_eaten", "pellets_remaining",
+                "level_reached", "few_pellets_mode", "few_pellets_count", 
+                "ghost_mode", "result"
+            ]
+            
+            # Ghi dữ liệu ra CSV
+            with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=headers)
+                writer.writeheader()
+                
+                for row in self._stats_rows:
+                    # Chỉ lấy các field cần thiết
+                    export_row = {header: row.get(header, "") for header in headers}
+                    writer.writerow(export_row)
+            
+            print(f"✅ Exported {len(self._stats_rows)} records to {filepath}")
+            
+        except Exception as e:
+            print(f"❌ Export failed: {e}")
     
     def back_to_menu(self):
         """Quay về menu chính"""
@@ -341,39 +327,31 @@ class StatsState(State):
     def _draw_current_view(self, screen):
         """Vẽ content theo view hiện tại"""
         try:
-            font_title = pygame.font.Font(FONT_PATH, 16)
-            font_normal = pygame.font.Font(FONT_PATH, 12)
-            font_small = pygame.font.Font(FONT_PATH, 10)
+            font_title = pygame.font.Font(FONT_PATH, 20)
+            font_normal = pygame.font.Font(FONT_PATH, 13)
+            font_small = pygame.font.Font(FONT_PATH, 13)
         except:
-            font_title = pygame.font.Font(None, 16)
-            font_normal = pygame.font.Font(None, 12)
-            font_small = pygame.font.Font(None, 10)
+            font_title = pygame.font.Font(None, 20)
+            font_normal = pygame.font.Font(None, 16)
+            font_small = pygame.font.Font(None, 14)
         
         if self._current_view == "overview":
             self._draw_overview_view(screen, font_title, font_normal, font_small)
         elif self._current_view == "algorithms":
             self._draw_algorithms_view(screen, font_title, font_normal, font_small)
-        elif self._current_view == "heuristics":
-            self._draw_heuristics_view(screen, font_title, font_normal, font_small)
         elif self._current_view == "trends":
             self._draw_trends_view(screen, font_title, font_normal, font_small)
-        elif self._current_view == "efficiency":
-            self._draw_efficiency_view(screen, font_title, font_normal, font_small)
     
     def _draw_overview_view(self, screen, font_title, font_normal, font_small):
         """Vẽ view tổng quan"""
         start_y = 150
         
-        # Summary cards - chiếm 1/3 màn hình
+        # Summary cards
         self._draw_summary_cards(screen, font_title, font_normal, start_y)
         
-        # Recent games table - chiếm 1/3 màn hình
+        # All games table
         start_y += 100
-        self._draw_recent_games_table(screen, font_title, font_small, start_y)
-        
-        # Quick charts - chiếm 1/3 màn hình
-        start_y += 180
-        self._draw_quick_charts(screen, font_normal, start_y)
+        self._draw_all_games_table(screen, font_title, font_small, start_y)
     
     def _draw_algorithms_view(self, screen, font_title, font_normal, font_small):
         """Vẽ view so sánh algorithms"""
@@ -381,10 +359,6 @@ class StatsState(State):
         
         # Algorithm performance table
         self._draw_algorithm_performance_table(screen, font_title, font_small, start_y)
-        
-        # Algorithm comparison charts
-        start_y += 200
-        self._draw_algorithm_comparison_charts(screen, font_normal, start_y)
     
     def _draw_heuristics_view(self, screen, font_title, font_normal, font_small):
         """Vẽ view phân tích heuristics"""
@@ -401,12 +375,8 @@ class StatsState(State):
         """Vẽ view xu hướng thời gian"""
         start_y = 180
         
-        # Time series charts
-        self._draw_time_series_charts(screen, font_normal, start_y)
-        
-        # Performance trends
-        start_y += 300
-        self._draw_performance_trends(screen, font_normal, start_y)
+        # Performance trends table
+        self._draw_performance_trends_table(screen, font_title, font_small, start_y)
     
     def _draw_efficiency_view(self, screen, font_title, font_normal, font_small):
         """Vẽ view hiệu quả"""
@@ -460,20 +430,21 @@ class StatsState(State):
             value_txt = font_title.render(value, True, color)
             screen.blit(value_txt, (x + 10, y + 35))
     
-    def _draw_recent_games_table(self, screen, font_title, font_small, start_y):
-        """Vẽ bảng games gần nhất"""
+    def _draw_all_games_table(self, screen, font_title, font_small, start_y):
+        """Vẽ bảng tất cả games"""
         # Background
-        table_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 180)
+        table_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 400)
         pygame.draw.rect(screen, (25, 25, 45), table_rect)
         pygame.draw.rect(screen, GHOST_ORANGE, table_rect, 2)
         
         # Title
-        title = font_title.render("RECENT GAMES", True, PAC_YELLOW)
+        title = font_title.render("ALL GAMES", True, PAC_YELLOW)
         screen.blit(title, (60, start_y + 10))
         
-        # Headers
-        headers = ["Time", "Algorithm", "Score", "Steps", "Result"]
-        col_widths = [80, 100, 80, 80, 100]
+        # Headers - hiển thị đầy đủ features với khoảng cách lớn hơn
+
+        headers = ["Time", "Algorithm", "Heuristic", "AI Mode", "Score", "Steps", "Pellets", "Power Pellets", "Level", "Few Mode", "Ghost Mode", "Result"]
+        col_widths = [130, 150, 150, 140, 130, 130, 180, 180, 120, 130, 180, 250]
         
         x = 60
         for i, header in enumerate(headers):
@@ -481,63 +452,65 @@ class StatsState(State):
             screen.blit(txt, (x, start_y + 35))
             x += col_widths[i]
         
-        # Rows
-        rows = self._stats_rows[-8:]  # 8 games gần nhất
-        row_y = start_y + 55
+        # Rows - hiển thị tất cả games
+        rows = self._stats_rows
+        row_y = start_y + 65
         
         if not rows:
             # Hiển thị thông báo nếu không có dữ liệu
             no_data = font_small.render("No game data available. Play some games first!", True, DOT_WHITE)
             screen.blit(no_data, (60, row_y))
         else:
-            for row in reversed(rows):
+            # Hiển thị tối đa 12 games để vừa màn hình với nhiều columns
+            display_rows = rows[-12:] if len(rows) > 12 else rows
+            for row in reversed(display_rows):
                 x = 60
+                pellets_eaten = row.get("pellets_eaten", 0)
+                pellets_total = row.get("pellets_total", 0)
+                pellets_str = f"{pellets_eaten}/{pellets_total}"
+                
+                power_pellets_eaten = row.get("power_pellets_eaten", 0)
+                power_pellets_total = row.get("power_pellets_total", 0)
+                power_pellets_str = f"{power_pellets_eaten}/{power_pellets_total}"
+                
+                # Format few mode and ghost mode - lấy từ game object nếu có
+                current_game_info = self._get_current_game_info()
+                few_mode = "ON" if current_game_info['few_pellets_mode'] else "OFF"
+                ghost_mode = "ON" if current_game_info['ghost_mode'] else "OFF"
+                
                 values = [
                     row.get("time_formatted", "00:00")[:5],
-                    row.get("algorithm", "UNKNOWN")[:10],
+                    row.get("algorithm", "UNKNOWN")[:8],
+                    row.get("heuristic", "UNKNOWN")[:8],
+                    row.get("ai_mode", "UNKNOWN")[:6],
                     str(row.get("score", 0))[:6],
                     str(row.get("total_steps", 0))[:6],
-                    row.get("result", "UNKNOWN")[:10],
+                    pellets_str[:8],
+                    power_pellets_str[:8],
+                    str(row.get("level_reached", 0))[:3],
+                    few_mode[:6],
+                    ghost_mode[:6],
+                    row.get("result", "UNKNOWN")[:8],
                 ]
                 
                 for i, val in enumerate(values):
-                    color = DOT_WHITE if i < 4 else (GHOST_PINK if "COMPLETE" in val else GHOST_RED)
+                    if i == 11:  # Result column
+                        color = GHOST_PINK if "COMPLETE" in val else GHOST_RED
+                    elif i == 9:  # Few Mode column
+                        color = GHOST_ORANGE if "ON" in val else DOT_WHITE
+                    elif i == 10:  # Ghost Mode column
+                        color = GHOST_BLUE if "ON" in val else DOT_WHITE
+                    else:
+                        color = DOT_WHITE
                     txt = font_small.render(val, True, color)
                     screen.blit(txt, (x, row_y))
                     x += col_widths[i]
                 
-                row_y += 20
-    
-    def _draw_quick_charts(self, screen, font_normal, start_y):
-        """Vẽ biểu đồ nhanh"""
-        # Score trend (left)
-        chart1_rect = pygame.Rect(50, start_y, 550, 150)
-        pygame.draw.rect(screen, (30, 30, 50), chart1_rect)
-        pygame.draw.rect(screen, GHOST_BLUE, chart1_rect, 2)
-        
-        title1 = font_normal.render("Score Trend", True, PAC_YELLOW)
-        screen.blit(title1, (chart1_rect.x + 10, chart1_rect.y + 10))
-        
-        # Steps trend (right)
-        chart2_rect = pygame.Rect(630, start_y, 550, 150)
-        pygame.draw.rect(screen, (30, 30, 50), chart2_rect)
-        pygame.draw.rect(screen, GHOST_BLUE, chart2_rect, 2)
-        
-        title2 = font_normal.render("Steps Trend", True, PAC_YELLOW)
-        screen.blit(title2, (chart2_rect.x + 10, chart2_rect.y + 10))
-        
-        # Draw simple line charts
-        if self._stats_rows:
-            scores = [int(r.get("score", 0) or 0) for r in self._stats_rows[-10:]]
-            steps = [int(r.get("total_steps", 0) or 0) for r in self._stats_rows[-10:]]
-            self._draw_simple_line_chart(screen, chart1_rect, scores, GHOST_ORANGE)
-            self._draw_simple_line_chart(screen, chart2_rect, steps, GHOST_PINK)
-        else:
-            # Hiển thị thông báo nếu không có dữ liệu
-            no_data1 = font_normal.render("No data available", True, DOT_WHITE)
-            no_data2 = font_normal.render("No data available", True, DOT_WHITE)
-            screen.blit(no_data1, (chart1_rect.x + 20, chart1_rect.y + 50))
-            screen.blit(no_data2, (chart2_rect.x + 20, chart2_rect.y + 50))
+                row_y += 25
+                
+                # Dừng nếu hết chỗ
+                if row_y > start_y + 350:
+                    break
     
     def _draw_algorithm_performance_table(self, screen, font_title, font_small, start_y):
         """Vẽ bảng performance của algorithms"""
@@ -552,7 +525,7 @@ class StatsState(State):
         
         # Headers
         headers = ["Algorithm", "Games", "Avg Score", "Win Rate", "Efficiency"]
-        col_widths = [120, 80, 100, 100, 100]
+        col_widths = [180, 130, 150, 150, 150]
         
         x = 60
         for i, header in enumerate(headers):
@@ -580,255 +553,88 @@ class StatsState(State):
             
             row_y += 20
     
-    def _draw_algorithm_comparison_charts(self, screen, font_normal, start_y):
-        """Vẽ biểu đồ so sánh algorithms"""
-        # Bar chart for algorithm scores
-        chart_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 200)
-        pygame.draw.rect(screen, (30, 30, 50), chart_rect)
-        pygame.draw.rect(screen, GHOST_ORANGE, chart_rect, 2)
-        
-        title = font_normal.render("Algorithm Comparison", True, PAC_YELLOW)
-        screen.blit(title, (chart_rect.x + 10, chart_rect.y + 10))
-        
-        # Draw bar chart
-        algo_perf = self._stats_summary.get("algorithm_performance", {})
-        if algo_perf:
-            self._draw_bar_chart(screen, chart_rect, algo_perf, "avg_score", GHOST_ORANGE)
-    
-    def _draw_heuristic_performance_table(self, screen, font_title, font_small, start_y):
-        """Vẽ bảng performance của heuristics"""
-        table_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 200)
+    def _draw_performance_trends_table(self, screen, font_title, font_small, start_y):
+        """Vẽ bảng xu hướng performance"""
+        # Background
+        table_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 400)
         pygame.draw.rect(screen, (25, 25, 45), table_rect)
-        pygame.draw.rect(screen, GHOST_PINK, table_rect, 2)
+        pygame.draw.rect(screen, GHOST_BLUE, table_rect, 2)
         
-        title = font_title.render("HEURISTIC PERFORMANCE", True, PAC_YELLOW)
+        # Title
+        title = font_title.render("PERFORMANCE TRENDS", True, PAC_YELLOW)
         screen.blit(title, (60, start_y + 10))
         
-        # Implementation similar to algorithm table
-        heur_perf = self._stats_summary.get("heuristic_performance", {})
-        if heur_perf:
-            # Headers
-            headers = ["Heuristic", "Games", "Avg Score", "Efficiency", "Best Algo"]
-            col_widths = [120, 80, 100, 100, 100]
-            
-            x = 60
-            for i, header in enumerate(headers):
-                txt = font_small.render(header, True, GHOST_PINK)
-                screen.blit(txt, (x, start_y + 35))
-                x += col_widths[i]
-            
-            # Rows
-            row_y = start_y + 55
-            for heur, stats in heur_perf.items():
+        # Headers - hiển thị đầy đủ features với khoảng cách lớn hơn
+        headers = ["Game #", "Algorithm", "Heuristic", "AI Mode", "Score", "Steps", "Efficiency", "Pellets", "Power Pellets", "Few Mode", "Ghost Mode", "Result"]
+        col_widths = [110, 140, 140, 130, 120, 120, 130, 180, 180, 120, 180, 140]
+        
+        x = 60
+        for i, header in enumerate(headers):
+            txt = font_small.render(header, True, GHOST_PINK)
+            screen.blit(txt, (x, start_y + 35))
+            x += col_widths[i]
+        
+        # Rows - hiển thị games với efficiency
+        rows = self._stats_rows
+        row_y = start_y + 65
+        
+        if not rows:
+            no_data = font_small.render("No game data available. Play some games first!", True, DOT_WHITE)
+            screen.blit(no_data, (60, row_y))
+        else:
+            # Hiển thị tối đa 12 games để vừa màn hình với nhiều columns
+            display_rows = rows[-12:] if len(rows) > 12 else rows
+            for i, row in enumerate(reversed(display_rows)):
                 x = 60
+                score = int(row.get("score", 0))
+                steps = int(row.get("total_steps", 1))
+                efficiency = score / steps if steps > 0 else 0
+                pellets_eaten = row.get("pellets_eaten", 0)
+                pellets_total = row.get("pellets_total", 0)
+                pellets_str = f"{pellets_eaten}/{pellets_total}"
+                
+                power_pellets_eaten = row.get("power_pellets_eaten", 0)
+                power_pellets_total = row.get("power_pellets_total", 0)
+                power_pellets_str = f"{power_pellets_eaten}/{power_pellets_total}"
+                
+                # Format few mode and ghost mode - lấy từ game object nếu có
+                current_game_info = self._get_current_game_info()
+                few_mode = "ON" if current_game_info['few_pellets_mode'] else "OFF"
+                ghost_mode = "ON" if current_game_info['ghost_mode'] else "OFF"
+                
                 values = [
-                    heur[:12],
-                    str(stats.get("count", 0)),
-                    str(stats.get("avg_score", 0)),
-                    f"{stats.get('efficiency', 0):.2f}",
-                    "A*",  # TODO: Calculate best algorithm
+                    f"#{len(rows) - i}",
+                    row.get("algorithm", "UNKNOWN")[:8],
+                    row.get("heuristic", "UNKNOWN")[:8],
+                    row.get("ai_mode", "UNKNOWN")[:6],
+                    str(score)[:6],
+                    str(steps)[:6],
+                    f"{efficiency:.2f}",
+                    pellets_str[:8],
+                    power_pellets_str[:8],
+                    few_mode[:6],
+                    ghost_mode[:6],
+                    row.get("result", "UNKNOWN")[:8],
                 ]
                 
-                for i, val in enumerate(values):
-                    txt = font_small.render(val, True, DOT_WHITE)
+                for j, val in enumerate(values):
+                    if j == 11:  # Result column
+                        color = GHOST_PINK if "COMPLETE" in val else GHOST_RED
+                    elif j == 9:  # Few Mode column
+                        color = GHOST_ORANGE if "ON" in val else DOT_WHITE
+                    elif j == 10:  # Ghost Mode column
+                        color = GHOST_BLUE if "ON" in val else DOT_WHITE
+                    else:
+                        color = DOT_WHITE
+                    txt = font_small.render(val, True, color)
                     screen.blit(txt, (x, row_y))
-                    x += col_widths[i]
+                    x += col_widths[j]
                 
-                row_y += 20
-    
-    def _draw_heuristic_effectiveness_charts(self, screen, font_normal, start_y):
-        """Vẽ biểu đồ hiệu quả của heuristics"""
-        # Similar to algorithm charts but for heuristics
-        chart_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 200)
-        pygame.draw.rect(screen, (30, 30, 50), chart_rect)
-        pygame.draw.rect(screen, GHOST_PINK, chart_rect, 2)
-        
-        title = font_normal.render("Heuristic Effectiveness", True, PAC_YELLOW)
-        screen.blit(title, (chart_rect.x + 10, chart_rect.y + 10))
-        
-        # Draw bar chart
-        heur_perf = self._stats_summary.get("heuristic_performance", {})
-        if heur_perf:
-            self._draw_bar_chart(screen, chart_rect, heur_perf, "avg_score", GHOST_PINK)
-    
-    def _draw_time_series_charts(self, screen, font_normal, start_y):
-        """Vẽ biểu đồ time series"""
-        # Time series for recent games
-        chart_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 250)
-        pygame.draw.rect(screen, (30, 30, 50), chart_rect)
-        pygame.draw.rect(screen, GHOST_BLUE, chart_rect, 2)
-        
-        title = font_normal.render("Performance Over Time", True, PAC_YELLOW)
-        screen.blit(title, (chart_rect.x + 10, chart_rect.y + 10))
-        
-        # Draw time series
-        if self._stats_rows:
-            scores = [int(r.get("score", 0) or 0) for r in self._stats_rows[-20:]]
-            steps = [int(r.get("total_steps", 0) or 0) for r in self._stats_rows[-20:]]
-            
-            # Draw score line
-            self._draw_simple_line_chart(screen, chart_rect, scores, GHOST_ORANGE)
-    
-    def _draw_performance_trends(self, screen, font_normal, start_y):
-        """Vẽ xu hướng performance"""
-        # Performance trends analysis
-        chart_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 200)
-        pygame.draw.rect(screen, (30, 30, 50), chart_rect)
-        pygame.draw.rect(screen, GHOST_BLUE, chart_rect, 2)
-        
-        title = font_normal.render("Performance Trends", True, PAC_YELLOW)
-        screen.blit(title, (chart_rect.x + 10, chart_rect.y + 10))
-        
-        # TODO: Implement trend analysis
-        no_data = font_normal.render("Trend analysis coming soon...", True, DOT_WHITE)
-        screen.blit(no_data, (chart_rect.x + 20, chart_rect.y + 50))
-    
-    def _draw_efficiency_metrics(self, screen, font_title, font_normal, start_y):
-        """Vẽ metrics hiệu quả"""
-        # Efficiency metrics display
-        metrics_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 120)
-        pygame.draw.rect(screen, (25, 25, 45), metrics_rect)
-        pygame.draw.rect(screen, PAC_YELLOW, metrics_rect, 2)
-        
-        title = font_title.render("EFFICIENCY METRICS", True, PAC_YELLOW)
-        screen.blit(title, (60, start_y + 10))
-        
-        # Metrics
-        eff_metrics = self._stats_summary.get("efficiency_metrics", {})
-        metrics_text = [
-            f"Best Score: {eff_metrics.get('best_score', 0)}",
-            f"Worst Score: {eff_metrics.get('worst_score', 0)}",
-            f"Consistency: {eff_metrics.get('score_consistency', 0):.1f}%",
-            f"Avg Efficiency: {eff_metrics.get('avg_efficiency', 0):.2f}",
-        ]
-        
-        y = start_y + 40
-        for text in metrics_text:
-            txt = font_normal.render(text, True, DOT_WHITE)
-            screen.blit(txt, (60, y))
-            y += 25
-    
-    def _draw_score_distribution(self, screen, font_normal, start_y):
-        """Vẽ phân phối điểm số"""
-        # Score distribution chart
-        chart_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 150)
-        pygame.draw.rect(screen, (30, 30, 50), chart_rect)
-        pygame.draw.rect(screen, GHOST_ORANGE, chart_rect, 2)
-        
-        title = font_normal.render("Score Distribution", True, PAC_YELLOW)
-        screen.blit(title, (chart_rect.x + 10, chart_rect.y + 10))
-        
-        # Draw distribution bars
-        distribution = self._stats_summary.get("score_distribution", [])
-        if distribution:
-            self._draw_distribution_chart(screen, chart_rect, distribution)
-    
-    def _draw_best_worst_games(self, screen, font_normal, start_y):
-        """Vẽ best/worst games"""
-        # Best/Worst games display
-        games_rect = pygame.Rect(50, start_y, self.app.WIDTH - 100, 120)
-        pygame.draw.rect(screen, (25, 25, 45), games_rect)
-        pygame.draw.rect(screen, GHOST_BLUE, games_rect, 2)
-        
-        title = font_normal.render("BEST & WORST GAMES", True, PAC_YELLOW)
-        screen.blit(title, (60, start_y + 10))
-        
-        # Best/Worst game info
-        eff_metrics = self._stats_summary.get("efficiency_metrics", {})
-        best_game = eff_metrics.get("best_game", {})
-        worst_game = eff_metrics.get("worst_game", {})
-        
-        best_text = f"🏆 Best: {best_game.get('algorithm', 'N/A')} + {best_game.get('heuristic', 'N/A')} = {best_game.get('score', 0)} pts"
-        worst_text = f"💀 Worst: {worst_game.get('algorithm', 'N/A')} + {worst_game.get('heuristic', 'N/A')} = {worst_game.get('score', 0)} pts"
-        
-        best_txt = font_normal.render(best_text, True, GHOST_PINK)
-        worst_txt = font_normal.render(worst_text, True, GHOST_RED)
-        
-        screen.blit(best_txt, (60, start_y + 40))
-        screen.blit(worst_txt, (60, start_y + 65))
-    
-    def _draw_simple_line_chart(self, screen, rect, data, color):
-        """Vẽ biểu đồ line đơn giản"""
-        if len(data) < 2:
-            return
-        
-        # Calculate points
-        max_val = max(data) if data else 1
-        points = []
-        for i, val in enumerate(data):
-            x = rect.x + 20 + int(i * (rect.width - 40) / (len(data) - 1))
-            y = rect.bottom - 20 - int((val / max_val) * (rect.height - 40))
-            points.append((x, y))
-        
-        # Draw line
-        if len(points) >= 2:
-            pygame.draw.lines(screen, color, False, points, 3)
-            # Draw dots
-            for pt in points:
-                pygame.draw.circle(screen, PAC_YELLOW, pt, 3)
-    
-    def _draw_bar_chart(self, screen, rect, data, field, color):
-        """Vẽ biểu đồ bar"""
-        if not data:
-            return
-        
-        # Get values
-        values = [stats.get(field, 0) for stats in data.values()]
-        max_val = max(values) if values else 1
-        
-        # Draw bars
-        bar_width = max(20, (rect.width - 40) // len(data))
-        x = rect.x + 20
-        
-        for i, (algo, stats) in enumerate(data.items()):
-            value = stats.get(field, 0)
-            height = int((value / max_val) * (rect.height - 60))
-            y = rect.bottom - height - 20
-            
-            # Bar
-            bar_rect = pygame.Rect(x, y, bar_width - 4, height)
-            pygame.draw.rect(screen, color, bar_rect)
-            
-            # Label
-            label = algo[:8]
-            try:
-                font = pygame.font.Font(None, 10)
-                label_txt = font.render(label, True, DOT_WHITE)
-                screen.blit(label_txt, (x, rect.bottom - 15))
-            except:
-                pass
-            
-            x += bar_width
-    
-    def _draw_distribution_chart(self, screen, rect, distribution):
-        """Vẽ biểu đồ phân phối"""
-        if not distribution:
-            return
-        
-        # Draw bars for each range
-        bar_width = (rect.width - 40) // len(distribution)
-        x = rect.x + 20
-        
-        for item in distribution:
-            count = item.get("count", 0)
-            max_count = max([d.get("count", 0) for d in distribution]) if distribution else 1
-            height = int((count / max_count) * (rect.height - 60))
-            y = rect.bottom - height - 20
-            
-            # Bar
-            bar_rect = pygame.Rect(x, y, bar_width - 4, height)
-            pygame.draw.rect(screen, GHOST_ORANGE, bar_rect)
-            
-            # Label
-            range_label = item.get("range", "")
-            try:
-                font = pygame.font.Font(None, 10)
-                label_txt = font.render(range_label, True, DOT_WHITE)
-                screen.blit(label_txt, (x, rect.bottom - 15))
-            except:
-                pass
-            
-            x += bar_width
+                row_y += 25
+                
+                # Dừng nếu hết chỗ
+                if row_y > start_y + 350:
+                    break
     
     def _draw_instructions(self, screen):
         """Vẽ hướng dẫn sử dụng"""
@@ -838,8 +644,8 @@ class StatsState(State):
             font = pygame.font.Font(None, 12)
         
         instructions = [
-            "ESC: Back to Menu | 1-5: Switch Views | R: Refresh Data",
-            "Click buttons to navigate | Use mouse to interact"
+            "ESC: Back to Menu | 1-3: Switch Views | R: Refresh Data | Export CSV available",
+            "Click buttons to navigate | Use mouse to interact | Data exported to exports/ folder"
         ]
         
         y = self.app.HEIGHT - 100

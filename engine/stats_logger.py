@@ -36,6 +36,9 @@ class StatsLogger:
         "pellets_total",       # Tổng số pellets
         "pellets_eaten",       # Số pellets đã ăn
         "pellets_remaining",   # Số pellets còn lại
+        "power_pellets_total", # Tổng số power pellets
+        "power_pellets_eaten", # Số power pellets đã ăn
+        "power_pellets_remaining", # Số power pellets còn lại
         "level_reached",       # Level đạt được
         "few_pellets_mode",    # Chế độ few pellets (True/False)
         "few_pellets_count",   # Số pellets trong chế độ few
@@ -96,6 +99,17 @@ class StatsLogger:
             with open(cls.CSV_PATH, "r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 all_rows = list(reader)
+                
+                # Xử lý dữ liệu cũ không có đủ cột
+                for row in all_rows:
+                    # Thêm các cột mới nếu chưa có
+                    if "power_pellets_total" not in row:
+                        row["power_pellets_total"] = "0"
+                    if "power_pellets_eaten" not in row:
+                        row["power_pellets_eaten"] = "0"
+                    if "power_pellets_remaining" not in row:
+                        row["power_pellets_remaining"] = "0"
+                
                 # Lấy max_rows rows cuối cùng (mới nhất)
                 rows = all_rows[-max_rows:] if len(all_rows) > max_rows else all_rows
         except Exception as e:

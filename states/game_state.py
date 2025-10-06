@@ -27,11 +27,12 @@ class GameState(State):
         
         self.game = Game(algorithm, self.app.config)  
         
+        # Lưu game object vào app để các state khác có thể access
+        self.app.current_game = self.game
+        
         if hasattr(self.game, 'initialize_game'):
             self.game.initialize_game()
         
-        # ⚠️ QUAN TRỌNG: Set algorithm ngay sau initialize
-        # Vì initialize_game() tạo Pacman mới với BFS mặc định
         if hasattr(self.game, 'set_algorithm'):
             self.game.set_algorithm(self.algorithm)
         

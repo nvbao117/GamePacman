@@ -1,0 +1,5 @@
+timestamp,time_formatted,duration_sec,algorithm,heuristic,ai_mode,score,total_steps,ai_steps,player_steps,pellets_total,pellets_eaten,pellets_remaining,power_pellets_total,power_pellets_eaten,power_pellets_remaining,level_reached,few_pellets_mode,few_pellets_count,ghost_mode,result
+2025-10-06T21:32:08,0:16,16,BFS,NONE,ONLINE,70,97,97,0,7,7,0,4,0,4,0,TRUE,7,FALSE,LEVEL_COMPLETE
+2025-10-06T21:41:32,01:31,91,DFS,NONE,ONLINE,70,521,521,0,7,7,0,4,0,4,0,True,7,False,LEVEL_COMPLETE
+2025-10-06T21:42:01,00:17,17,A*,NONE,ONLINE,70,97,97,0,7,7,0,4,0,4,0,True,7,False,LEVEL_COMPLETE
+2025-10-06T21:42:30,00:17,17,UCS,NONE,ONLINE,70,97,97,0,7,7,0,4,0,4,0,True,7,False,LEVEL_COMPLETE
