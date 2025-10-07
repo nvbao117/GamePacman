@@ -44,7 +44,7 @@ class GameInitState(State):
         ]
         self.current_step = 0
         self.step_start_time = 0
-        self.step_duration = 1.0  # 1 giây mỗi step
+        self.step_duration = 0.2  # 1 giây mỗi step
         
         # Khởi tạo game engine trong background
         self.game_engine = None

@@ -857,7 +857,20 @@ class Game(object):
             heuristic_func = None
         
         # Trả về lambda với heuristic từ selectbox
-        return lambda start, pellets: algorithm_func(start, pellets, heuristic_func)
+        def wrapped_algorithm(start, pellets, override_heuristic=None, **kwargs):
+            """Adapter để các thuật toán offline hỗ trợ override heuristic mới."""
+
+            # Ưu tiên heuristic được truyền từ hệ thống (ví dụ Hybrid AI),
+            # nếu không có thì dùng heuristic được chọn trong config.
+            effective_heuristic = override_heuristic or heuristic_func
+            return algorithm_func(
+                start,
+                pellets,
+                heuristic_func=effective_heuristic,
+                **kwargs,
+            )
+        
+        return wrapped_algorithm
     
     def set_algorithm_heuristic(self, heuristic):
         """Đặt heuristic cho tất cả thuật toán"""
