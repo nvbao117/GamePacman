@@ -49,8 +49,8 @@ class ComparisonLayout(UIComponent):
         self.algorithm = "BFS"  # Thuật toán AI
         self.is_playing = False # Trạng thái play/pause
         
-        # Tùy chọn thuật toán cho selectbox
-        self.algorithm_options = ["BFS", "DFS", "A*", "UCS", "IDS"]
+        # Tùy chọn thuật toán cho selectbox - thêm các thuật toán comparison
+        self.algorithm_options = ["BFS", "DFS", "A*", "UCS", "IDS", "Greedy", "Minimax", "Alpha-Beta", "Hill Climbing", "Genetic Algorithm", "GBFS"]
         
         # Khởi tạo selectbox
         self.algorithm_selectbox = None

@@ -8,6 +8,7 @@
 import sys
 import math
 import pygame
+import time
 from pathlib import Path
 
 from statemachine import State
@@ -43,8 +44,8 @@ class ComparisonState(State):
         
         # Khởi tạo UI layout và 2 game engines
         self.layout = ComparisonLayout(app)  # Layout UI cho comparison
-        self.ai_game = Game(algorithm)  # Game engine cho AI
-        self.player_game = Game("BFS")  # Game engine cho người chơi (algorithm không quan trọng)
+        self.ai_game = Game(algorithm, app.config)  # Game engine cho AI với config
+        self.player_game = Game("BFS", app.config)  # Game engine cho người chơi với config
         
         # Khởi tạo cả 2 game nếu có method initialize_game
         if hasattr(self.ai_game, 'initialize_game'):
@@ -55,6 +56,9 @@ class ComparisonState(State):
         # Đảm bảo AI game chạy ở AI mode và Player game chạy ở Player mode
         self.ai_game.set_ai_mode(True)      # AI game chạy AI mode
         self.player_game.set_ai_mode(False) # Player game chạy Player mode
+        
+        # Set đúng algorithm mode cho AI game
+        self._set_ai_algorithm_mode(self.algorithm)
         
         # Lấy thông tin game ban đầu cho AI
         self.ai_score = getattr(self.ai_game, 'score', 0)
@@ -72,6 +76,9 @@ class ComparisonState(State):
             self.player_score, self.player_lives, self.player_level,
             self.algorithm
         )
+        
+        # Khởi tạo win notification
+        self.win_notification = None
         
     def _render_scaled_game(self, game_surface, game_rect, game_instance):
         """
@@ -145,6 +152,59 @@ class ComparisonState(State):
         player_game_surface = self.layout.surface.subsurface(player_game_rect)
         self._render_scaled_game(player_game_surface, player_game_rect, self.player_game)
         
+        # Render win notification nếu có
+        if self.win_notification:
+            self._render_win_notification()
+    
+    def _render_win_notification(self):
+        """
+        Render thông báo thắng cuộc lên màn hình
+        """
+        if not self.win_notification:
+            return
+        
+        # Kiểm tra thời gian hiển thị
+        current_time = time.time()
+        elapsed_time = current_time - self.win_notification['start_time']
+        
+        if elapsed_time >= self.win_notification['show_time']:
+            self.win_notification = None
+            return
+        
+        # Tạo overlay mờ
+        overlay = pygame.Surface((self.app.WIDTH, self.app.HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 128))  # Nền đen trong suốt
+        self.layout.surface.blit(overlay, (0, 0))
+        
+        # Font cho notification
+        try:
+            title_font = pygame.font.Font(FONT_PATH, 48)
+            message_font = pygame.font.Font(FONT_PATH, 24)
+        except:
+            title_font = pygame.font.Font(None, 48)
+            message_font = pygame.font.Font(None, 24)
+        
+        # Render title
+        title_text = title_font.render(self.win_notification['title'], True, PAC_YELLOW)
+        title_rect = title_text.get_rect(center=(self.app.WIDTH // 2, self.app.HEIGHT // 2 - 50))
+        
+        # Render message
+        message_text = message_font.render(self.win_notification['message'], True, DOT_WHITE)
+        message_rect = message_text.get_rect(center=(self.app.WIDTH // 2, self.app.HEIGHT // 2 + 20))
+        
+        # Vẽ background cho notification
+        notification_rect = pygame.Rect(
+            title_rect.x - 20, title_rect.y - 20,
+            max(title_rect.width, message_rect.width) + 40,
+            title_rect.height + message_rect.height + 60
+        )
+        pygame.draw.rect(self.layout.surface, (50, 50, 80), notification_rect)
+        pygame.draw.rect(self.layout.surface, PAC_YELLOW, notification_rect, 4)
+        
+        # Vẽ text
+        self.layout.surface.blit(title_text, title_rect)
+        self.layout.surface.blit(message_text, message_rect)
+        
     def logic(self):
         """
         Cập nhật logic của ComparisonState mỗi frame
@@ -195,6 +255,9 @@ class ComparisonState(State):
         # Kiểm tra game over cho cả 2 game
         if self.ai_lives <= 0 or self.player_lives <= 0:
             self.game_over()
+        
+        # Kiểm tra điều kiện thắng cho comparison mode
+        self.check_win_conditions()
     
     def handle_events(self, event):
         """
@@ -230,11 +293,18 @@ class ComparisonState(State):
             self.app.sound_system.play_sound('button_click')
             # Algorithm đã thay đổi, cập nhật AI game
             self.algorithm = self.layout.algorithm
-            self.ai_game = Game(self.algorithm)  # Tạo AI game mới với algorithm mới
+            self.ai_game = Game(self.algorithm, self.app.config)  # Tạo AI game mới với algorithm mới và config
             if hasattr(self.ai_game, 'initialize_game'):
                 self.ai_game.initialize_game()
             # Đảm bảo AI game chạy ở AI mode
             self.ai_game.set_ai_mode(True)
+            # Load heuristic từ config
+            if hasattr(self.ai_game, 'load_heuristic_from_config'):
+                self.ai_game.load_heuristic_from_config(self.app.config)
+            
+            # Set đúng algorithm mode cho thuật toán mới
+            self._set_ai_algorithm_mode(self.algorithm)
+            
             # Reset giá trị AI game khi thay đổi algorithm
             self.ai_score = getattr(self.ai_game, 'score', 0)
             self.ai_lives = getattr(self.ai_game, 'lives', 5)
@@ -290,18 +360,21 @@ class ComparisonState(State):
         - Bắt đầu ở trạng thái pause
         """
         # Restart AI game với algorithm hiện tại
-        self.ai_game = Game(self.algorithm)
+        self.ai_game = Game(self.algorithm, self.app.config)
         if hasattr(self.ai_game, 'initialize_game'):
             self.ai_game.initialize_game()
         
         # Restart Player game
-        self.player_game = Game("BFS")
+        self.player_game = Game("BFS", self.app.config)
         if hasattr(self.player_game, 'initialize_game'):
             self.player_game.initialize_game()
         
         # Đảm bảo AI game chạy ở AI mode và Player game chạy ở Player mode
         self.ai_game.set_ai_mode(True)      # AI game chạy AI mode
         self.player_game.set_ai_mode(False) # Player game chạy Player mode
+        
+        # Set đúng algorithm cho AI game dựa trên thuật toán được chọn
+        self._set_ai_algorithm_mode(self.algorithm)
         
         # Reset tất cả giá trị game về ban đầu
         self.ai_score = getattr(self.ai_game, 'score', 0)
@@ -320,6 +393,78 @@ class ComparisonState(State):
             self.player_score, self.player_lives, self.player_level,
             self.algorithm
         )
+    
+    def check_win_conditions(self):
+        """
+        Kiểm tra điều kiện thắng trong comparison mode
+        - AI thắng: AI hoàn thành level trước hoặc có điểm cao hơn khi game kết thúc
+        - Human thắng: Human hoàn thành level trước hoặc có điểm cao hơn khi game kết thúc
+        """
+        # Kiểm tra nếu một trong hai bên đã thắng (hoàn thành level)
+        ai_won = hasattr(self.ai_game, 'level_complete') and getattr(self.ai_game, 'level_complete', False)
+        player_won = hasattr(self.player_game, 'level_complete') and getattr(self.player_game, 'level_complete', False)
+        
+        if ai_won and not player_won:
+            self.show_win_notification("AI WINS!", "AI completed the level first!")
+            self.game_running = False
+        elif player_won and not ai_won:
+            self.show_win_notification("HUMAN WINS!", "Human player completed the level first!")
+            self.game_running = False
+        elif ai_won and player_won:
+            # Cả hai cùng hoàn thành, so sánh điểm
+            if self.ai_score > self.player_score:
+                self.show_win_notification("AI WINS!", f"AI scored higher: {self.ai_score} vs {self.player_score}")
+            elif self.player_score > self.ai_score:
+                self.show_win_notification("HUMAN WINS!", f"Human scored higher: {self.player_score} vs {self.ai_score}")
+            else:
+                self.show_win_notification("TIE!", "Both players scored the same!")
+            self.game_running = False
+    
+    def show_win_notification(self, title, message):
+        """
+        Hiển thị thông báo thắng cuộc
+        Args:
+            title: Tiêu đề thông báo
+            message: Nội dung thông báo
+        """
+        # Phát âm thanh thắng cuộc
+        if hasattr(self.app, 'sound_system'):
+            self.app.sound_system.play_sound('level_complete')
+        
+        # Lưu thông báo để hiển thị
+        self.win_notification = {
+            'title': title,
+            'message': message,
+            'show_time': 5.0,  # Hiển thị trong 5 giây
+            'start_time': time.time()
+        }
+    
+    def _set_ai_algorithm_mode(self, algorithm):
+        """
+        Set đúng mode cho AI algorithm trong comparison mode
+        Args:
+            algorithm: Tên thuật toán được chọn
+        """
+        # Các thuật toán offline sử dụng compute_once_system
+        offline_algorithms = ['BFS', 'DFS', 'A*', 'UCS', 'IDS', 'Greedy']
+        
+        # Các thuật toán online sử dụng hybrid_ai_system
+        online_algorithms = ['Minimax', 'Alpha-Beta', 'Hill Climbing', 'Genetic Algorithm', 'GBFS', 'A* Online']
+        
+        if algorithm in offline_algorithms:
+            # Set offline mode cho các thuật toán offline
+            if hasattr(self.ai_game, 'pacman') and self.ai_game.pacman:
+                self.ai_game.pacman.disable_hybrid_ai()
+                # Set algorithm với heuristic
+                if hasattr(self.ai_game, 'set_algorithm'):
+                    self.ai_game.set_algorithm(algorithm)
+        elif algorithm in online_algorithms:
+            # Set online mode cho các thuật toán online
+            if hasattr(self.ai_game, 'pacman') and self.ai_game.pacman:
+                self.ai_game.pacman.enable_hybrid_ai()
+                # Set algorithm
+                if hasattr(self.ai_game, 'set_algorithm'):
+                    self.ai_game.set_algorithm(algorithm)
     
     def game_over(self):
         """

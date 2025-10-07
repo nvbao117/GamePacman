@@ -70,6 +70,8 @@ class TextGroup(object):
         self.alltext[READYTXT] = Text("READY!", YELLOW, 11.25*TILEWIDTH, 20*TILEHEIGHT, size, visible=False)
         self.alltext[PAUSETXT] = Text("PAUSED!", YELLOW, 10.625*TILEWIDTH, 20*TILEHEIGHT, size, visible=False)
         self.alltext[GAMEOVERTXT] = Text("GAMEOVER!", YELLOW, 10*TILEWIDTH, 20*TILEHEIGHT, size, visible=False)
+        self.alltext[WINTXT] = Text("YOU WIN!", GREEN, 11*TILEWIDTH, 20*TILEHEIGHT, size, visible=False)
+        self.alltext[LEVELCOMPLETETXT] = Text("LEVEL COMPLETE!", YELLOW, 9*TILEWIDTH, 20*TILEHEIGHT, size, visible=False)
         self.addText("SCORE",WHITE,0,0,size)
         self.addText("LEVEL",WHITE,23*TILEWIDTH,0,size)
         
@@ -127,6 +129,8 @@ class TextGroup(object):
         self.alltext[READYTXT].visible = False
         self.alltext[PAUSETXT].visible = False
         self.alltext[GAMEOVERTXT].visible = False
+        self.alltext[WINTXT].visible = False
+        self.alltext[LEVELCOMPLETETXT].visible = False
         # Đảm bảo banner sinh viên luôn hiển thị
         self.ensureStudentBannerVisible()
     

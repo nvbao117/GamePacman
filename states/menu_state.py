@@ -96,18 +96,31 @@ class MenuState(State):
         ]
 
     def _create_scores_components(self, center_x, center_y):
-        return [
+        # Load high scores from statistics
+        high_scores = self._load_high_scores()
+        
+        components = [
             NeonText(self.app, "HIGH SCORES", GHOST_ORANGE, center_x, center_y - 140, 50, 
                      glow=True, outline=True),
-            NeonText(self.app, "1. AI Master - 9999", DOT_WHITE, center_x, center_y - 80, 20, outline=True),
-            NeonText(self.app, "2. Player Pro - 8500", DOT_WHITE, center_x, center_y - 50, 20, outline=True),
-            NeonText(self.app, "3. Ghost Hunter - 7200", DOT_WHITE, center_x, center_y - 20, 20, outline=True),
-            NeonText(self.app, "4. Dot Collector - 6800", DOT_WHITE, center_x, center_y + 10, 20, outline=True),
-            NeonText(self.app, "5. Pac Champion - 5500", DOT_WHITE, center_x, center_y + 40, 20, outline=True),
-            
-            PacManButton(self.app, pos=(center_x, center_y + 140), text="❮ BACK", 
-                         onclick=[self.back_to_home]),
         ]
+        
+        # Add high score entries
+        y_offset = center_y - 80
+        for i, score_data in enumerate(high_scores[:5]):  # Top 5 scores
+            rank = i + 1
+            score_text = f"{rank}. {score_data['algorithm']} - {score_data['score']:,}"
+            components.append(
+                NeonText(self.app, score_text, DOT_WHITE, center_x, y_offset, 20, outline=True)
+            )
+            y_offset += 30
+        
+        # Add back button
+        components.append(
+            PacManButton(self.app, pos=(center_x, center_y + 140), text="❮ BACK", 
+                         onclick=[self.back_to_home])
+        )
+        
+        return components
 
     def _create_states_components(self, center_x, center_y):
         return [
@@ -255,6 +268,53 @@ class MenuState(State):
         for text, color, x, y in texts:
             text_surface = font.render(text, True, color)
             screen.blit(text_surface, (x, y))
+    
+    def _load_high_scores(self):
+        """
+        Load high scores từ statistics
+        Returns:
+            List of high score data sorted by score
+        """
+        try:
+            from engine.stats_logger import StatsLogger
+            stats_summary = StatsLogger.get_stats_summary()
+            
+            # Lấy top scores từ algorithm performance
+            high_scores = []
+            for algo, performance in stats_summary.get('algorithm_performance', {}).items():
+                if performance.get('count', 0) > 0:
+                    high_scores.append({
+                        'algorithm': algo,
+                        'score': performance.get('max_score', 0),
+                        'avg_score': performance.get('avg_score', 0),
+                        'count': performance.get('count', 0)
+                    })
+            
+            # Sắp xếp theo điểm cao nhất
+            high_scores.sort(key=lambda x: x['score'], reverse=True)
+            
+            # Nếu không có dữ liệu, trả về default scores
+            if not high_scores:
+                return [
+                    {'algorithm': 'BFS', 'score': 0},
+                    {'algorithm': 'A*', 'score': 0},
+                    {'algorithm': 'DFS', 'score': 0},
+                    {'algorithm': 'UCS', 'score': 0},
+                    {'algorithm': 'IDS', 'score': 0}
+                ]
+            
+            return high_scores
+            
+        except Exception as e:
+            print(f"Warning: Failed to load high scores: {e}")
+            # Return default scores if loading fails
+            return [
+                {'algorithm': 'BFS', 'score': 0},
+                {'algorithm': 'A*', 'score': 0},
+                {'algorithm': 'DFS', 'score': 0},
+                {'algorithm': 'UCS', 'score': 0},
+                {'algorithm': 'IDS', 'score': 0}
+            ]
         
     def _draw_pac_dots(self, screen):
         dot_colors = [DOT_WHITE, PAC_YELLOW, GHOST_PINK, GHOST_RED]

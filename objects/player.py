@@ -65,7 +65,11 @@ class Pacman(Entity):
         
         # Precomputed path system
         self.precomputed_path = []  # Path from AI algorithms
-        self.path_index = 0 
+        self.path_index = 0
+        
+        # Initialize compute_once with config
+        if self.config:
+            compute_once.config = self.config 
     
     def reset(self):
         Entity.reset(self) 
@@ -233,6 +237,10 @@ class Pacman(Entity):
         self.original_pathfinder_name = algorithm_name
         self.original_pathfinder = algorithm_func
         self._update_pathfind_interval()
+        
+        # Update compute_once config
+        if self.config:
+            compute_once.config = self.config
     
     def getValidKey(self):
         key_pressed = pygame.key.get_pressed()

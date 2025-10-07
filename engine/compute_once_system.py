@@ -37,9 +37,13 @@ class ComputeOnceSystem:
         start_time = time.time()
         
         try:
-            # Gọi thuật toán AI thuần túy để tính đường đi hoàn chỉnh
-            # Không giới hạn thời gian hoặc số bước
-            path = pathfinder(pacman.node, pelletGroup)
+            # Get heuristic function from config
+            heuristic_func = None
+            if self.config:
+                heuristic_func = Heuristic.get_heuristic_function(self.config)
+            
+            # Call pathfinder with heuristic function
+            path = pathfinder(pacman.node, pelletGroup, heuristic_func)
             
             if path and len(path) > 1:
                 if path[0] == pacman.node:
@@ -56,7 +60,6 @@ class ComputeOnceSystem:
                 return True
             else:
                 return False
-            
         except Exception as e:
             return False
     
@@ -138,7 +141,7 @@ class ComputeOnceSystem:
         if not pellet_nodes:
             return STOP
         
-        # Use simple greedy - very fast, no lag
+        # Use simple greedy with heuristic - very fast, no lag
         nearest_pellet = min(pellet_nodes, 
                            key=lambda p: self._calculate_distance(pacman.node, p))
         
@@ -201,8 +204,6 @@ class ComputeOnceSystem:
     
     def _calculate_distance(self, node1, node2):
         config = self.config
-        if config is None and hasattr(self.pacman, 'config'):
-            config = self.pacman.config
         
         # Check if nodes are valid
         if not hasattr(node1, 'position') or not hasattr(node2, 'position'):

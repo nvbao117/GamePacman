@@ -74,4 +74,6 @@ LEVELTXT = 1        # Text hiển thị level
 READYTXT = 2        # Text "READY!"
 PAUSETXT = 3        # Text "PAUSED"
 GAMEOVERTXT = 4     # Text "GAME OVER"
+WINTXT = 5          # Text "YOU WIN!"
+LEVELCOMPLETETXT = 6 # Text "LEVEL COMPLETE!"
 

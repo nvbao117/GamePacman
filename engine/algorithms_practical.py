@@ -37,7 +37,6 @@ def bfs(startNode, pellet_group, heuristic_func=None):
             nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
             path_to_pellet = bfs_find_nearest_pellet(current_node, {nearest_pellet})
         else:
-            # BFS thuần túy: tìm pellet gần nhất theo khoảng cách thực tế
             path_to_pellet = bfs_find_nearest_pellet(current_node, remaining_pellets)
         
         if not path_to_pellet:
@@ -200,9 +199,7 @@ def astar(startNode, pellet_group, ghost_group=None, heuristic_func=None, ghost_
         path.append(current_node)
 
     while remaining_pellets:
-        # Check if few pellets mode
         if len(remaining_pellets) <= 7:
-            # Use optimal A* for few pellets
             sub_path = astar_few_pellets(current_node, remaining_pellets)
             if sub_path is None:
                 break
@@ -210,9 +207,8 @@ def astar(startNode, pellet_group, ghost_group=None, heuristic_func=None, ghost_
                 path.extend(sub_path[1:])
             else:
                 path.extend(sub_path)
-            break  # Done with all pellets
+            break  
         else:
-            # Greedy mode for many pellets
             if heuristic_func is not None:
                 nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
             else:
@@ -327,12 +323,10 @@ def ucs(startNode, pellet_group, heuristic_func=None):
     remaining_pellets = set(pellet_nodes)
     full_path = []
     
-    # Few pellets mode: use optimal state space search
     if len(remaining_pellets) <= 7:
         path_to_pellet = ucs_few_pellets(current_node, remaining_pellets)
         return path_to_pellet
 
-    # Many pellets mode: greedy approach
     while remaining_pellets:
         if heuristic_func is not None:
             nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
@@ -375,7 +369,6 @@ def ucs_find_nearest_pellet(start_node, pellet_nodes):
     return None, float('inf')
 
 def ucs_few_pellets(start_node, pellet_nodes):
-    """UCS for few pellets: finds minimum cost path to collect all pellets"""
     from queue import PriorityQueue
     max_pellets = 7
     
@@ -387,11 +380,9 @@ def ucs_few_pellets(start_node, pellet_nodes):
     while not pq.empty():
         cost, current, path, collected = pq.get()
         
-        # Goal: collected enough pellets
         if len(collected) >= max_pellets or len(collected) == len(pellet_nodes):
             return path
         
-        # State = (node, collected_pellets)
         state = (current, frozenset(collected))
         if state in visited and visited[state] <= cost:
             continue
@@ -433,12 +424,10 @@ def ids(startNode, pellet_group, heuristic_func=None, max_depth=50):
     remaining_pellets = set(pellet_nodes)
     full_path = []
     
-    # Few pellets mode: use optimal iterative deepening
     if len(remaining_pellets) <= 7:
         path_to_pellet = ids_few_pellets(current_node, remaining_pellets, max_depth)
         return path_to_pellet
 
-    # Many pellets mode: greedy approach
     while remaining_pellets:
         if heuristic_func is not None:
             nearest_pellet = min(remaining_pellets, key=lambda p: heuristic_func(current_node, p))
@@ -468,16 +457,13 @@ def ids_find_nearest_pellet(start_node, pellet_nodes, max_depth=50):
 def dls_find_nearest_pellet(start_node, pellet_nodes, limit):
     stack = []
     stack.append((start_node, [start_node], 0))
-    # Don't use persistent visited for DLS in IDS context
-    # Each iteration should be able to revisit nodes at different depths
-    visited_at_depth = {}  # Track (node, depth) to avoid cycles at same depth
+    visited_at_depth = {}  
 
     while stack:
         current, path, depth = stack.pop()
         if current in pellet_nodes:
             return path
         
-        # Check if we've been here at this depth or earlier
         if current in visited_at_depth and visited_at_depth[current] <= depth:
             continue
         visited_at_depth[current] = depth
@@ -490,10 +476,8 @@ def dls_find_nearest_pellet(start_node, pellet_nodes, limit):
     return None
 
 def ids_few_pellets(start_node, pellet_nodes, max_depth=50):
-    """IDS for few pellets: iterative deepening on state space"""
     max_pellets = 7
     
-    # Try increasing depths
     for depth_limit in range(1, max_depth * len(pellet_nodes) + 1):
         result = dls_few_pellets(start_node, pellet_nodes, depth_limit, max_pellets)
         if result is not None:
@@ -501,32 +485,23 @@ def ids_few_pellets(start_node, pellet_nodes, max_depth=50):
     return None
 
 def dls_few_pellets(start_node, pellet_nodes, depth_limit, max_pellets):
-    """
-    Depth-Limited Search for few pellets
-    State = (node, collected_pellets) - depth không nên trong state để IDS hoạt động đúng
-    """
     stack = []
     initial_collected = set([start_node]) if start_node in pellet_nodes else set()
     stack.append((start_node, [start_node], initial_collected, 0))
-    # Track visited states with their minimum depth
-    visited_at_depth = {}  # (node, frozenset(collected)) -> min_depth
+    visited_at_depth = {}  
     
     while stack:
         current, path, collected, depth = stack.pop()
         
-        # Goal: collected enough pellets
         if len(collected) >= max_pellets or len(collected) == len(pellet_nodes):
             return path
         
-        # State without depth for proper state space
         state = (current, frozenset(collected))
         
-        # Check if we've visited this state at same or earlier depth
         if state in visited_at_depth and visited_at_depth[state] <= depth:
             continue
         visited_at_depth[state] = depth
         
-        # Continue if within depth limit
         if depth < depth_limit:
             for direction in get_all_directions():
                 neighbor = current.neighbors.get(direction)
@@ -545,9 +520,7 @@ def dls_few_pellets(start_node, pellet_nodes, depth_limit, max_pellets):
 
 def greedy(start_node, pellet_group, heuristic_func=None):
     print("Greedy")
-    """
-    Greedy path: always go to the nearest visible pellet (by heuristic).
-    """
+
     if not pellet_group or not pellet_group.pelletList:
         return None
 
@@ -562,12 +535,12 @@ def greedy(start_node, pellet_group, heuristic_func=None):
     remaining_pellets = set(pellet_nodes)
     full_path = [current_node]
     
-    # Few pellets mode: use greedy best-first search on state space
+    
     if len(remaining_pellets) <= 7:
         path_to_pellet = greedy_few_pellets(current_node, remaining_pellets, heuristic_func)
         return path_to_pellet if path_to_pellet else full_path
 
-    # Many pellets mode: standard greedy approach
+    
     while remaining_pellets:
         nearest_pellet = min(remaining_pellets, key=lambda n: heuristic_func(current_node, n))
         path_to_pellet = greedy_find_path(current_node, nearest_pellet, heuristic_func)
@@ -609,13 +582,11 @@ def greedy_find_path(start_node, goal_node, heuristic=None):
     return None
 
 def greedy_few_pellets(start_node, pellet_nodes, heuristic_func=None):
-    """Greedy Best-First Search for few pellets: uses heuristic on state space"""
     if heuristic_func is None:
         heuristic_func = heuristic_manhattan
     
     max_pellets = 7
     
-    # Calculate centroid of remaining pellets for heuristic
     def calculate_centroid(pellets):
         if not pellets:
             return None
@@ -623,14 +594,13 @@ def greedy_few_pellets(start_node, pellet_nodes, heuristic_func=None):
         avg_y = sum(p.position.y for p in pellets) / len(pellets)
         return (avg_x, avg_y)
     
-    # Heuristic: distance to centroid + number of pellets remaining
     def state_heuristic(node, collected, remaining):
         if not remaining:
             return 0
         centroid = calculate_centroid(remaining)
         if centroid:
             dist = abs(node.position.x - centroid[0]) + abs(node.position.y - centroid[1])
-            return dist + len(remaining) * 10  # Prioritize collecting pellets
+            return dist + len(remaining) * 10  
         return len(remaining) * 10
     
     open_set = []
@@ -644,11 +614,9 @@ def greedy_few_pellets(start_node, pellet_nodes, heuristic_func=None):
         open_set.sort(key=lambda x: x[0])
         _, current, path, collected = open_set.pop(0)
         
-        # Goal: collected enough pellets
         if len(collected) >= max_pellets or len(collected) == len(pellet_nodes):
             return path
         
-        # State = (node, collected_pellets)
         state = (current, frozenset(collected))
         if state in visited:
             continue
@@ -678,20 +646,19 @@ def get_visible_pellet_nodes(pellet_group):
 
 def is_valid_node(neighbor, current_node, direction):
     """
-    Kiểm tra xem neighbor có hợp lệ để di chuyển không
     Args:
-        neighbor: Node láng giềng
-        current_node: Node hiện tại
-        direction: Hướng di chuyển
+        neighbor: Neighbor node
+        current_node: Current node
+        direction: Direction
     Returns:
-        True nếu có thể di chuyển, False nếu không
+        True if valid, False if not
     """
     if neighbor is None:
         return False
-    # Portal luôn cho phép di chuyển
+
     if direction == PORTAL:
         return True
-    # Kiểm tra quyền truy cập của PACMAN
+    
     return PACMAN in current_node.access.get(direction, [])
 
 def get_all_directions():
@@ -708,3 +675,8 @@ def heuristic_manhattan(node1, node2):
 def heuristic_euclidean(node1, node2):
     from engine.heuristic import Heuristic
     return Heuristic.euclidean(node1, node2)
+
+def heuristic_mazedistance(node1, node2):
+    from engine.heuristic import Heuristic
+    return Heuristic.mazedistance(node1, node2)
+

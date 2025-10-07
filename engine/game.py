@@ -378,6 +378,7 @@ class Game(object):
             if self.fruit is not None:
                 self.fruit.update(dt)
             self.checkPelletEvents()
+            self.checkWinCondition()  # Kiểm tra điều kiện thắng
             self.checkGhostEvents()
             self.checkFruitEvents()
         # Không stop timer khi pause - chỉ pause game logic
@@ -470,10 +471,32 @@ class Game(object):
                 except Exception as e:
                     print(f"Warning: Failed to log game stats: {e}")
                 
+                # Hiển thị thông báo level complete
+                self.textgroup.showText(LEVELCOMPLETETXT)
                 self.flashBG = True
                 self.hideEntities()
                 self.endtime = time.time()
                 self.pause.setPause(pauseTime=3,func=self.nextLevel)
+    
+    def checkWinCondition(self):
+        """
+        Kiểm tra điều kiện thắng game
+        - Nếu đã hoàn thành tất cả level (level >= 3) và ăn hết pellets
+        - Hiển thị thông báo YOU WIN!
+        """
+        if self.pellets.isEmpty() and self.level >= 2:  # Hoàn thành 3 level (0, 1, 2)
+            try:
+                stats = self.get_stats()
+                stats["result"] = "WIN"
+                StatsLogger.log(stats)
+            except Exception as e:
+                print(f"Warning: Failed to log win stats: {e}")
+            
+            self.textgroup.showText(WINTXT)
+            self.flashBG = True
+            self.hideEntities()
+            self.endtime = time.time()
+            self.pause.setPause(pauseTime=5, func=self.restartGame)  # Restart sau khi thắng
     
     def checkGhostEvents(self) :
         # Chỉ kiểm tra ghost events khi ghost mode được bật
@@ -741,27 +764,53 @@ class Game(object):
                 ids , greedy , heuristic_manhattan, heuristic_euclidean
             )       
             if algorithm == 'DFS':
+                # DFS sử dụng offline mode với compute_once_system
                 self.pacman.set_algorithm('DFS', self._get_algorithm_with_heuristic(dfs))
+                self.pacman.disable_hybrid_ai()
             elif algorithm == 'IDS':
+                # IDS sử dụng offline mode với compute_once_system
                 self.pacman.set_algorithm('IDS', self._get_algorithm_with_heuristic(ids))
+                self.pacman.disable_hybrid_ai()
             elif algorithm == 'UCS':
+                # UCS sử dụng offline mode với compute_once_system
                 self.pacman.set_algorithm('UCS', self._get_algorithm_with_heuristic(ucs))
+                self.pacman.disable_hybrid_ai()
             elif algorithm == 'A*':
+                # A* sử dụng offline mode với compute_once_system
                 self.pacman.set_algorithm('A*', self._get_algorithm_with_heuristic(astar))
+                self.pacman.disable_hybrid_ai()
             elif algorithm == 'Hill Climbing':
+                # Hill Climbing sử dụng hybrid AI system
                 self.pacman.set_algorithm('Hill Climbing', None)
+                self.pacman.enable_hybrid_ai()
             elif algorithm == 'Genetic Algorithm':
-                self.pacman.set_algorithm('Genetic Algorithm', self._get_algorithm_with_heuristic(astar)) 
+                # Genetic Algorithm sử dụng hybrid AI system
+                self.pacman.set_algorithm('Genetic Algorithm', None)
+                self.pacman.enable_hybrid_ai()
             elif algorithm == 'Minimax':
+                # Minimax sử dụng hybrid AI system
                 self.pacman.set_algorithm('Minimax', None)
+                self.pacman.enable_hybrid_ai()
             elif algorithm == 'Alpha-Beta':
+                # Alpha-Beta sử dụng hybrid AI system
                 self.pacman.set_algorithm('Alpha-Beta', None)
+                self.pacman.enable_hybrid_ai()
             elif algorithm == 'GBFS':
+                # GBFS sử dụng hybrid AI system
                 self.pacman.set_algorithm('GBFS', None)
+                self.pacman.enable_hybrid_ai()
             elif algorithm == 'A* Online':
+                # A* Online sử dụng hybrid AI system
                 self.pacman.set_algorithm('A* Online', None)
+                self.pacman.enable_hybrid_ai()
             elif algorithm == 'BFS':  
+                # BFS sử dụng offline mode với compute_once_system
                 self.pacman.set_algorithm('BFS', self._get_algorithm_with_heuristic(bfs))
+                self.pacman.disable_hybrid_ai()
+            elif algorithm == 'Greedy':
+                # Greedy sử dụng offline mode với compute_once_system
+                self.pacman.set_algorithm('Greedy', self._get_algorithm_with_heuristic(greedy))
+                self.pacman.disable_hybrid_ai()
 
             self.pacman.path = []
             self.pacman.locked_target_node = None
