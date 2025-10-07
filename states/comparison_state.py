@@ -15,6 +15,7 @@ from statemachine import State
 from ui.button import PacManButton
 from ui.neontext import NeonText
 from ui.constants import *
+from states.menu_state import MenuState
 from states.comparison_layout import ComparisonLayout
 from engine.game import Game
 
@@ -79,6 +80,12 @@ class ComparisonState(State):
         
         # Khởi tạo win notification
         self.win_notification = None
+        
+        # Hiệu ứng visual cho game over/win
+        self.game_over_effect = None
+        self.win_effect = None
+        self.effect_timer = 0
+        self.effect_duration = 3.0  # 3 giây hiệu ứng
         
     def _render_scaled_game(self, game_surface, game_rect, game_instance):
         """
@@ -155,6 +162,9 @@ class ComparisonState(State):
         # Render win notification nếu có
         if self.win_notification:
             self._render_win_notification()
+        
+        # Render visual effects
+        self._render_visual_effects()
     
     def _render_win_notification(self):
         """
@@ -204,6 +214,49 @@ class ComparisonState(State):
         # Vẽ text
         self.layout.surface.blit(title_text, title_rect)
         self.layout.surface.blit(message_text, message_rect)
+    
+    def _render_visual_effects(self):
+        """
+        Render các hiệu ứng visual (win/game over effects)
+        """
+        current_time = time.time()
+        
+        # Render win effect
+        if self.win_effect and current_time - self.win_effect['start_time'] < self.win_effect['duration']:
+            self._render_particle_effect(self.win_effect, current_time)
+        
+        # Render game over effect
+        if self.game_over_effect and current_time - self.game_over_effect['start_time'] < self.game_over_effect['duration']:
+            self._render_particle_effect(self.game_over_effect, current_time)
+    
+    def _render_particle_effect(self, effect, current_time):
+        """
+        Render particle effect
+        """
+        dt = current_time - effect['start_time']
+        
+        for particle in effect['particles']:
+            # Cập nhật vị trí particle
+            particle['x'] += particle['vx'] * dt
+            particle['y'] += particle['vy'] * dt
+            
+            # Cập nhật life
+            particle['life'] -= dt
+            
+            if particle['life'] > 0:
+                # Tính alpha dựa trên life
+                alpha = int(255 * (particle['life'] / particle['max_life']))
+                alpha = max(0, min(255, alpha))
+                
+                # Vẽ particle
+                color = (*particle['color'][:3], alpha)
+                size = int(3 * (particle['life'] / particle['max_life']))
+                size = max(1, size)
+                
+                # Vẽ circle với alpha
+                if size > 0:
+                    pygame.draw.circle(self.layout.surface, particle['color'], 
+                                     (int(particle['x']), int(particle['y'])), size)
         
     def logic(self):
         """
@@ -314,6 +367,15 @@ class ComparisonState(State):
                 self.player_score, self.player_lives, self.player_level,
                 self.algorithm
             )
+        
+        # Xử lý sự kiện heuristic selectbox (thay đổi heuristic)
+        if self.layout.handle_heuristic_selectbox_event(event):
+            # Phát âm thanh khi thay đổi heuristic
+            self.app.sound_system.play_sound('button_click')
+            # Heuristic đã thay đổi, cập nhật config và AI game
+            self._update_heuristic_config()
+            # Restart AI game với heuristic mới
+            self._restart_ai_game_with_new_heuristic()
             # Reset trạng thái play khi thay đổi algorithm
             self.layout.is_playing = False
             self.is_pause = True
@@ -332,8 +394,8 @@ class ComparisonState(State):
                 self.app.sound_system.play_sound('button_click')
                 self.toggle_pause()  # Toggle pause với SPACE
             elif event.key == pygame.K_ESCAPE:
-                self.app.sound_system.play_sound('button_click')
-                self.pause_game()  # Pause với ESC
+                self.return_to_menu()
+
             elif event.key == pygame.K_r:
                 self.app.sound_system.play_sound('button_click')
                 self.restart_game()  # Restart với R
@@ -393,7 +455,25 @@ class ComparisonState(State):
             self.player_score, self.player_lives, self.player_level,
             self.algorithm
         )
-    
+    def return_to_menu(self):
+        """Quay trở lại menu chính và dừng cả hai game."""
+        self.game_running = False
+        self.is_pause = False
+        self.layout.is_playing = True
+        self.win_notification = None
+
+        for game_instance in (self.ai_game, self.player_game):
+            if hasattr(game_instance, 'pause'):
+                game_instance.pause.setPause(playerPaused=True)
+            if hasattr(game_instance, 'running'):
+                game_instance.running = False
+            if hasattr(game_instance, 'stop_timer'):
+                game_instance.stop_timer()
+
+        if hasattr(self.app, 'sound_system'):
+            self.app.sound_system.stop_music()
+
+        self.replace_state(MenuState(self.app, self.machine))
     def check_win_conditions(self):
         """
         Kiểm tra điều kiện thắng trong comparison mode
@@ -438,6 +518,59 @@ class ComparisonState(State):
             'show_time': 5.0,  # Hiển thị trong 5 giây
             'start_time': time.time()
         }
+        
+        # Tạo hiệu ứng win
+        self._create_win_effect()
+    
+    def _create_win_effect(self):
+        """
+        Tạo hiệu ứng visual khi thắng game
+        """
+        self.win_effect = {
+            'type': 'win',
+            'start_time': time.time(),
+            'duration': self.effect_duration,
+            'particles': []
+        }
+        
+        # Tạo particles cho hiệu ứng
+        import random
+        for i in range(50):
+            particle = {
+                'x': random.randint(0, self.app.WIDTH),
+                'y': random.randint(0, self.app.HEIGHT),
+                'vx': random.uniform(-200, 200),
+                'vy': random.uniform(-200, 200),
+                'life': random.uniform(0.5, 2.0),
+                'max_life': random.uniform(0.5, 2.0),
+                'color': random.choice([(255, 255, 0), (255, 165, 0), (255, 255, 255), (0, 255, 0)])
+            }
+            self.win_effect['particles'].append(particle)
+    
+    def _create_game_over_effect(self):
+        """
+        Tạo hiệu ứng visual khi game over
+        """
+        self.game_over_effect = {
+            'type': 'game_over',
+            'start_time': time.time(),
+            'duration': self.effect_duration,
+            'particles': []
+        }
+        
+        # Tạo particles cho hiệu ứng
+        import random
+        for i in range(30):
+            particle = {
+                'x': random.randint(0, self.app.WIDTH),
+                'y': random.randint(0, self.app.HEIGHT),
+                'vx': random.uniform(-100, 100),
+                'vy': random.uniform(-100, 100),
+                'life': random.uniform(1.0, 3.0),
+                'max_life': random.uniform(1.0, 3.0),
+                'color': random.choice([(255, 0, 0), (255, 100, 100), (255, 255, 255), (200, 0, 0)])
+            }
+            self.game_over_effect['particles'].append(particle)
     
     def _set_ai_algorithm_mode(self, algorithm):
         """
@@ -462,17 +595,91 @@ class ComparisonState(State):
             # Set online mode cho các thuật toán online
             if hasattr(self.ai_game, 'pacman') and self.ai_game.pacman:
                 self.ai_game.pacman.enable_hybrid_ai()
-                # Set algorithm
-                if hasattr(self.ai_game, 'set_algorithm'):
-                    self.ai_game.set_algorithm(algorithm)
+            # Set algorithm
+            if hasattr(self.ai_game, 'set_algorithm'):
+                self.ai_game.set_algorithm(algorithm)
+    
+    def _update_heuristic_config(self):
+        """
+        Cập nhật config với heuristic mới được chọn
+        """
+        heuristic_name = self.layout.current_heuristic.upper()
+        # Cập nhật config sử dụng method set
+        if hasattr(self.app, 'config') and self.app.config:
+            if hasattr(self.app.config, 'set'):
+                self.app.config.set("algorithm_heuristic", heuristic_name)
+            else:
+                # Fallback nếu config là dict
+                self.app.config["algorithm_heuristic"] = heuristic_name
+        
+        # Cập nhật AI game config
+        if hasattr(self.ai_game, 'config') and self.ai_game.config:
+            if hasattr(self.ai_game.config, 'set'):
+                self.ai_game.config.set("algorithm_heuristic", heuristic_name)
+            else:
+                # Fallback nếu config là dict
+                self.ai_game.config["algorithm_heuristic"] = heuristic_name
+        
+        # Cập nhật compute_once config
+        from engine.compute_once_system import compute_once
+        if hasattr(compute_once, 'config'):
+            compute_once.config = self.app.config
+    
+    def _restart_ai_game_with_new_heuristic(self):
+        """
+        Restart AI game với heuristic mới
+        """
+        # Lưu trạng thái hiện tại
+        current_score = getattr(self.ai_game, 'score', 0)
+        current_lives = getattr(self.ai_game, 'lives', 5)
+        current_level = getattr(self.ai_game, 'level', 0)
+        
+        # Tạo AI game mới với heuristic mới
+        self.ai_game = Game(self.algorithm, self.app.config)
+        if hasattr(self.ai_game, 'initialize_game'):
+            self.ai_game.initialize_game()
+        
+        # Đảm bảo AI game chạy ở AI mode
+        self.ai_game.set_ai_mode(True)
+        
+        # Load heuristic từ config
+        if hasattr(self.ai_game, 'load_heuristic_from_config'):
+            self.ai_game.load_heuristic_from_config(self.app.config)
+        
+        # Set đúng algorithm mode
+        self._set_ai_algorithm_mode(self.algorithm)
+        
+        # Restore trạng thái game
+        self.ai_score = current_score
+        self.ai_lives = current_lives
+        self.ai_level = current_level
+        
+        # Cập nhật layout
+        self.layout.set_game_info(
+            self.ai_score, self.ai_lives, self.ai_level,
+            self.player_score, self.player_lives, self.player_level,
+            self.algorithm
+        )
     
     def game_over(self):
         """
         Xử lý game over cho cả 2 game
         - Đặt game_running = False
-        - Có thể thêm logic game over ở đây
+        - Hiển thị thông báo game over
+        - Phát âm thanh game over
+        - Tạo hiệu ứng visual
         """
         self.game_running = False
+        
+        # Phát âm thanh game over
+        if hasattr(self.app, 'sound_system'):
+            self.app.sound_system.play_sound('game_over')
+        
+        # Tạo hiệu ứng game over
+        self._create_game_over_effect()
+        
+        # Hiển thị thông báo game over
+        self.show_win_notification("GAME OVER!", "Both players have lost!")
         # Có thể thêm logic game over ở đây
     
     def on_resume(self):

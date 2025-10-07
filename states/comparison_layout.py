@@ -52,8 +52,13 @@ class ComparisonLayout(UIComponent):
         # Tùy chọn thuật toán cho selectbox - thêm các thuật toán comparison
         self.algorithm_options = ["BFS", "DFS", "A*", "UCS", "IDS", "Greedy", "Minimax", "Alpha-Beta", "Hill Climbing", "Genetic Algorithm", "GBFS"]
         
+        # Tùy chọn heuristic cho selectbox
+        self.heuristic_options = ["None", "Manhattan", "Euclidean", "Maze Distance"]
+        self.current_heuristic = "None"
+        
         # Khởi tạo selectbox
         self.algorithm_selectbox = None
+        self.heuristic_selectbox = None
         self._setup_selectbox()
         
         # Animation
@@ -111,34 +116,70 @@ class ComparisonLayout(UIComponent):
         self.player_game_area_rect = pygame.Rect(player_game_x, player_game_y, final_game_width, final_game_height)
     
     def _setup_selectbox(self):
-        """Setup the algorithm selectbox"""
-        # Position selectbox in the algorithm section
-        selectbox_x = self.control_panel_rect.x + 20
-        selectbox_y = self.control_panel_rect.y + 60  # Below the algorithm label
-        selectbox_width = 200
-        selectbox_height = 40
+        """Setup the algorithm and heuristic selectboxes"""
+        # Algorithm selectbox
+        algorithm_x = self.control_panel_rect.x + 20
+        algorithm_y = self.control_panel_rect.y + 60  # Below the algorithm label
+        algorithm_width = 200
+        algorithm_height = 40
         
         self.algorithm_selectbox = SelectBox(
-            selectbox_x, selectbox_y, selectbox_width, selectbox_height,
+            algorithm_x, algorithm_y, algorithm_width, algorithm_height,
             self.algorithm_options, font_size=12
         )
         
-        # Use game font
-        try:
-            self.algorithm_selectbox.font = pygame.font.Font(FONT_PATH, 12)
-        except:
-            self.algorithm_selectbox.font = pygame.font.Font(None, 12)
+        # Heuristic selectbox
+        heuristic_x = algorithm_x  # Same x position as algorithm selectbox
+        heuristic_y = algorithm_y + algorithm_height + 10  # Below algorithm selectbox
+        heuristic_width = 200
+        heuristic_height = 40
         
-        # Customize colors to match Pac-Man theme
+        self.heuristic_selectbox = SelectBox(
+            heuristic_x, heuristic_y, heuristic_width, heuristic_height,
+            self.heuristic_options, font_size=12
+        )
+        
+        # Use game font for both selectboxes
+        try:
+            font = pygame.font.Font(FONT_PATH, 12)
+            self.algorithm_selectbox.font = font
+            self.heuristic_selectbox.font = font
+        except:
+            font = pygame.font.Font(None, 12)
+            self.algorithm_selectbox.font = font
+            self.heuristic_selectbox.font = font
+        
+        # Customize colors to match Pac-Man theme for algorithm selectbox
         self.algorithm_selectbox.bg_color = (70, 70, 100)
         self.algorithm_selectbox.border_color = PAC_YELLOW
         self.algorithm_selectbox.selected_color = (120, 200, 240)
         self.algorithm_selectbox.hover_color = (90, 90, 120)
         self.algorithm_selectbox.text_color = DOT_WHITE
         
-        # Set initial selection based on current algorithm
+        # Customize colors to match Pac-Man theme for heuristic selectbox
+        self.heuristic_selectbox.bg_color = (70, 70, 100)
+        self.heuristic_selectbox.border_color = GHOST_ORANGE
+        self.heuristic_selectbox.selected_color = (240, 120, 200)
+        self.heuristic_selectbox.hover_color = (90, 90, 120)
+        self.heuristic_selectbox.text_color = DOT_WHITE
+        
+        # Set initial selection based on current algorithm and heuristic
         if self.algorithm in self.algorithm_options:
             self.algorithm_selectbox.selected_option = self.algorithm_options.index(self.algorithm)
+        
+        if self.current_heuristic in self.heuristic_options:
+            self.heuristic_selectbox.selected_option = self.heuristic_options.index(self.current_heuristic)
+    
+    def handle_heuristic_selectbox_event(self, event):
+        """
+        Handle heuristic selectbox events
+        Returns True if heuristic changed
+        """
+        if self.heuristic_selectbox and self.heuristic_selectbox.handle_event(event):
+            old_heuristic = self.current_heuristic
+            self.current_heuristic = self.heuristic_options[self.heuristic_selectbox.selected_option]
+            return old_heuristic != self.current_heuristic
+        return False
     
     def set_game_info(self, ai_score=0, ai_lives=3, ai_level=1, 
                      player_score=0, player_lives=3, player_level=1, algorithm="BFS"):
@@ -335,14 +376,12 @@ class ComparisonLayout(UIComponent):
         title_surface = font_title.render(title_text, True, title_color)
         self.surface.blit(title_surface, title_rect)
         
-        # Thêm selectbox cho AI player (bên phải màn hình)
         if border_color == GHOST_BLUE:  # Chỉ cho AI player
-            # Selectbox ở bên phải màn hình AI - đẹp và thân thiện hơn
             selectbox_x = game_rect.right + 20  # Bên phải game area
             selectbox_y = game_rect.y + 30      # Cùng chiều cao với title
             
-            # Vẽ background đẹp cho selectbox với gradient
-            selectbox_bg_rect = pygame.Rect(selectbox_x, selectbox_y, 220, 80)
+            # Vẽ background đẹp cho selectbox với gradient - tăng chiều cao để chứa cả 2 selectbox
+            selectbox_bg_rect = pygame.Rect(selectbox_x, selectbox_y, 220, 120)
             
             # Gradient background
             for i in range(selectbox_bg_rect.height):
@@ -360,15 +399,19 @@ class ComparisonLayout(UIComponent):
             algo_label = font_subtitle.render("AI Algorithm", True, GHOST_BLUE)
             self.surface.blit(algo_label, (selectbox_x + 10, selectbox_y + 5))
             
-            # Draw selectbox với styling đẹp hơn
+            # Heuristic label
+            heuristic_label = font_subtitle.render("Heuristic", True, GHOST_ORANGE)
+            self.surface.blit(heuristic_label, (selectbox_x + 10, selectbox_y + 70))
+            
+            # Draw algorithm selectbox với styling đẹp hơn
             if self.algorithm_selectbox:
-                # Reposition selectbox
+                # Reposition algorithm selectbox
                 self.algorithm_selectbox.rect.x = selectbox_x + 15
                 self.algorithm_selectbox.rect.y = selectbox_y + 30
                 self.algorithm_selectbox.rect.width = 190
                 self.algorithm_selectbox.rect.height = 35
                 
-                # Customize selectbox colors để đẹp hơn
+                # Customize algorithm selectbox colors để đẹp hơn
                 self.algorithm_selectbox.bg_color = (80, 80, 120)
                 self.algorithm_selectbox.border_color = PAC_YELLOW
                 self.algorithm_selectbox.selected_color = (120, 200, 240)
@@ -376,6 +419,23 @@ class ComparisonLayout(UIComponent):
                 self.algorithm_selectbox.text_color = DOT_WHITE
                 
                 self.algorithm_selectbox.draw(self.surface)
+            
+            # Draw heuristic selectbox bên dưới algorithm selectbox
+            if self.heuristic_selectbox:
+                # Reposition heuristic selectbox
+                self.heuristic_selectbox.rect.x = selectbox_x + 15
+                self.heuristic_selectbox.rect.y = selectbox_y + 100  # 45px dưới algorithm selectbox
+                self.heuristic_selectbox.rect.width = 190
+                self.heuristic_selectbox.rect.height = 35
+                
+                # Customize heuristic selectbox colors để đẹp hơn
+                self.heuristic_selectbox.bg_color = (80, 80, 120)
+                self.heuristic_selectbox.border_color = GHOST_ORANGE
+                self.heuristic_selectbox.selected_color = (240, 120, 200)
+                self.heuristic_selectbox.hover_color = (100, 100, 140)
+                self.heuristic_selectbox.text_color = DOT_WHITE
+                
+                self.heuristic_selectbox.draw(self.surface)
     
     def _draw_control_panel(self):
         """Draw the control panel with enhanced transparency effects"""
@@ -514,15 +574,32 @@ class ComparisonLayout(UIComponent):
         self.surface.blit(player_level_text, (player_section_rect.x + 10 + player_score_spacing + player_other_spacing, player_stats_y))
     
     def _draw_controls_section(self):
-        """Draw controls section"""
+        """Draw controls section with algorithm and heuristic selectors"""
         y_start = self.control_panel_rect.y + 160
         try:
             font = pygame.font.Font(FONT_PATH, 12)
+            font_small = pygame.font.Font(FONT_PATH, 10)
         except:
             font = pygame.font.Font(None, 12)
+            font_small = pygame.font.Font(None, 10)
         
-        # Controls section background
-        controls_rect = pygame.Rect(self.control_panel_rect.x + 20, y_start, 
+        # Algorithm selector section (chỉ còn algorithm, heuristic đã chuyển lên AI player section)
+        selectors_rect = pygame.Rect(self.control_panel_rect.x + 20, y_start, 
+                                   self.control_panel_rect.width - 40, 50)  # Giảm chiều cao vì chỉ còn algorithm
+        pygame.draw.rect(self.surface, (40, 40, 60), selectors_rect)
+        pygame.draw.rect(self.surface, GHOST_BLUE, selectors_rect, 1)
+        
+        # Algorithm selector label
+        algo_label = font_small.render("Algorithm:", True, PAC_YELLOW)
+        self.surface.blit(algo_label, (selectors_rect.x + 10, selectors_rect.y + 5))
+        
+        # Draw algorithm selectbox (chỉ algorithm, heuristic đã chuyển lên AI player section)
+        if self.algorithm_selectbox:
+            self.algorithm_selectbox.draw(self.surface)
+        
+        # Controls text section
+        controls_y = y_start + 60  # Giảm khoảng cách vì selectors section đã nhỏ hơn
+        controls_rect = pygame.Rect(self.control_panel_rect.x + 20, controls_y, 
                                    self.control_panel_rect.width - 40, 20)
         pygame.draw.rect(self.surface, (40, 40, 60), controls_rect)
         pygame.draw.rect(self.surface, GHOST_BLUE, controls_rect, 1)

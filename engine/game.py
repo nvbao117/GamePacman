@@ -633,59 +633,81 @@ class Game(object):
         self.textgroup.updateScore(self.score)
         
         # Cập nhật điểm số trong analytics    
-    def render(self)  :
-        self.screen.blit(self.background,(0,0))
-        
-        # Add enhanced visual effects
-        self._render_enhanced_effects(self.screen)
-        
-        self.pellets.render(self.screen)
-        if self.fruit is not None:
-            self.fruit.render(self.screen)       
-        self.pacman.render(self.screen)
-        if self.ghost_mode:
-            self.ghosts.render(self.screen)
-        self.textgroup.render(self.screen)
-        
+    
+    def render(self, surface=None):
+        """Render the game scene onto the given surface."""
+        target_surface = surface if surface is not None else self.screen
+
+        if target_surface is None:
+            raise ValueError("No render surface provided and game screen is not initialized.")
+
+        if hasattr(self, 'background') and self.background:
+            target_surface.blit(self.background, (0, 0))
+
+        # Add visual effects layers
+        self._render_dynamic_effects(target_surface)
+        self._render_enhanced_effects(target_surface)
+        if hasattr(self, 'nodes'):
+            self.nodes.render(target_surface)
+        if hasattr(self, 'pellets'):
+            self.pellets.render(target_surface)
+        if hasattr(self, 'fruit') and self.fruit:
+            self.fruit.render(target_surface)
+        if hasattr(self, 'pacman'):
+            self.pacman.render(target_surface)
+        if hasattr(self, 'ghosts') and self.ghost_mode:
+            self.ghosts.render(target_surface)
+
+        if hasattr(self, 'hybrid_ai_display') and self.hybrid_ai_display:
+            self.hybrid_ai_display.draw(target_surface)
+
+        if hasattr(self, 'textgroup'):
+            self.textgroup.render(target_surface)
+
         # Enhanced life sprites rendering
-        for i in range(len(self.lifesprites.images)):
-            x = self.lifesprites.images[i].get_width() * i
-            y = SCREENHEIGHT - self.lifesprites.images[i].get_height()
-            
-            # Add glow effect to life sprites
-            glow_surface = pygame.Surface((self.lifesprites.images[i].get_width() + 4, 
-                                        self.lifesprites.images[i].get_height() + 4), pygame.SRCALPHA)
-            glow_color = (255, 255, 0, 50)  # Yellow glow
-            pygame.draw.circle(glow_surface, glow_color, 
-                             (glow_surface.get_width()//2, glow_surface.get_height()//2), 
-                             self.lifesprites.images[i].get_width()//2 + 2)
-            self.screen.blit(glow_surface, (x - 2, y - 2))
-            
-            self.screen.blit(self.lifesprites.images[i],(x,y))
-            
-        # Enhanced fruit captured rendering
-        for i in range(len(self.fruitCaptured)) : 
-            x = SCREENWIDTH - self.fruitCaptured[i].get_width()*(i+1)
-            y = SCREENHEIGHT - self.fruitCaptured[i].get_height()
-            
-            # Add pulsing effect to captured fruits
+        if hasattr(self, 'lifesprites'):
+            for i, image in enumerate(self.lifesprites.images):
+                x = image.get_width() * i
+                y = SCREENHEIGHT - image.get_height()
+
+                glow_surface = pygame.Surface((image.get_width() + 4,
+                                               image.get_height() + 4), pygame.SRCALPHA)
+                glow_color = (255, 255, 0, 50)  # Yellow glow
+                pygame.draw.circle(
+                    glow_surface,
+                    glow_color,
+                    (glow_surface.get_width() // 2, glow_surface.get_height() // 2),
+                    image.get_width() // 2 + 2,
+                )
+                target_surface.blit(glow_surface, (x - 2, y - 2))
+                target_surface.blit(image, (x, y))
+
+        if hasattr(self, 'fruitCaptured'):
             import math
             import time
+
             current_time = time.time()
-            pulse_scale = 1.0 + 0.1 * math.sin(current_time * 4 + i)
-            
-            # Scale the fruit image
-            scaled_fruit = pygame.transform.scale(self.fruitCaptured[i], 
-                                                (int(self.fruitCaptured[i].get_width() * pulse_scale),
-                                                 int(self.fruitCaptured[i].get_height() * pulse_scale)))
-            
-            # Center the scaled fruit
-            offset_x = (scaled_fruit.get_width() - self.fruitCaptured[i].get_width()) // 2
-            offset_y = (scaled_fruit.get_height() - self.fruitCaptured[i].get_height()) // 2
-            
-            self.screen.blit(scaled_fruit, (x - offset_x, y - offset_y))
-            
-        pygame.display.update()
+            for i, fruit_image in enumerate(self.fruitCaptured):
+                x = SCREENWIDTH - fruit_image.get_width() * (i + 1)
+                y = SCREENHEIGHT - fruit_image.get_height()
+
+                pulse_scale = 1.0 + 0.1 * math.sin(current_time * 4 + i)
+
+                scaled_fruit = pygame.transform.scale(
+                    fruit_image,
+                    (
+                        int(fruit_image.get_width() * pulse_scale),
+                        int(fruit_image.get_height() * pulse_scale),
+                    ),
+                )
+
+                offset_x = (scaled_fruit.get_width() - fruit_image.get_width()) // 2
+                offset_y = (scaled_fruit.get_height() - fruit_image.get_height()) // 2
+
+                target_surface.blit(scaled_fruit, (x - offset_x, y - offset_y))
+
+        if target_surface is self.screen:
+            pygame.display.update()
     
     def handle_event(self, event ,auto = False):
         """Handle pygame events for the game"""
