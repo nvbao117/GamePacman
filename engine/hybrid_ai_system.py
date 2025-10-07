@@ -499,7 +499,6 @@ class HybridAISystem:
 # - Không đảm bảo tìm được nghiệm tối ưu toàn cục (có thể mắc kẹt ở local optimum)
 # ==========================================================
     def hill_climbing(self, pacman, ghost_group, pellet_group, max_steps=5):
-        pass
         if pacman is None:
             return STOP
 
@@ -507,8 +506,49 @@ class HybridAISystem:
         current_ghost_group = ghost_group
         current_pellet_group = pellet_group
 
-        current_score = self.evaluate(current_pacman, current_ghost_group, current_pellet_group)
+        def node_key(node):
+            if node is None:
+                return ("NONE",)
+            position = getattr(node, 'position', None)
+            if position is None:
+                return ("ID", id(node))
+            return ("POS", position.x, position.y)
+        def ghost_signature(ghost_state):
+            signature = []
+            for ghost in self._ghosts(ghost_state):
+                node = getattr(ghost, 'node', None)
+                mode_controller = getattr(ghost, 'mode', None)
+                signature.append((
+                    str(getattr(ghost, 'name', '')),
+                    node_key(node),
+                    str(getattr(mode_controller, 'current', None)),
+                ))
+            return tuple(sorted(signature))
+        evaluation_cache = {}
+        def pellet_fingerprint(pellet_state):
+            pellets = getattr(pellet_state, 'pelletList', None) or []
+            visible = [
+                node_key(getattr(pellet, 'node', None))
+                for pellet in pellets
+                if getattr(pellet, 'visible', True)
+            ]
+            return tuple(sorted(visible))
+        def score_state(pacman_state, ghost_state, pellet_state):
+            key = (
+                node_key(getattr(pacman_state, 'node', None)),
+                pellet_fingerprint(pellet_state),
+                ghost_signature(ghost_state),
+            )
+            if key in evaluation_cache:
+                return evaluation_cache[key]
+            value = self.evaluate(pacman_state, ghost_state, pellet_state)
+            evaluation_cache[key] = value
+            return value
+
+        current_score = score_state(current_pacman, current_ghost_group, current_pellet_group)
         best_initial_action = STOP
+
+        
 
         for _ in range(max_steps):
             actions = self.get_legal_actions_for_agent(current_pacman, current_ghost_group, current_pellet_group, 0)
@@ -523,8 +563,7 @@ class HybridAISystem:
                 next_pacman, next_ghost_group, next_pellet_group = self.apply_action_for_agent(
                     current_pacman, current_ghost_group, current_pellet_group, action, 0
                 )
-                neighbor_score = self.evaluate(next_pacman, next_ghost_group, next_pellet_group)
-
+                neighbor_score = score_state(next_pacman, next_ghost_group, next_pellet_group)
                 if neighbor_score > best_neighbor_score:
                     best_neighbor_score = neighbor_score
                     best_neighbor_state = (next_pacman, next_ghost_group, next_pellet_group)
@@ -578,11 +617,36 @@ class HybridAISystem:
         def random_sequence():
             return [random.choice(legal_actions) for _ in range(sequence_length)]
 
+        base_pacman_state = self._clone_entity(pacman)
+        state_prefix_cache = {(): (base_pacman_state, ghost_group, pellet_group)}
+        sequence_score_cache = {}
+
         def evaluate_sequence(action_sequence):
-            pacman_state = self._clone_entity(pacman)
-            ghost_state = ghost_group
-            pellet_state = pellet_group
+            sequence_key = tuple(action_sequence)
+            if sequence_key in sequence_score_cache:
+                return sequence_score_cache[sequence_key]
+
+            base_state = state_prefix_cache[()]
+            pacman_state = self._clone_entity(base_state[0])
+            ghost_state = base_state[1]
+            pellet_state = base_state[2]
+
+            if not action_sequence:
+                score = self.evaluate(pacman_state, ghost_state, pellet_state, fruit)
+                sequence_score_cache[sequence_key] = score
+                return score
+
+            prefix = []
             for action in action_sequence:
+                prefix.append(action)
+                prefix_key = tuple(prefix)
+                cached_state = state_prefix_cache.get(prefix_key)
+                if cached_state is not None:
+                    pacman_state = self._clone_entity(cached_state[0])
+                    ghost_state = cached_state[1]
+                    pellet_state = cached_state[2]
+                    continue
+
                 pacman_state, ghost_state, pellet_state = self.apply_action_for_agent(
                     pacman_state,
                     ghost_state,
@@ -591,14 +655,30 @@ class HybridAISystem:
                     0,
                     fruit,
                 )
-            return self.evaluate(pacman_state, ghost_state, pellet_state, fruit)
+                state_prefix_cache[prefix_key] = (
+                    self._clone_entity(pacman_state),
+                    ghost_state,
+                    pellet_state,
+                )
+            score = self.evaluate(pacman_state, ghost_state, pellet_state, fruit)
+            sequence_score_cache[sequence_key] = score
+            return score
+
+
 
         def tournament_select(scored_population):
-            contenders = random.sample(
-                scored_population,
-                min(tournament_size, len(scored_population)),
-            )
-            return max(contenders, key=lambda item: item[0])[1]
+            if not scored_population:
+                return []
+            pool_size = min(tournament_size, len(scored_population))
+            if pool_size <= 0:
+                pool_size = 1
+            chosen_indices = set()
+            population_len = len(scored_population)
+            while len(chosen_indices) < pool_size:
+                chosen_indices.add(random.randrange(population_len))
+            best_index = max(chosen_indices, key=lambda idx: scored_population[idx][0])
+            return scored_population[best_index][1][:]
+
 
         def crossover(parent_a, parent_b):
             if sequence_length <= 1:
@@ -619,10 +699,11 @@ class HybridAISystem:
         elite_count = max(1, min(int(population_size * elite_fraction), population_size))
 
         for _ in range(generations):
-            scored_population = [
-                (evaluate_sequence(individual), individual[:])
-                for individual in population
-            ]
+            scored_population = []
+            for individual in population:
+                score = evaluate_sequence(individual)
+                scored_population.append((score, individual[:]))
+
             scored_population.sort(key=lambda item: item[0], reverse=True)
 
             if scored_population and scored_population[0][0] > best_score:
@@ -680,26 +761,39 @@ class HybridAISystem:
         if pacman_node is None:
             return STOP
 
-        ghosts = [
-            ghost
-            for ghost in self._ghosts(ghostgroup)
-            if getattr(ghost, 'node', None) is not None
-        ]
+        distance_cache = {}
+
+        def cached_distance(node_a, node_b):
+            if node_a is None or node_b is None:
+                return float('inf')
+            key = (node_a, node_b)
+            if key in distance_cache:
+                return distance_cache[key]
+            reverse_key = (node_b, node_a)
+            if reverse_key in distance_cache:
+                return distance_cache[reverse_key]
+            distance = self._calculate_distance(node_a, node_b)
+            distance_cache[key] = distance
+            distance_cache[reverse_key] = distance
+            return distance
+
+        ghosts = []
+        for ghost in self._ghosts(ghostgroup):
+            ghost_node = getattr(ghost, 'node', None)
+            if ghost_node is None:
+                continue
+            distance = cached_distance(pacman_node, ghost_node)
+            ghosts.append((ghost, ghost_node, distance))
+
         if not ghosts:
             freight_ghost_nodes = []
             is_freight_ghost = False  # ✅ Fix: khởi tạo khi không có ghost
         else:
-            nearest_ghost = min(
-                ghosts,
-                key=lambda ghost: self._calculate_distance(pacman_node, getattr(ghost, 'node', None))
-            )
-            if getattr(getattr(nearest_ghost, 'mode', None), 'current', None) == FREIGHT:
-                is_freight_ghost = True
-            else:
-                is_freight_ghost = False
+            nearest_ghost, _, _ = min(ghosts, key=lambda item: item[2])
+            is_freight_ghost = getattr(getattr(nearest_ghost, 'mode', None), 'current', None) == FREIGHT
             freight_ghost_nodes = [
-                ghost.node
-                for ghost in ghosts
+                ghost_node
+                for ghost, ghost_node, _ in ghosts
                 if getattr(getattr(ghost, 'mode', None), 'current', None) == FREIGHT
             ]
 
@@ -707,16 +801,15 @@ class HybridAISystem:
             min_dist = float('inf')
             selected_ghost_node = None
             selected_time_left = 0
-            for ghost in ghosts:
-                ghost_node = getattr(ghost, 'node', None)
+            for ghost, ghost_node, distance_to_pacman in ghosts:
                 mode_controller = getattr(ghost, 'mode', None)
                 if ghost_node is None or getattr(mode_controller, 'current', None) != FREIGHT:
                     continue
                 time_total = getattr(mode_controller, 'time', 0)
                 time_timer = getattr(mode_controller, 'timer', 0)
                 time_left = max(0, float(time_total) - float(time_timer))
-                dist = self._calculate_distance(pacman_node, ghost_node)
-                if dist < min_dist and time_left > 0.5:  
+                dist = distance_to_pacman
+                if dist < min_dist and time_left > 0.5:
                     min_dist = dist
                     selected_ghost_node = ghost_node
                     selected_time_left = time_left
@@ -727,7 +820,7 @@ class HybridAISystem:
                 if freight_ghost_nodes:
                     goal_node = min(
                         freight_ghost_nodes,
-                        key=lambda node: self._calculate_distance(pacman_node, node),
+                        key=lambda node: cached_distance(pacman_node, node),
                     )
                 else:
                     goal_node = None
@@ -745,7 +838,7 @@ class HybridAISystem:
             return STOP
 
         open_set = []
-        heapq.heappush(open_set, (0 + self._calculate_distance(pacman_node, goal_node), 0, pacman_node, None))
+        heapq.heappush(open_set, (cached_distance(pacman_node, goal_node), 0, pacman_node, None))
         came_from = {}
         g_score = {pacman_node: 0}
         visited = set()
@@ -766,8 +859,8 @@ class HybridAISystem:
                 if neighbor is None:
                     continue
 
-                tentative_g = g + 1  
-                tentative_f = tentative_g + self._calculate_distance(neighbor, goal_node)
+                tentative_g = g + 1
+                tentative_f = tentative_g + cached_distance(neighbor, goal_node)
                 
                 # Kiểm tra xem neighbor đã được thăm chưa hoặc có f-score tốt hơn không
                 if neighbor in visited:

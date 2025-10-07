@@ -380,9 +380,7 @@ class Game(object):
             self.checkPelletEvents()
             self.checkGhostEvents()
             self.checkFruitEvents()
-        else:
-            if self.is_timer_running:
-                self.stop_timer()
+        # Không stop timer khi pause - chỉ pause game logic
         if self.pacman.alive:
             if not self.pause.paused:
                 self._track_step()
@@ -946,37 +944,16 @@ class Game(object):
         # AI mode - hiển thị AI/Human thay vì ONLINE/OFFLINE
         ai_mode_str = "AI" if getattr(self, "ai_mode", False) else "Human"
         
-        # Calculate mode statistics
+        # Calculate mode statistics - đơn giản hóa logic
+        total_time = self.get_game_time()
         ai_time = 0
         human_time = 0
         
-        # Nếu không có mode changes, tính dựa trên current mode
-        if not self.mode_changes:
-            total_time = self.get_game_time()
-            if self.current_mode == "AI":
-                ai_time = total_time
-            else:
-                human_time = total_time
+        # Tính thời gian dựa trên current mode
+        if self.current_mode == "AI":
+            ai_time = total_time
         else:
-            # Calculate time spent in each mode
-            start_time = self.start_time if self.start_time else time.time()
-            current_time = time.time()
-            
-            last_time = start_time
-            for change in self.mode_changes:
-                duration = change['timestamp'] - last_time
-                if change['from_mode'] == "AI":
-                    ai_time += duration
-                else:
-                    human_time += duration
-                last_time = change['timestamp']
-            
-            # Add remaining time
-            remaining_time = current_time - last_time
-            if self.current_mode == "AI":
-                ai_time += remaining_time
-            else:
-                human_time += remaining_time
+            human_time = total_time
         
         return {
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),

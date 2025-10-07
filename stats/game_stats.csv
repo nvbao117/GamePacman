@@ -1,3 +1,9 @@
 timestamp,time_formatted,duration_sec,algorithm,heuristic,ai_mode,score,total_steps,ai_steps,player_steps,pellets_total,pellets_eaten,pellets_remaining,power_pellets_total,power_pellets_eaten,power_pellets_remaining,level_reached,few_pellets_mode,few_pellets_count,ghost_mode,lives_lost,current_mode,ai_time_sec,human_time_sec,mode_changes_count,result
 2025-10-07T00:03:40,00:12,12,BFS,NONE,AI,70,74,74,0,7,7,0,4,0,4,0,True,7,False,0,AI,12,0,0,LEVEL_COMPLETE
 2025-10-07T00:05:18,01:13,73,BFS,MAZEDISTANCE,Human,2600,387,0,387,244,244,0,4,0,4,0,False,20,False,0,Human,-7,80,1,LEVEL_COMPLETE
+2025-10-07T00:37:06,00:06,6,Hill Climbing,MAZEDISTANCE,AI,8300,475,475,0,244,244,0,4,0,4,0,False,20,True,0,AI,6,0,0,LEVEL_COMPLETE
+2025-10-07T00:40:53,00:50,50,Hill Climbing,MAZEDISTANCE,AI,6900,545,545,0,244,238,6,4,0,4,0,False,20,True,4,AI,50,0,0,GAME_OVER
+2025-10-07T00:43:25,00:26,26,Minimax,MAZEDISTANCE,AI,10200,475,475,0,244,244,0,4,0,4,0,False,20,True,2,AI,26,0,0,LEVEL_COMPLETE
+2025-10-07T00:46:11,01:45,105,Hill Climbing,MAZEDISTANCE,AI,5800,494,494,0,244,244,0,4,0,4,0,False,20,True,3,AI,105,0,0,LEVEL_COMPLETE
+2025-10-07T14:45:51,01:27,87,Hill Climbing,MAZEDISTANCE,AI,10000,457,457,0,244,244,0,4,0,4,0,False,20,True,0,AI,87,0,0,LEVEL_COMPLETE
+2025-10-07T14:54:29,01:18,78,A* Online,MAZEDISTANCE,AI,4200,387,387,0,244,244,0,4,0,4,0,False,20,True,2,AI,78,0,0,LEVEL_COMPLETE
