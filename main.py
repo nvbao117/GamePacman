@@ -58,8 +58,9 @@ class App:
         self.sfx_volume = self.config.get('sfx_volume', 0.8)
 
         # Tạo state machine với GameInitState làm state đầu tiên
-        self.state_machine = StateMachine(MenuState, self)
-        
+        # self.state_machine = StateMachine(MenuState, self)
+        self.state_machine = StateMachine(GameInitState, self)
+
         # Thiết lập các listener cho config changes
         self._setup_config_listeners()
             
