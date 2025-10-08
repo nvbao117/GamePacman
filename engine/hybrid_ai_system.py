@@ -606,10 +606,7 @@ class HybridAISystem:
         elite_fraction=0.2,
         tournament_size=3,
     ):
-        print("DEBUG: Starting genetic algorithm")
-        print("Thuật toán: Genetic Algorithm")
         heuristic_func = Heuristic.get_heuristic_function(self._resolve_config())
-        print("Heuristic sử dụng:", getattr(heuristic_func, '__name__', str(heuristic_func)))
         legal_actions = self.get_legal_actions_for_agent(pacman, ghost_group, pellet_group, 0)
         if not legal_actions:
             return []

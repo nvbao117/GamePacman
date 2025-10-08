@@ -105,8 +105,11 @@ def dfs(startNode, pellet_group, heuristic_func=None):
 
     pellet_nodes = get_visible_pellet_nodes(pellet_group)
 
+
     if not pellet_nodes:
         return None
+
+    directions = tuple(get_all_directions())
 
     if heuristic_func is not None:
         print(f"🎯 DFS using heuristic: {heuristic_func.__name__}")
@@ -117,7 +120,7 @@ def dfs(startNode, pellet_group, heuristic_func=None):
     path_to_pellet = None
     use_special_case = len(remaining_pellets) <= 7
     if use_special_case:
-        path_to_pellet = dfs_few_pellets(current_node, remaining_pellets)
+        path_to_pellet = dfs_few_pellets(current_node, remaining_pellets, directions)
         if path_to_pellet:
             return path_to_pellet
     if not use_special_case or path_to_pellet is None:
